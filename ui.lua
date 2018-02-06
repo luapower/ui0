@@ -6,7 +6,6 @@ local oo = require'oo'
 local glue = require'glue'
 local box2d = require'box2d'
 local easing = require'easing'
-local color = require'color'
 local time = require'time'
 local draw = require'ui_draw'
 local push = table.insert
@@ -17,9 +16,9 @@ local ui = {}
 
 --controller -----------------------------------------------------------------
 
-ui.controller = oo.controller()
+ui = oo.ui()
 
-function ui.controller:init(win)
+function ui:init(win)
 	self.window = win
 	self.dr = draw:new()
 	win:on('mousemove.ui', function(win, x, y)
@@ -42,28 +41,28 @@ function ui.controller:init(win)
 	self._layers = {}
 end
 
-function ui.controller:free()
+function ui:free()
 	win:off'.ui'
 	self.window = nil
 end
 
-function ui.controller:sort_layers()
+function ui:sort_layers()
 	table.sort(self._layers, function(a, b)
 		return a.z_order < b.z_order
 	end)
 end
 
-function ui.controller:add_layer(layer)
+function ui:add_layer(layer)
 	push(self._layers, layer)
 	self:sort_layers()
 end
 
-function ui.controller:remove_layer(layer)
+function ui:remove_layer(layer)
 	local i = indexof(layer, self._layers)
 	if i then pop(self._layers, i) end
 end
 
-function ui.controller:hit_test(x, y)
+function ui:hit_test(x, y)
 	for i = #self._layers, 1, -1 do
 		local layer = self._layers[i]
 		if layer:hit_test(x, y) then
@@ -72,20 +71,20 @@ function ui.controller:hit_test(x, y)
 	end
 end
 
-function ui.controller:set_hot_layer(hot_layer)
+function ui:set_hot_layer(hot_layer)
 	if self.hot_layer and self.hot_layer ~= hot_layer then
 		self.hot_layer:fire('mouseleave')
 	end
 end
 
-function ui.controller:_active_widget_fire(...)
+function ui:_active_widget_fire(...)
 	if not self.capture_mouse then return end
 	local widget = self.active_widget
 	if not widget then return end
 	widget:fire(...)
 end
 
-function ui.controller:mousemove(x, y)
+function ui:mousemove(x, y)
 	local widget, wx, wy = self:hit_test(x, y)
 	local enter = self.hot_layer ~= widget
 	self.hot_layer = widget
@@ -98,15 +97,15 @@ function ui.controller:mousemove(x, y)
 	end
 end
 
-function ui.controller:mouseenter(x, y)
+function ui:mouseenter(x, y)
 	self:mousemove(x, y)
 end
 
-function ui.controller:mouseleave()
+function ui:mouseleave()
 	self.hot_layer = false
 end
 
-function ui.controller:mousedown(button, x, y)
+function ui:mousedown(button, x, y)
 	local widget, wx, wy = self:hit_test(x, y)
 	self.hot_layer = widget
 	if widget then
@@ -114,7 +113,7 @@ function ui.controller:mousedown(button, x, y)
 	end
 end
 
-function ui.controller:mouseup(button, x, y)
+function ui:mouseup(button, x, y)
 	local widget, wx, wy = self:hit_test(x, y)
 	self.hot_layer = widget
 	if widget then
@@ -126,7 +125,8 @@ function ui.controller:mouseup(button, x, y)
 	end
 end
 
-function ui.controller:draw(dr)
+function ui:draw(dr)
+	self.dr:paint'window_bg' --clear the background
 	for i = 1, #self._layers do
 		local layer = self._layers[i]
 		layer:draw(dr)
@@ -147,7 +147,7 @@ function ui.stopwatch:_init(duration, formula, start)
 	self.formula = easing[formula or 'linear'] or formula
 end
 
-function ui.stopwatch:init(duration, formula, i1, i2, start)
+function ui.stopwatch:init(ui, duration, formula, i1, i2, start)
 	self:_init(duration, formula, start)
 	self.i1 = i1 or 0
 	self.i2 = i2 or 1
@@ -168,10 +168,10 @@ end
 
 ui.colorfade = oo.colorfade(ui.stopwatch)
 
-function ui.colorfade:init(duration, formula, color1, color2, start)
+function ui.colorfade:init(ui, duration, formula, color1, color2, start)
 	self:_init(duration, formula, start)
-	local r1, g1, b1, a1 = assert(color.string_to_rgba(color1))
-	local r2, g2, b2, a2 = assert(color.string_to_rgba(color2))
+	local r1, g1, b1, a1 = ui.dr:color(color1)
+	local r2, g2, b2, a2 = ui.dr:color(color2)
 	self.dr = r2 - r1
 	self.dg = g2 - g1
 	self.db = b2 - b1
@@ -195,8 +195,8 @@ end
 
 ui.widget = oo.widget()
 
-function ui.widget:init(t)
-	self.ctl = t.ctl
+function ui.widget:init(ui, t)
+	self.ui = ui
 	self.name = t.name
 	return t
 end
@@ -208,7 +208,7 @@ ui.layer:inherit(ui.widget)
 
 function ui.layer:after_init(t)
 	self._z_order = t.z_order or 0
-	self.ctl:add_layer(self)
+	self.ui:add_layer(self)
 	return t
 end
 
@@ -218,7 +218,7 @@ end
 
 function ui.layer:set_z_order(z_order)
 	self._z_order = z_order
-	self.ctl:sort_layers()
+	self.ui:sort_layers()
 end
 
 function ui.layer:hit_test(x, y) end
@@ -258,7 +258,7 @@ function ui.button:draw(dr)
 	local bg_color
 	if self.hot then
 		if self.active then
-			bg_color = 'active_bg'
+			bg_color = 'selected_bg'
 		else
 			if self.heating then
 				if self.heating:finished() then
@@ -266,7 +266,7 @@ function ui.button:draw(dr)
 					bg_color = 'hot_bg'
 				else
 					bg_color = {self.heating:progress()}
-					self.ctl.window:invalidate()
+					self.ui.window:invalidate()
 				end
 			else
 				bg_color = 'hot_bg'
@@ -278,52 +278,49 @@ function ui.button:draw(dr)
 				self.cooling = nil
 				bg_color = 'normal_bg'
 			else
-				bg_color = self.cooling:progress()
-				self.ctl.window:invalidate()
+				bg_color = {self.cooling:progress()}
+				self.ui.window:invalidate()
 			end
 		else
 			bg_color = 'normal_bg'
 		end
 	end
 
-	dr:rectangle(self.x, self.y, self.w, self.h)
-	dr:fill_preserve()
-	dr:rgba(1, 1, 1, 1)
-	dr:stroke()
+	dr:rect(self.x, self.y, self.w, self.h, bg_color, 'normal_fg')
 end
 
 function ui.button:mousemove(x, y)
-	self.ctl.window:invalidate()
+	self.ui.window:invalidate()
 end
 
 function ui.button:mouseenter(x, y)
 	self.hot = true
 	self.cooling = false
-	self.heating = ui.colorfade(0.2, nil, '#111', '#555')
-	self.ctl.window:invalidate()
+	self.heating = self.ui:colorfade(0.2, nil, 'normal_bg', 'hot_bg')
+	self.ui.window:invalidate()
 end
 
 function ui.button:mouseleave(x, y)
 	self.hot = false
 	self.heating = false
-	self.cooling = ui.colorfade(0.2, nil, '#555', '#111')
-	self.ctl.window:invalidate()
+	self.cooling = self.ui:colorfade(0.2, nil, 'hot_bg', 'normal_bg')
+	self.ui.window:invalidate()
 end
 
 function ui.button:mousedown(button, x, y)
 	if button == 'left' then
 		self.active = true
-		self.ctl.active_widget = self
+		self.ui.active_widget = self
 	end
-	self.ctl.window:invalidate()
+	self.ui.window:invalidate()
 end
 
 function ui.button:mouseup(button, x, y)
 	if button == 'left' then
 		self.active = false
-		self.ctl.active_widget = false
+		self.ui.active_widget = false
 	end
-	self.ctl.window:invalidate()
+	self.ui.window:invalidate()
 end
 
 --scrollbars -----------------------------------------------------------------
@@ -374,7 +371,7 @@ end
 
 ui.scrollbar = oo.scrollbar(ui.box)
 
-function ui.scrollbar:after_init(self, t)
+function ui.scrollbar:after_init(t)
 	local vertical = self.vertical
 	self.size = assert(t.size, 'size missing')
 	self.step = t.step or 1
@@ -476,13 +473,11 @@ if not ... then
 
 local nw = require'nw'
 local app = nw:app()
-
 local win = app:window{x = 940, y = 400, w = 800, h = 400}
+local ui = ui(win)
 
-local ctl = ui.controller(win)
-
-local b1 = ui.button{name = 'b1', ctl = ctl, x = 10, y = 10, w = 100, h = 26}
-local b2 = ui.button{name = 'b2', ctl = ctl, x = 20, y = 20, w = 100, h = 26}
+local b1 = ui:button{name = 'b1', ctl = ctl, x = 10, y = 10, w = 100, h = 26}
+local b2 = ui:button{name = 'b2', ctl = ctl, x = 20, y = 20, w = 100, h = 26}
 
 b1.z_order = 2
 

@@ -5,9 +5,9 @@
 local color = require'color'
 local glue = require'glue'
 
-local draw = {}
+local dr = {}
 
-function draw:new()
+function dr:new()
 	local o = {}
 	for k,v in pairs(self) do
 		o[k] = v
@@ -15,10 +15,10 @@ function draw:new()
 	return o
 end
 
-draw.themes = {}
-draw.default = {} --theme defaults, declared inline
+dr.themes = {}
+dr.default = {} --theme defaults, declared inline
 
-draw.themes.dark = glue.inherit({
+dr.themes.dark = glue.inherit({
 	window_bg     = '#000000',
 	faint_bg      = '#ffffff33',
 	normal_bg     = '#ffffff4c',
@@ -34,9 +34,9 @@ draw.themes.dark = glue.inherit({
 	disabled_fg   = '#999999',
 	error_bg      = '#ff0000b2',
 	error_fg      = '#ffffff',
-}, draw.default)
+}, dr.default)
 
-draw.themes.light = glue.inherit({
+dr.themes.light = glue.inherit({
 	window_bg     = '#ffffff',
 	faint_bg      = '#00000033',
 	normal_bg     = '#0000004c',
@@ -52,26 +52,33 @@ draw.themes.light = glue.inherit({
 	disabled_fg   = '#666666',
 	error_bg      = '#ff0000b2',
 	error_fg      = '#ffffff',
-}, draw.default)
+}, dr.default)
 
-draw.default_theme = draw.themes.dark
-draw.theme = draw.default_theme
+dr.default_theme = dr.themes.dark
+dr.theme = dr.default_theme
 
 --themed color setting (stateful, so private API)
 
-local function parse_color(c, g, b, a)
+local function parse_color(c)
+	local r, g, b, a
 	if type(c) == 'string' then
-		return color.string_to_rgba(c)
+		r, g, b, a = color.string_to_rgba(c)
 	elseif type(c) == 'table' then
-		local r, g, b, a = unpack(c)
-		return r, g, b, a or 1
-	else
-		return c, g, b, a or 1
+		r, g, b, a = unpack(c)
+		a = a or 1
 	end
+	if not r then
+		error('invalid color '..tostring(c))
+	end
+	return r, g, b, a
 end
 
-function draw:_setcolor(color, g, b, a)
-	self.cr:rgba(parse_color(self.theme[color] or color, g, b, a))
+function dr:color(color)
+	return parse_color(self.theme[color] or color)
+end
+
+function dr:_setcolor(color)
+	self.cr:rgba(parse_color(self.theme[color] or color))
 end
 
 --themed font setting (stateful, so private API)
@@ -104,9 +111,9 @@ local function load_font(font, default_font)
 	return t
 end
 
-draw.default.default_font = 'Open Sans,14'
+dr.default.default_font = 'Open Sans,14'
 
-function draw:_setfont(font)
+function dr:_setfont(font)
 	font = load_font(self.theme[font] or font, self.theme.default_font)
 	self:_backend_load_font(font.name, font.weight, font.slant)
 	self.cr:font_size(font.size)
@@ -116,18 +123,18 @@ end
 
 --themed stateless fill & stroke
 
-function draw:fill(color)
+function dr:fill(color)
 	self:_setcolor(color or 'normal_bg')
 	self.cr:fill()
 end
 
-function draw:stroke(color, line_width)
+function dr:stroke(color, line_width)
 	self:_setcolor(color or 'normal_fg')
 	self.cr:line_width(line_width or 1)
 	self.cr:stroke()
 end
 
-function draw:fillstroke(fill_color, stroke_color, line_width)
+function dr:fillstroke(fill_color, stroke_color, line_width)
 	if fill_color and stroke_color then
 		self:_setcolor(fill_color)
 		self.cr:fill_preserve()
@@ -141,29 +148,34 @@ function draw:fillstroke(fill_color, stroke_color, line_width)
 	end
 end
 
+function dr:paint(color)
+	self:_setcolor(color)
+	self.cr:paint()
+end
+
 --themed stateless basic shapes
 
-function draw:rect(x, y, w, h, ...)
+function dr:rect(x, y, w, h, ...)
 	self.cr:rectangle(x, y, w, h)
 	self:fillstroke(...)
 end
 
-function draw:dot(x, y, r, ...)
+function dr:dot(x, y, r, ...)
 	self:rect(x-r, y-r, 2*r, 2*r, ...)
 end
 
-function draw:circle(x, y, r, ...)
+function dr:circle(x, y, r, ...)
 	self.cr:circle(x, y, r)
 	self:fillstroke(...)
 end
 
-function draw:line(x1, y1, x2, y2, ...)
+function dr:line(x1, y1, x2, y2, ...)
 	self.cr:move_to(x1, y1)
 	self.cr:line_to(x2, y2)
 	self:stroke(...)
 end
 
-function draw:curve(x1, y1, x2, y2, x3, y3, x4, y4, ...)
+function dr:curve(x1, y1, x2, y2, x3, y3, x4, y4, ...)
 	self.cr:move_to(x1, y1)
 	self.cr:curve_to(x2, y2, x3, y3, x4, y4)
 	self:stroke(...)
@@ -183,7 +195,7 @@ local function text_args(self, s, font, color, line_spacing)
 	return s, font, line_h
 end
 
-function draw:text_extents(s, font, line_h)
+function dr:text_extents(s, font, line_h)
 	font = self:_setfont(font)
 	local w, h = 0, 0
 	for s in glue.lines(s) do
@@ -194,7 +206,7 @@ function draw:text_extents(s, font, line_h)
 	return w, h
 end
 
-function draw:_draw_text(x, y, s, align, line_h) --multi-line text
+function dr:_dr_text(x, y, s, align, line_h) --multi-line text
 	local cr = self.cr
 	for s in glue.lines(s) do
 		if align == 'right' then
@@ -213,12 +225,12 @@ function draw:_draw_text(x, y, s, align, line_h) --multi-line text
 	end
 end
 
-function draw:text(x, y, s, font, color, align, line_spacing)
+function dr:text(x, y, s, font, color, align, line_spacing)
 	local s, font, line_h = text_args(self, s, font, color, line_spacing)
-	self:_draw_text(x, y, s, align, line_h)
+	self:_dr_text(x, y, s, align, line_h)
 end
 
-function draw:textbox(x, y, w, h, s, font, color, halign, valign, line_spacing)
+function dr:textbox(x, y, w, h, s, font, color, halign, valign, line_spacing)
 	local s, font, line_h = text_args(self, s, font, color, line_spacing)
 
 	self.cr:save()
@@ -251,19 +263,19 @@ function draw:textbox(x, y, w, h, s, font, color, halign, valign, line_spacing)
 		y = y - lines_h
 	end
 
-	self:_draw_text(x, y, s, halign, line_h)
+	self:_dr_text(x, y, s, halign, line_h)
 
 	self.cr:restore()
 end
 
 --themed GUI shapes
 
-draw.default.border_width = 1
+dr.default.border_width = 1
 
-function draw:border(x, y, w, h, ...)
+function dr:border(x, y, w, h, ...)
 	local b = self.theme.border_width
 	self.cr:rectangle(x-b, y-b, w+2*b, h+2*b)
 	self:stroke(...)
 end
 
-return draw
+return dr
