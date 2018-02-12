@@ -1,5 +1,5 @@
 
---themed drawing API
+--themed drawing API for UI toolkits
 --Written by Cosmin Apreutesei. Public Domain.
 
 local color = require'color'
@@ -78,7 +78,7 @@ function dr:color(color)
 end
 
 function dr:_setcolor(color)
-	self.cr:rgba(parse_color(self.theme[color] or color))
+	self.cr:rgba(self:color(color))
 end
 
 --themed font setting (stateful, so private API)
@@ -272,10 +272,11 @@ end
 
 dr.default.border_width = 1
 
-function dr:border(x, y, w, h, ...)
-	local b = self.theme.border_width
-	self.cr:rectangle(x-b, y-b, w+2*b, h+2*b)
-	self:stroke(...)
+--draw a border around
+function dr:border(x, y, w, h, color, b)
+	b = b or self.theme.border_width
+	self.cr:rectangle(x-b/2, y-b/2, w+b, h+b)
+	self:stroke(color, b)
 end
 
 return dr

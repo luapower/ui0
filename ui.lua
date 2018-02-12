@@ -36,15 +36,19 @@ function ui:init(win)
 	win:on('repaint.ui', function(win)
 		local cr = win:bitmap():cairo()
 		self.dr.cr = cr
-		self:draw(self.dr)
+		self:draw()
 	end)
 	self._layers = {}
+	self._elements = {}
+	self.stylesheet = self:stylesheet()
 end
 
 function ui:free()
 	win:off'.ui'
 	self.window = nil
 end
+
+--layers
 
 function ui:sort_layers()
 	table.sort(self._layers, function(a, b)
@@ -62,7 +66,7 @@ function ui:remove_layer(layer)
 	if i then pop(self._layers, i) end
 end
 
-function ui:hit_test(x, y)
+function ui:hit_test_layer(x, y)
 	for i = #self._layers, 1, -1 do
 		local layer = self._layers[i]
 		if layer:hit_test(x, y) then
@@ -85,11 +89,11 @@ function ui:_active_widget_fire(...)
 end
 
 function ui:mousemove(x, y)
-	local widget, wx, wy = self:hit_test(x, y)
-	local enter = self.hot_layer ~= widget
-	self.hot_layer = widget
-	if widget then
-		widget:fire(enter and 'mouseenter' or 'mousemove', wx, wy)
+	local layer, wx, wy = self:hit_test_layer(x, y)
+	local enter = self.hot_layer ~= layer
+	self.hot_layer = layer
+	if layer then
+		layer:fire(enter and 'mouseenter' or 'mousemove', wx, wy)
 	end
 	local widget = self.active_widget
 	if widget then
@@ -106,18 +110,18 @@ function ui:mouseleave()
 end
 
 function ui:mousedown(button, x, y)
-	local widget, wx, wy = self:hit_test(x, y)
-	self.hot_layer = widget
-	if widget then
-		widget:fire('mousedown', button, wx, wy)
+	local layer, wx, wy = self:hit_test_layer(x, y)
+	self.hot_layer = layer
+	if layer then
+		layer:fire('mousedown', button, wx, wy)
 	end
 end
 
 function ui:mouseup(button, x, y)
-	local widget, wx, wy = self:hit_test(x, y)
-	self.hot_layer = widget
-	if widget then
-		widget:fire('mouseup', button, wx, wy)
+	local layer, wx, wy = self:hit_test_layer(x, y)
+	self.hot_layer = layer
+	if layer then
+		layer:fire('mouseup', button, wx, wy)
 	end
 	local widget = self.active_widget
 	if widget then
@@ -125,12 +129,171 @@ function ui:mouseup(button, x, y)
 	end
 end
 
-function ui:draw(dr)
+function ui:draw()
 	self.dr:paint'window_bg' --clear the background
 	for i = 1, #self._layers do
 		local layer = self._layers[i]
-		layer:draw(dr)
+		layer:draw()
 	end
+end
+
+--selectors ------------------------------------------------------------------
+
+ui.selector = oo.selector()
+
+local function parse_tags(s, t)
+	t = t or {}
+	for tag in s:gmatch'[^%s]+' do
+		push(t, tag)
+	end
+	return t
+end
+
+local function selects_all()
+	return true
+end
+
+function ui.selector:init(ui, sel, filter)
+	if sel:find'>' then --parent filter
+		self.parent_tags = {}
+		sel = sel:gsub('%s*([^>%s]+)%s*>', function(s)
+			local tags = parse_tags(s)
+			push(self.parent_tags, tags)
+			return ''
+		end)
+	end
+	self.tags = parse_tags(sel)
+	assert(#self.tags > 0)
+	self.filter = filter
+end
+
+local function has_all_tags(needed_tags, tags)
+	for i,tag in ipairs(needed_tags) do
+		if not tags[tag] then
+			return false
+		end
+	end
+	return true
+end
+
+function ui.selector:selects(elem)
+	if #self.tags > #elem.tags then
+		return false --selector too specific
+	end
+	if not has_all_tags(self.tags, elem.tags) then
+		return false
+	end
+	if self.parent_tags then
+		local i = #self.parent_tags
+		local tags = self.parent_tags[i]
+		local elem = elem.parent
+		while tags and elem do
+			if has_all_tags(tags, elem.tags) then
+				if i == 1 then
+					return true
+				end
+				i = i - 1
+				tags = self.parent_tags[i]
+			end
+			elem = elem.parent
+		end
+		return false
+	end
+	return true
+end
+
+--stylesheets ----------------------------------------------------------------
+
+ui.stylesheet = oo.stylesheet()
+
+function ui.stylesheet:init(ui)
+	self.ui = ui
+	self.tags = {} --{tag -> {sel1, ...}}
+end
+
+function ui.stylesheet:add_style(sel, attrs)
+	for i, tag in ipairs(sel.tags) do
+		local t = glue.attr(self.tags, tag)
+		push(t, sel)
+	end
+	sel.attrs = attrs
+end
+
+function ui.stylesheet:find_selectors(elem)
+	--find all selectors affecting all tags. later tags take precedence over
+	--earlier tags, and later selectors affecting a tag take precedence over
+	--earlier selectors affecting that tag (so no specificity order like css).
+	local t = {}
+	local checked = {}
+	local tags = elem.tags
+	for i=#tags,1,-1 do
+		local tag = tags[i]
+		local selectors = self.tags[tag]
+		if selectors then
+			for i=#selectors,1,-1 do
+				local sel = selectors[i]
+				if not checked[sel] then
+					if sel:selects(elem) then
+						push(t, sel)
+					end
+					checked[sel] = true
+				end
+			end
+		end
+	end
+	return t
+end
+
+function ui.stylesheet:update_element(elem)
+	local t = self:find_selectors(elem)
+	for i=#t,1,-1 do
+		local sel = t[i]
+		glue.update(elem, sel.attrs)
+	end
+end
+
+function ui:style(sel, attrs)
+	if type(sel) == 'string' and sel:find(',', 1, true) then
+		for sel in sel:gmatch'[^,]+' do
+			ui:style(sel, attrs)
+		end
+	else
+		local sel = self:selector(sel)
+		self.stylesheet:add_style(sel, attrs)
+	end
+end
+
+--jquery-like selectors ------------------------------------------------------
+
+ui.find_result = oo.find_result()
+
+function ui:_find(sel, elems)
+	local res = self.find_result()
+	for i,elem in ipairs(elems) do
+		if sel:selects(elem) then
+			push(res, elem)
+		end
+	end
+	return res
+end
+
+function ui.find_result:each(f)
+	for i,elem in ipairs(self) do
+		local v = f(elem)
+		if v ~= nil then return v end
+	end
+end
+
+function ui.find_result:find(sel)
+	return self:_find(sel, self)
+end
+
+function ui:find(sel)
+	return self:_find(sel, self._elements)
+end
+
+function ui:each(sel, f)
+	return self:find(sel):each(f)
 end
 
 --animation ------------------------------------------------------------------
@@ -191,20 +354,26 @@ function ui.colorfade:progress()
 	return r, g, b, a
 end
 
---widgets --------------------------------------------------------------------
+--elements--------------------------------------------------------------------
 
-ui.widget = oo.widget()
+ui.element = oo.element()
 
-function ui.widget:init(ui, t)
+function ui.element:init(ui, t)
 	self.ui = ui
-	self.name = t.name
+	self.tags = {'*', self.classname}
+	self.parent = t.parent
+	parse_tags(t.tags or '', self.tags)
+	for i,tag in ipairs(self.tags) do
+		self.tags[tag] = true
+	end
+	self.ui.stylesheet:update_element(self)
 	return t
 end
 
---layer-like widget
+--layers
 
 ui.layer = oo.layer()
-ui.layer:inherit(ui.widget)
+ui.layer:inherit(ui.element)
 
 function ui.layer:after_init(t)
 	self._z_order = t.z_order or 0
@@ -222,9 +391,9 @@ function ui.layer:set_z_order(z_order)
 end
 
 function ui.layer:hit_test(x, y) end
-function ui.layer:draw(dr) end
+function ui.layer:draw() end
 
---box-like widget
+--box-like widgets
 
 ui.box = oo.box()
 ui.box:inherit(ui.layer)
@@ -254,7 +423,7 @@ function ui.button:after_init(t)
 	return t
 end
 
-function ui.button:draw(dr)
+function ui.button:draw()
 	local bg_color
 	if self.hot then
 		if self.active then
@@ -286,7 +455,8 @@ function ui.button:draw(dr)
 		end
 	end
 
-	dr:rect(self.x, self.y, self.w, self.h, bg_color, 'normal_fg')
+	self.ui.dr:rect(self.x, self.y, self.w, self.h, bg_color)
+	self.ui.dr:border(self.x, self.y, self.w, self.h, 'normal_fg')
 end
 
 function ui.button:mousemove(x, y)
@@ -476,10 +646,47 @@ local app = nw:app()
 local win = app:window{x = 940, y = 400, w = 800, h = 400}
 local ui = ui(win)
 
-local b1 = ui:button{name = 'b1', ctl = ctl, x = 10, y = 10, w = 100, h = 26}
-local b2 = ui:button{name = 'b2', ctl = ctl, x = 20, y = 20, w = 100, h = 26}
+ui:style('*', {
+	custom_all = 11,
+})
+
+ui:style('button', {
+	custom_field = 42,
+})
+
+ui:style('button b1', {
+	custom_and = 13,
+})
+
+ui:style('b1', {
+	custom_and = 16, --comes later: overwrite (no specificity)
+})
+
+ui:style('button', {
+	custom_and = 22, --comes later: overwrite (no specificity)
+})
+
+ui:style('p1 > p2 > b1', {
+	custom_parent = 54, --comes later: overwrite (no specificity)
+})
+
+local p1 = ui:element{name = 'p1', tags = 'p1'}
+local p2 = ui:element{name = 'p2', tags = 'p2', parent = p1}
+
+local b1 = ui:button{parent = p2, name = 'b1', tags = 'b1', ctl = ctl, x = 10, y = 10, w = 100, h = 26}
+local b2 = ui:button{parent = p2, name = 'b2', tags = 'b2', ctl = ctl, x = 20, y = 20, w = 100, h = 26}
 
 b1.z_order = 2
+
+local sel = ui:selector('p1 > p2 > b1')
+assert(sel:selects(b1) == true)
+
+print('b1.custom_all', b1.custom_all)
+print('b2.custom_all', b2.custom_all)
+print('b1.custom_field', b1.custom_field)
+print('b1.custom_and', b1.custom_and)
+print('b2.custom_and', b2.custom_and)
+--print('b2.custom_and', b2.custom_and)
 
 app:run()
 
