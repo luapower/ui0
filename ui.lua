@@ -25,6 +25,7 @@ local lerp = glue.lerp
 local clamp = glue.clamp
 local assert = glue.assert
 local collect = glue.collect
+local sortedpairs = glue.sortedpairs
 
 local function popval(t, v)
 	local i = indexof(v, t)
@@ -672,7 +673,11 @@ function ui.element:after_init(ui, t)
 	tags[self.classname] = true
 	add_tags(t.tags, tags)
 	self.tags = tags
-	update(self, t)
+	--update elements in lexicographic order so that eg. `border_width` comes
+	--before `border_width_left`.
+	for k,v in sortedpairs(t) do
+		self[k] = v
+	end
 	self.tags = tags
 	if self.id then
 		tags[self.id] = true
@@ -1021,6 +1026,38 @@ ui.layer.border_radius_bottom_right = 0
 ui.layer.border_radius_bottom_left = 0
 ui.layer.border_radius_kappa = 1.2 --smoother line-to-arc transition
 
+local function args4(s)
+	local a1, a2, a3, a4
+	if type(s) == 'string' then
+		a1, a2, a3, a4 = s:match'([^%s]+)%s+([^%s]+)([^%s]+)%s+([^%s]+)'
+	end
+	if not a1 then
+		a1, a2, a3, a4 = s, s, s, s
+	end
+	return a1, a2, a3, a4
+end
+
+local function args4num(s)
+	local a1, a2, a3, a4 = args4(s)
+	return tonumber(a1), tonumber(a2), tonumber(a3), tonumber(a4)
+end
+
+function ui.layer:set_border_color(s)
+	self.border_color_left, self.border_color_right,
+		self.border_color_top, self.border_color_bottom = args4(s)
+end
+
+function ui.layer:set_border_width(s)
+	self.border_width_left, self.border_width_right,
+		self.border_width_top, self.border_width_bottom = args4num(s)
+end
+
+function ui.layer:set_border_radius(s)
+	self.border_radius_top_left, self.border_radius_top_right,
+		self.border_radius_bottom_right, self.border_radius_bottom_left =
+			args4num(s)
+end
+
 function ui.layer:after_init(ui, t)
 	self._matrix = cairo.matrix()
 	self._inverse_matrix = cairo.matrix()
@@ -1031,107 +1068,6 @@ end
 function ui.layer:before_free()
 	self:_free_layers()
 	self.parent = false
-end
-
---parent/child relationship
-
-function ui.layer:get_parent() --child interface
-	return self._parent
-end
-
-function ui.layer:set_parent(parent)
-	if self._parent then
-		self._parent:_remove_layer(self)
-		self._parent = false
-	end
-	if parent then
-		parent:_add_layer(self)
-	end
-	self._parent = parent
-	self.window = parent and parent.window or parent
-end
-
-function ui.layer:get_z_order() --child interface
-	return self._z_order
-end
-
-function ui.layer:set_z_order(z_order)
-	self._z_order = z_order
-	if self.parent then
-		self.parent:_sort_layers()
-	end
-end
-
-function ui.layer:_add_layer(layer) --parent interface
-	self.layers = self.layers or {}
-	push(self.layers, layer)
-	self:_sort_layers()
-	self:fire('layer_added', layer)
-end
-
-function ui.layer:_remove_layer(layer) --parent interface
-	popval(self.layers, layer)
-	self:fire('layer_removed', layer)
-end
-
-function ui.layer:_free_layers()
-	if not self.layers then return end
-	while #self.layers > 0 do
-		self.layers[#self.layers]:free()
-	end
-end
-
-function ui.layer:_sort_layers() --parent interface
-	if not self.layers then return end
-	table.sort(self.layers, function(a, b)
-		return a.z_order < b.z_order
-	end)
-end
-
-function ui.layer:hit_test_layers(x, y) --(x, y) are in content space
-	if not self.layers then return end
-	for i = #self.layers, 1, -1 do
-		local layer = self.layers[i]
-		local x, y = layer:from_parent(x, y)
-		local widget = layer:hit_test(x, y)
-		if widget then
-			return widget
-		end
-	end
-end
-
-function ui.layer:layers_bounding_box()
-	local x, y, w, h = 0, 0, 0, 0
-	if self.layers then
-		for _,layer in ipairs(self.layers) do
-			x, y, w, h = box2d.bounding_box(x, y, w, h, layer:bounding_box())
-		end
-	end
-	return x, y, w, h
-end
-
-function ui.layer:draw_layers()
-	if not self.layers then return end
-	for i = 1, #self.layers do
-		local layer = self.layers[i]
-		layer:draw()
-	end
-end
-
-function ui.layer:to_window(x, y) --parent & child interface
-	return self.parent:to_window(self:to_parent(x, y))
-end
-
-function ui.layer:from_window(x, y) --parent & child interface
-	return self:from_parent(self.parent:from_window(x, y))
-end
-
-function ui.layer:mouse_pos() --parent interface
-	local mx, my = self.parent:mouse_pos()
-	if not mx then
-		return false, false
-	end
-	return self:from_parent(mx, my)
 end
 
 --matrix-affecting fields
@@ -1192,7 +1128,110 @@ function ui.layer:from_parent(x, y)
 	return self.inverse_matrix:point(x, y)
 end
 
---geometry in rect() space (borders, background, padding, clipping)
+--parent/child relationship
+
+function ui.layer:get_parent() --child interface
+	return self._parent
+end
+
+function ui.layer:set_parent(parent)
+	if self._parent then
+		self._parent:_remove_layer(self)
+		self._parent = false
+	end
+	if parent then
+		parent:_add_layer(self)
+	end
+	self._parent = parent
+	self.window = parent and parent.window or parent
+end
+
+function ui.layer:get_z_order() --child interface
+	return self._z_order
+end
+
+function ui.layer:set_z_order(z_order)
+	self._z_order = z_order
+	if self.parent then
+		self.parent:_sort_layers()
+	end
+end
+
+function ui.layer:_add_layer(layer) --parent interface
+	self.layers = self.layers or {}
+	push(self.layers, layer)
+	self:_sort_layers()
+	self:fire('layer_added', layer)
+end
+
+function ui.layer:_remove_layer(layer) --parent interface
+	popval(self.layers, layer)
+	self:fire('layer_removed', layer)
+end
+
+function ui.layer:_free_layers()
+	if not self.layers then return end
+	while #self.layers > 0 do
+		self.layers[#self.layers]:free()
+	end
+end
+
+function ui.layer:_sort_layers() --parent interface
+	if not self.layers then return end
+	table.sort(self.layers, function(a, b)
+		return a.z_order < b.z_order
+	end)
+end
+
+function ui.layer:to_window(x, y) --parent & child interface
+	return self.parent:to_window(self:to_parent(x, y))
+end
+
+function ui.layer:from_window(x, y) --parent & child interface
+	return self:from_parent(self.parent:from_window(x, y))
+end
+
+function ui.layer:mouse_pos() --parent interface
+	local mx, my = self.parent:mouse_pos()
+	if not mx then
+		return false, false
+	end
+	return self:from_parent(mx, my)
+end
+
+--layers geometry, drawing and hit testing
+
+function ui.layer:layers_bounding_box()
+	local x, y, w, h = 0, 0, 0, 0
+	if self.layers then
+		for _,layer in ipairs(self.layers) do
+			x, y, w, h = box2d.bounding_box(x, y, w, h, layer:bounding_box())
+		end
+	end
+	return x, y, w, h
+end
+
+function ui.layer:draw_layers()
+	if not self.layers then return end
+	for i = 1, #self.layers do
+		local layer = self.layers[i]
+		layer:draw()
+	end
+end
+
+function ui.layer:hit_test_layers(x, y) --(x, y) are in content space
+	if not self.layers then return end
+	for i = #self.layers, 1, -1 do
+		local layer = self.layers[i]
+		local x, y = layer:from_parent(x, y)
+		local widget = layer:hit_test(x, y)
+		if widget then
+			return widget
+		end
+	end
+end
+
+--border geometry, drawing and hit testing
 
 --border edge widths relative to rect() at %-offset in border width.
 --offset is in -1..1 where -1=inner edge, 0=center, 1=outer edge.
@@ -1211,33 +1250,17 @@ function ui.layer:_border_edge_widths_bottom_right(offset)
 		lerp(o, -1, 1, self.border_width_bottom, 0)
 end
 
-function ui.layer:border_pos(offset)
+function ui.layer:border_pos(offset) --in rect() space
 	return self:_border_edge_widths_top_left(offset)
 end
 
 --border rect at %-offset in border width.
-function ui.layer:border_rect(offset)
+function ui.layer:border_rect(offset) --in rect() space
 	local w1, h1 = self:_border_edge_widths_top_left(offset)
 	local w2, h2 = self:_border_edge_widths_bottom_right(offset)
 	local w = self.w - w2 - w1
 	local h = self.h - h2 - h1
 	return w1, h1, w, h
-end
-
-function ui.layer:padding_pos()
-	local x, y = self:border_pos(-1) --inner edge
-	return
-		x + self.padding_left,
-		y + self.padding_top
-end
-
-function ui.layer:padding_rect()
-	local x, y, w, h = self:border_rect(-1) --inner edge
-	return
-		x + self.padding_left,
-		y + self.padding_top,
-		w - self.padding_left - self.padding_right,
-		h - self.padding_top - self.padding_bottom
 end
 
 --corner radius at pixel offset from the stroke's center on one dimension.
@@ -1246,7 +1269,7 @@ local function offset_radius(r, o)
 end
 
 --border rect at %-offset in border width, plus radii of rounded corners.
-function ui.layer:border_round_rect(offset)
+function ui.layer:border_round_rect(offset) --in rect() space
 	local k = self.border_radius_kappa
 
 	local r1 = self.border_radius_top_left
@@ -1362,13 +1385,9 @@ local function qarc(cr, cx, cy, rx, ry, q1, qlen, k)
 	end
 end
 
-function ui.layer:qarc(...)
-	return qarc(self.window.dr.cr, ...)
-end
-
---trace the border contour path at offset in current space.
+--trace the border contour path at offset.
 --offset is in -1..1 where -1=inner edge, 0=center, 1=outer edge.
-function ui.layer:border_path(offset)
+function ui.layer:border_path(offset) --in rect() space.
 	local cr = self.window.dr.cr
 	local x1, y1, w, h, r1x, r1y, r2x, r2y, r3x, r3y, r4x, r4y, k =
 		self:border_round_rect(offset)
@@ -1388,13 +1407,12 @@ function ui.layer:border_visible()
 		or self.border_width_bottom ~= 0
 end
 
-function ui.layer:draw_border()
+function ui.layer:draw_border() --in content space
 	if not self:border_visible() then return end
 
 	local dr = self.window.dr
 	local cr = dr.cr
 
-	--drawing is always from content space so move to rect() space.
 	local ox, oy = self:from_origin(0, 0)
 	cr:translate(ox, oy)
 
@@ -1462,7 +1480,7 @@ function ui.layer:hit_test_border(x, y) --(x, y) are in content space
 	if not self:border_visible() then return end
 	local dr = self.window.dr
 	local cr = dr.cr
-	local ox, oy = self:from_origin(0, 0) --move to rect() space
+	local ox, oy = self:from_origin(0, 0)
 	cr:translate(ox, oy)
 	cr:new_path()
 	self:border_path(-1)
@@ -1476,9 +1494,46 @@ function ui.layer:hit_test_border(x, y) --(x, y) are in content space
 	return hit and self
 end
 
+--content geometry, drawing and hit testing
+
+function ui.layer:padding_pos() --in rect() space
+	local x, y = self:border_pos(-1) --inner edge
+	return
+		x + self.padding_left,
+		y + self.padding_top
+end
+
+function ui.layer:padding_rect() --in rect() space
+	local x, y, w, h = self:border_rect(-1) --inner edge
+	return
+		x + self.padding_left,
+		y + self.padding_top,
+		w - self.padding_left - self.padding_right,
+		h - self.padding_top - self.padding_bottom
+end
+
+function ui.layer:content_clip_path()
+	--
+end
+
+function ui.layer:hit_test_content_clip(x, y)
+	if not self.content_clip then
+		return self
+	end
+	return self
+end
+
+function ui.layer:hit_test_content(x, y)
+	return self:hit_test_content_clip(x, y) and self:hit_test_layers(x, y)
+end
+
+function ui.layer:draw_content()
+	self:draw_layers()
+end
+
 --geometry in content space (can be used inside drawing or hit-test functions)
 
-function ui.layer:from_origin(x, y)
+function ui.layer:from_origin(x, y) --from rect() space to content space
 	local px, py = self:padding_pos()
 	return x-px, y-py
 end
@@ -1500,7 +1555,7 @@ function ui.layer:get_ch() return (select(4, self:padding_rect())) end
 
 function ui.layer:hit_test(x, y) --(x, y) are in content space
 	if not self.visible then return end
-	return self:hit_test_layers(x, y) or self:hit_test_border(x, y)
+	return self:hit_test_content(x, y) or self:hit_test_border(x, y)
 end
 
 function ui.layer:bounding_box()
@@ -1511,14 +1566,6 @@ function ui.layer:bounding_box()
 	else
 		return self:layers_bounding_box()
 	end
-end
-
-function ui.layer:content_clip_path()
-	--
-end
-
-function ui.layer:draw_content()
-	self:draw_layers()
 end
 
 function ui.layer:after_draw()
