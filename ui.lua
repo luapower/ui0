@@ -761,7 +761,7 @@ end
 --rendering
 
 function ui.window:after_draw()
-	if not self.visible then return end
+	if not self.visible or self.opacity == 0 then return end
 	self.cr:save()
 	self.cr:new_path()
 	self.layer:draw()
@@ -1523,7 +1523,7 @@ function ui.layer:get_ch() return (select(4, self:padding_rect())) end
 --child interface
 
 function ui.layer:hit_test(x, y) --(x, y) are in content space
-	if not self.visible then return end
+	if not self.visible or self.opacity == 0 then return end
 	return self:hit_test_content(x, y) or self:hit_test_border(x, y)
 end
 
@@ -1538,7 +1538,7 @@ function ui.layer:bounding_box()
 end
 
 function ui.layer:after_draw()
-	if not self.visible then return end
+	if not self.visible or self.opacity == 0 then return end
 	if self.opacity <= 0 then return end
 
 	local dr = self.window
