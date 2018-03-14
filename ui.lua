@@ -72,177 +72,6 @@ end
 local ui = oo.ui(object)
 ui.object = object
 
---drawing contexts -----------------------------------------------------------
-
-ui.draw = oo.draw(ui.object)
-local dr = ui.draw
-
-function dr:init(ui)
-	self.ui = ui
-end
-
---fill & stroke
-
-function ui:after_init()
-	self._colors = {} --{'#rgba' -> {r, g, b, a}}
-end
-
-function ui:color(c)
-	if type(c) == 'string' then
-		local t = self._colors[c]
-		if not t then
-			t = {color.string_to_rgba(c)}
-			self._colors[c] = t
-		end
-		return unpack(t)
-	else
-		return unpack(c)
-	end
-end
-
-function dr:_setcolor(color)
-	self.cr:rgba(self.ui:color(color))
-end
-
-function dr:fill(fill_color)
-	self:_setcolor(fill_color)
-	self.cr:fill_preserve()
-end
-
-function dr:stroke(stroke_color, line_width)
-	self:_setcolor(stroke_color)
-	self.cr:line_width(line_width)
-	self.cr:stroke_preserve()
-end
-
---text
-
-function ui:after_init()
-	self._freetype = freetype:new()
-	self._font_files = {} --{(family, weight, slant) -> file}
-	self._font_faces = {} --{file -> {ft_face=, cr_face=}}
-end
-
-function ui:before_free()
-	for _,face in pairs(self._font_faces) do
-		--can't free() it because cairo's cache is lazy.
-		--cairo will free the freetype face object on its own.
-		face.cr_face:unref()
-	end
-	self._font_faces = nil
-	--safe to free() the freetype object here because cr_face holds a reference
-	--to the FT_Library and will call FT_Done_Library() on its destructor.
-	self._freetype:free()
-end
-
-function dr:before_free()
-	self.cr:font_face(cairo.NULL)
-end
-
---override this for different ways of finding font files
-function ui:_font_file(family, weight, slant)
-	return gfonts.font_file(family, weight, slant)
-end
-
---override this for different ways of loading fonts
-function ui:_font_face(family, weight, slant)
-	local id = tuple(family, weight, slant)
-	local file = self._font_files[id]
-	if not file then
-		file = assert(self:_font_file(family, weight, slant),
-			'could not find a font for "%s, %s, %s"', family, weight, slant)
-		self._font_files[id] = file
-	end
-	local face = self._font_faces[file]
-	if not face then
-		face = {}
-		face.ft_face = self._freetype:face(file)
-		face.cr_face = assert(cairo.ft_font_face(face.ft_face))
-		self._font_faces[file] = face
-	end
-	return face
-end
-
---override this for different ways of setting a loaded font
-function dr:_setfont(family, weight, slant, size)
-	local face = self.ui:_font_face(family, weight, slant)
-	self.cr:font_face(face.cr_face)
-	self.cr:font_size(size)
-	local ext = self.cr:font_extents()
-	self._font_height = ext.height
-	self._font_descent = ext.descent
-	self._font_ascent = ext.ascent
-end
-
---multi-line self-aligned and box-aligned text
-
-function dr:_line_extents(s)
-	local ext = self.cr:text_extents(s)
-	return ext.width, ext.height, ext.y_bearing
-end
-
-function dr:textbox(x, y, w, h, s,
-	font_family, font_weight, font_slant, text_size, line_spacing, text_color,
-	halign, valign)
-
-	self:_setfont(font_family, font_weight, font_slant, text_size)
-	self:_setcolor(text_color)
-
-	self.cr:save()
-	self.cr:rectangle(x, y, w, h)
-	self.cr:clip()
-
-	local cr = self.cr
-
-	local line_h = self._font_height * line_spacing
-
-	if halign == 'right' then
-		x = w
-	elseif not halign or halign == 'center' then
-		x = round(w / 2)
-	else
-		x = 0
-	end
-
-	if valign == 'top' then
-		y = self._font_ascent
-	else
-		local lines_h = 0
-		for _ in glue.lines(s) do
-			lines_h = lines_h + line_h
-		end
-		lines_h = lines_h - line_h
-
-		if valign == 'bottom' then
-			y = h - self._font_descent
-		elseif not valign or valign == 'center' then
-			local h1 = h + self._font_ascent - self._font_descent + lines_h
-			y = round(h1 / 2)
-		else
-			assert(false, 'invalid valign "%s"', valign)
-		end
-		y = y - lines_h
-	end
-
-	for s in glue.lines(s) do
-		if halign == 'right' then
-			local tw = self:_line_extents(s)
-			cr:move_to(x - tw, y)
-		elseif not halign or halign == 'center' then
-			local tw = self:_line_extents(s)
-			cr:move_to(x - round(tw / 2), y)
-		elseif halign == 'left' then
-			cr:move_to(x, y)
-		else
-			assert(false, 'invalid halign "%s"', halign)
-		end
-		cr:show_text(s)
-		y = y + line_h
-	end
-
-	self.cr:restore()
-end
-
 --selectors ------------------------------------------------------------------
 
 ui.selector = oo.selector(ui.object)
@@ -763,7 +592,6 @@ ui:style('window_layer', {
 
 function ui.window:after_init(ui, t)
 
-	self.dr = ui:draw()
 	local win = self.native_window
 
 	self.x, self.y, self.w, self.h = self.native_window:client_rect()
@@ -771,31 +599,33 @@ function ui.window:after_init(ui, t)
 	self.mouse_x = win:mouse'x' or false
 	self.mouse_y = win:mouse'y' or false
 
-	--TODO: find a better way...
-	local function prepare()
-		self._frame_clock = self._frame_clock or time.clock()
-		self.dr.cr = self.dr.cr or win:bitmap():cairo()
+	local function setcontext()
+		self._frame_clock = time.clock()
+		self.cr = win:bitmap():cairo()
 	end
 
 	win:on('mousemove.ui', function(win, x, y)
+		setcontext()
 		self:_mousemove(x, y)
 	end)
 	win:on('mouseenter.ui', function(win, x, y)
-		prepare()
+		setcontext()
 		self:_mouseenter(x, y)
 	end)
 	win:on('mouseleave.ui', function(win)
+		setcontext()
 		self:_mouseleave()
 	end)
 	win:on('mousedown.ui', function(win, button, x, y)
+		setcontext()
 		self:_mousedown(button, x, y)
 	end)
 	win:on('mouseup.ui', function(win, button, x, y)
+		setcontext()
 		self:_mouseup(button, x, y)
 	end)
 	win:on('repaint.ui', function(win)
-		self._frame_clock = time.clock()
-		self.dr.cr = win:bitmap():cairo()
+		setcontext()
 		self:draw()
 	end)
 	win:on('client_rect_changed.ui', function(win, cx, cy, cw, ch)
@@ -825,7 +655,6 @@ function ui.window:before_free()
 	self.hot_widget = false
 	self.active_widget = false
 	self.layer:free()
-	self.dr:free()
 	self.native_window = false
 end
 
@@ -930,12 +759,10 @@ end
 
 function ui.window:after_draw()
 	if not self.visible then return end
-	local dr = self.dr
-	local cr = dr.cr
-	cr:save()
-	cr:new_path()
+	self.cr:save()
+	self.cr:new_path()
 	self.layer:draw()
-	cr:restore()
+	self.cr:restore()
 end
 
 --parent interface
@@ -976,6 +803,170 @@ function ui.window:size() return self.w, self.h end
 
 function ui.window:bounding_box()
 	return box2d.bounding_box(0, 0, self.w, self.h, self.layer:bounding_box())
+end
+
+--drawing helpers ------------------------------------------------------------
+
+--fill & stroke
+
+function ui:after_init()
+	self._colors = {} --{'#rgba' -> {r, g, b, a}}
+end
+
+function ui:color(c)
+	if type(c) == 'string' then
+		local t = self._colors[c]
+		if not t then
+			t = {color.string_to_rgba(c)}
+			self._colors[c] = t
+		end
+		return unpack(t)
+	else
+		return unpack(c)
+	end
+end
+
+function ui.window:_setcolor(color)
+	self.cr:rgba(self.ui:color(color))
+end
+
+function ui.window:fill(fill_color)
+	self:_setcolor(fill_color)
+	self.cr:fill_preserve()
+end
+
+function ui.window:stroke(stroke_color, line_width)
+	self:_setcolor(stroke_color)
+	self.cr:line_width(line_width)
+	self.cr:stroke_preserve()
+end
+
+--text
+
+function ui:after_init()
+	self._freetype = freetype:new()
+	self._font_files = {} --{(family, weight, slant) -> file}
+	self._font_faces = {} --{file -> {ft_face=, cr_face=}}
+end
+
+function ui:before_free()
+	for _,face in pairs(self._font_faces) do
+		--can't free() it because cairo's cache is lazy.
+		--cairo will free the freetype face object on its own.
+		face.cr_face:unref()
+	end
+	self._font_faces = nil
+	--safe to free() the freetype object here because cr_face holds a reference
+	--to the FT_Library and will call FT_Done_Library() on its destructor.
+	self._freetype:free()
+end
+
+function ui.window:before_free()
+	self.cr:font_face(cairo.NULL)
+end
+
+--override this for different ways of finding font files
+function ui:_font_file(family, weight, slant)
+	return gfonts.font_file(family, weight, slant)
+end
+
+--override this for different ways of loading fonts
+function ui:_font_face(family, weight, slant)
+	local id = tuple(family, weight, slant)
+	local file = self._font_files[id]
+	if not file then
+		file = assert(self:_font_file(family, weight, slant),
+			'could not find a font for "%s, %s, %s"', family, weight, slant)
+		self._font_files[id] = file
+	end
+	local face = self._font_faces[file]
+	if not face then
+		face = {}
+		face.ft_face = self._freetype:face(file)
+		face.cr_face = assert(cairo.ft_font_face(face.ft_face))
+		self._font_faces[file] = face
+	end
+	return face
+end
+
+--override this for different ways of setting a loaded font
+function ui.window:_setfont(family, weight, slant, size)
+	local face = self.ui:_font_face(family, weight, slant)
+	self.cr:font_face(face.cr_face)
+	self.cr:font_size(size)
+	local ext = self.cr:font_extents()
+	self._font_height = ext.height
+	self._font_descent = ext.descent
+	self._font_ascent = ext.ascent
+end
+
+--multi-line self-aligned and box-aligned text
+
+function ui.window:_line_extents(s)
+	local ext = self.cr:text_extents(s)
+	return ext.width, ext.height, ext.y_bearing
+end
+
+function ui.window:textbox(x, y, w, h, s,
+	font_family, font_weight, font_slant, text_size, line_spacing, text_color,
+	halign, valign)
+
+	self:_setfont(font_family, font_weight, font_slant, text_size)
+	self:_setcolor(text_color)
+
+	self.cr:save()
+	self.cr:rectangle(x, y, w, h)
+	self.cr:clip()
+
+	local cr = self.cr
+
+	local line_h = self._font_height * line_spacing
+
+	if halign == 'right' then
+		x = w
+	elseif not halign or halign == 'center' then
+		x = round(w / 2)
+	else
+		x = 0
+	end
+
+	if valign == 'top' then
+		y = self._font_ascent
+	else
+		local lines_h = 0
+		for _ in glue.lines(s) do
+			lines_h = lines_h + line_h
+		end
+		lines_h = lines_h - line_h
+
+		if valign == 'bottom' then
+			y = h - self._font_descent
+		elseif not valign or valign == 'center' then
+			local h1 = h + self._font_ascent - self._font_descent + lines_h
+			y = round(h1 / 2)
+		else
+			assert(false, 'invalid valign "%s"', valign)
+		end
+		y = y - lines_h
+	end
+
+	for s in glue.lines(s) do
+		if halign == 'right' then
+			local tw = self:_line_extents(s)
+			cr:move_to(x - tw, y)
+		elseif not halign or halign == 'center' then
+			local tw = self:_line_extents(s)
+			cr:move_to(x - round(tw / 2), y)
+		elseif halign == 'left' then
+			cr:move_to(x, y)
+		else
+			assert(false, 'invalid halign "%s"', halign)
+		end
+		cr:show_text(s)
+		y = y + line_h
+	end
+
+	self.cr:restore()
 end
 
 --layers ---------------------------------------------------------------------
@@ -1388,7 +1379,7 @@ end
 --trace the border contour path at offset.
 --offset is in -1..1 where -1=inner edge, 0=center, 1=outer edge.
 function ui.layer:border_path(offset) --in rect() space.
-	local cr = self.window.dr.cr
+	local cr = self.window.cr
 	local x1, y1, w, h, r1x, r1y, r2x, r2y, r3x, r3y, r4x, r4y, k =
 		self:border_round_rect(offset)
 	local x2, y2 = x1 + w, y1 + h
@@ -1410,7 +1401,7 @@ end
 function ui.layer:draw_border() --in content space
 	if not self:border_visible() then return end
 
-	local dr = self.window.dr
+	local dr = self.window
 	local cr = dr.cr
 
 	local ox, oy = self:from_origin(0, 0)
@@ -1478,7 +1469,7 @@ end
 
 function ui.layer:hit_test_border(x, y) --(x, y) are in content space
 	if not self:border_visible() then return end
-	local dr = self.window.dr
+	local dr = self.window
 	local cr = dr.cr
 	local ox, oy = self:from_origin(0, 0)
 	cr:translate(ox, oy)
@@ -1572,7 +1563,7 @@ function ui.layer:after_draw()
 	if not self.visible then return end
 	if self.opacity <= 0 then return end
 
-	local dr = self.window.dr
+	local dr = self.window
 	local cr = dr.cr
 
 	local opacity = self.opacity
@@ -1739,7 +1730,7 @@ function ui.button:mouseup(button, x, y)
 end
 
 function ui.button:before_draw_content()
-	local dr = self.window.dr
+	local dr = self.window
 	if self.text then
 		dr:textbox(0, 0, self.w, self.h, self.text,
 			self.font_family, self.font_weight, self.font_slant, self.text_size,
@@ -1935,7 +1926,7 @@ function ui.scrollbar:after_mousemove(mx, my)
 end
 
 function ui.scrollbar:before_draw_content()
-	local dr = self.window.dr
+	local dr = self.window
 	local bx, by, bw, bh = self:grabbar_rect()
 	if bw < self.w or bh < self.h then
 		--dr:rect(bx, by, bw, bh, self.grabbar_background_color)
@@ -2006,7 +1997,7 @@ function ui.scrollbox:after_init(ui, t)
 end
 
 function ui.scrollbox:before_draw_content()
-	local cr = self.window.dr.cr
+	local cr = self.window.cr
 end
 
 --tab ------------------------------------------------------------------------
