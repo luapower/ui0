@@ -976,6 +976,11 @@ end
 
 ui.layer = oo.layer(ui.element)
 
+function ui.layer:set_padding(s)
+	self.padding_left, self.padding_top, self.padding_right,
+		self.padding_bottom = args4(s, tonumber)
+end
+
 function ui.layer:set_border_color(s)
 	self.border_color_left, self.border_color_right,
 		self.border_color_top, self.border_color_bottom = args4(s)
@@ -1007,10 +1012,7 @@ ui.layer.opacity = 1
 
 ui.layer.content_clip = 'padding' --'padding', 'background', false
 
-ui.layer.padding_left = 0
-ui.layer.padding_top = 0
-ui.layer.padding_right = 0
-ui.layer.padding_bottom = 0
+ui.layer.padding = 0
 
 ui.layer.background_color = nil --transparent
 ui.layer.background_origin = '' --TODO
