@@ -32,19 +32,22 @@ local function popval(t, v)
 	return i and pop(t, i)
 end
 
-local function str(s)
-	return type(s) == 'string' and glue.trim(s) or nil
-end
-
 local function round(x)
 	return math.floor(x + 0.5)
 end
 
-local function default(x, default)
-	if x == nil then
-		return default
+local function args4(s, convert) --parse a string of 4 non-space args
+	local a1, a2, a3, a4
+	if type(s) == 'string' then
+		a1, a2, a3, a4 = s:match'([^%s]+)%s+([^%s]+)([^%s]+)%s+([^%s]+)'
+	end
+	if not a1 then
+		a1, a2, a3, a4 = s, s, s, s
+	end
+	if convert then
+		return convert(a1), convert(a2), convert(a3), convert(a4)
 	else
-		return x
+		return a1, a2, a3, a4
 	end
 end
 
@@ -805,7 +808,7 @@ function ui.window:bounding_box()
 	return box2d.bounding_box(0, 0, self.w, self.h, self.layer:bounding_box())
 end
 
---drawing helpers ------------------------------------------------------------
+--drawing helpers split between ui and window objects
 
 --fill & stroke
 
@@ -841,7 +844,7 @@ function ui.window:stroke(stroke_color, line_width)
 	self.cr:stroke_preserve()
 end
 
---text
+--fonts and text
 
 function ui:after_init()
 	self._freetype = freetype:new()
@@ -973,6 +976,22 @@ end
 
 ui.layer = oo.layer(ui.element)
 
+function ui.layer:set_border_color(s)
+	self.border_color_left, self.border_color_right,
+		self.border_color_top, self.border_color_bottom = args4(s)
+end
+
+function ui.layer:set_border_width(s)
+	self.border_width_left, self.border_width_right,
+		self.border_width_top, self.border_width_bottom = args4(s, tonumber)
+end
+
+function ui.layer:set_border_radius(s)
+	self.border_radius_top_left, self.border_radius_top_right,
+		self.border_radius_bottom_right, self.border_radius_bottom_left =
+			args4(s, tonumber)
+end
+
 ui.layer._x = 0
 ui.layer._y = 0
 ui.layer._rotation = 0
@@ -1000,54 +1019,11 @@ ui.layer.background_clip = 'border' --'padding', 'border'
 -- -1..1 goes from inside to outside of border edge
 ui.layer.background_clip_border_offset = -1
 
+ui.layer.border_color = '#fff'
+ui.layer.border_width = 0
+ui.layer.border_radius = 0
 ui.layer.border_offset = -1 -- -1..1 goes from inside to outside of rect() edge
---ui.layer.border_color = '#fff'
---ui.layer.border_width = 0
-ui.layer.border_color_left = '#fff'
-ui.layer.border_color_top = '#fff'
-ui.layer.border_color_right = '#fff'
-ui.layer.border_color_bottom = '#fff'
-ui.layer.border_width_left = 0
-ui.layer.border_width_top = 0
-ui.layer.border_width_right = 0
-ui.layer.border_width_bottom = 0
-ui.layer.border_radius_top_left = 0
-ui.layer.border_radius_top_right = 0
-ui.layer.border_radius_bottom_right = 0
-ui.layer.border_radius_bottom_left = 0
 ui.layer.border_radius_kappa = 1.2 --smoother line-to-arc transition
-
-local function args4(s)
-	local a1, a2, a3, a4
-	if type(s) == 'string' then
-		a1, a2, a3, a4 = s:match'([^%s]+)%s+([^%s]+)([^%s]+)%s+([^%s]+)'
-	end
-	if not a1 then
-		a1, a2, a3, a4 = s, s, s, s
-	end
-	return a1, a2, a3, a4
-end
-
-local function args4num(s)
-	local a1, a2, a3, a4 = args4(s)
-	return tonumber(a1), tonumber(a2), tonumber(a3), tonumber(a4)
-end
-
-function ui.layer:set_border_color(s)
-	self.border_color_left, self.border_color_right,
-		self.border_color_top, self.border_color_bottom = args4(s)
-end
-
-function ui.layer:set_border_width(s)
-	self.border_width_left, self.border_width_right,
-		self.border_width_top, self.border_width_bottom = args4num(s)
-end
-
-function ui.layer:set_border_radius(s)
-	self.border_radius_top_left, self.border_radius_top_right,
-		self.border_radius_bottom_right, self.border_radius_bottom_left =
-			args4num(s)
-end
 
 function ui.layer:after_init(ui, t)
 	self._matrix = cairo.matrix()
