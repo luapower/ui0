@@ -16,7 +16,6 @@ local freetype = require'freetype'
 local cairo = require'cairo'
 local libjpeg = require'libjpeg'
 local fs = require'fs'
-local ffi = require'ffi'
 
 local push = table.insert
 local pop = table.remove
