@@ -1059,9 +1059,7 @@ ui.layer.content_clip = true --'padding'/true, 'background', false
 ui.layer.padding = 0
 
 ui.layer.background_type = 'color'
-ui.layer.background_color = false --no background
---all gradients
-ui.layer.background_colors = {} --{[offset1], color1, ...}
+--all backgrounds
 ui.layer.background_x = 0
 ui.layer.background_y = 0
 ui.layer.background_rotation = 0
@@ -1071,6 +1069,10 @@ ui.layer.background_scale_x = 1
 ui.layer.background_scale_y = 1
 ui.layer.background_scale_cx = 0
 ui.layer.background_scale_cy = 0
+--soldi color backgrounds
+ui.layer.background_color = nil --no background
+--gradient backgrounds
+ui.layer.background_colors = {} --{[offset1], color1, ...}
 --linear gradient backgrounds
 ui.layer.background_x1 = 0
 ui.layer.background_y1 = 0
@@ -1083,6 +1085,8 @@ ui.layer.background_r1 = 0
 ui.layer.background_cx2 = 0
 ui.layer.background_cy2 = 0
 ui.layer.background_r2 = 0
+--image backgrounds
+ui.layer.background_image = nil
 
 ui.layer.background_operator = 'over'
 -- overlapping between background clipping edge and border stroke.
