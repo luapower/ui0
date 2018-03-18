@@ -1093,7 +1093,7 @@ ui.layer.background_operator = 'over'
 -- -1..1 goes from inside to outside of border edge.
 ui.layer.background_clip_border_offset = -1
 
-ui.layer.border_color = '#fff'
+ui.layer.border_color = nil --no border
 ui.layer.border_width = 0 --no border
 ui.layer.border_radius = 0 --square
 -- border stroke positioning relative to box edge.
@@ -1478,10 +1478,12 @@ function ui.layer:border_path(offset)
 end
 
 function ui.layer:border_visible()
-	return self.border_width_left ~= 0
-		or self.border_width_top ~= 0
-		or self.border_width_right ~= 0
-		or self.border_width_bottom ~= 0
+	return
+		self.border_color
+		and (self.border_width_left ~= 0
+			or self.border_width_top ~= 0
+			or self.border_width_right ~= 0
+			or self.border_width_bottom ~= 0)
 end
 
 function ui.layer:draw_border()
