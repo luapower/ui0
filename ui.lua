@@ -1055,9 +1055,9 @@ end
 
 function ui.window:_keypress(key)
 	self:fire('keypress', key)
-	if key == 'tab' then
+	if key == 'tab' and not self.ui:key'ctrl' then
 		local next_widget
-		if self.ui:key'ctrl' then
+		if self.ui:key'shift' then
 			next_widget = self:prev_focusable_widget()
 		else
 			next_widget = self:next_focusable_widget()

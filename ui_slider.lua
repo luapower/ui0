@@ -130,6 +130,7 @@ end
 function ui.slider:leftmousedown(mx)
 	self:update_position(self:position_at_cx(mx), true, true)
 	self.active = true
+	self:focus()
 end
 
 function ui.slider:leftmouseup()
