@@ -8,7 +8,7 @@ local app = nw:app()
 local win = app:window{x = 840, y = 300, w = 900, h = 500, visible = false,
 	--transparent = true, frame = 'none',
 	}
-local ui = ui()
+local ui = ui{native_app = app}
 local win = ui:window{native_window = win}
 
 if ... == 'ui_demo' then --loaded via require()

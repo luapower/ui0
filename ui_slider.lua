@@ -4,18 +4,22 @@
 
 local ui = require'ui'
 local glue = require'glue'
+local box2d = require'box2d'
 
+local snap = glue.snap
 local clamp = glue.clamp
 
 ui.slider = ui.layer:subclass'slider'
 
 ui.slider.isslider = true
+ui.slider.focusable = true
 
 ui.slider.border = ui.layer:subclass'slider_border'
 ui.slider.border.h = 10
-ui.slider.border.corner_radius = 10
+ui.slider.border.corner_radius = 5
 ui.slider.border.border_width = 1
 ui.slider.border.border_color = '#fff'
+ui.slider.border.content_clip = true
 
 ui.slider.fill = ui.layer:subclass'slider_fill'
 ui.slider.fill.h = 10
@@ -28,79 +32,196 @@ ui.slider.pin.corner_radius = 8
 ui.slider.pin.border_width = 1
 ui.slider.pin.border_color = '#fff'
 ui.slider.pin.background_color = '#000'
-ui.slider.pin.drag_threshold = 0
 
-function ui.slider.pin:after_init()
-
-end
-
-function ui.slider.pin:mousedown(button)
-	if button == 'left' then
-		self.active = true
-	end
-end
-
-function ui.slider.pin:mouseup(button)
-	if button == 'left' then
-		self.active = false
-	end
-end
-
-function ui.slider.pin:start_drag()
-	return self
-end
+ui.slider.step_label = ui.layer
 
 function ui.slider.pin:drag(dx, dy)
-	self.x = self.x + dx
-	self.parent.position = self.parent:position_at_x(self.x)
-	self:invalidate()
+	local cx = self.x + dx + self.corner_radius_top_left
+	self.parent:update_position(self.parent:position_at_cx(cx), false,
+		self.parent.snap_while_dragging)
 end
 
 ui.slider.h = 20
 ui.slider._position = 0
-ui.slider.size = 0
+ui.slider.size = 1
+ui.slider.step = false --no stepping
+ui.slider.snap_to_labels = true --...if there are any
+ui.slider.snap_while_dragging = false
+ui.slider.step_labels = false --{label = value, ...}
+ui.slider.background_color = '#0000'
+ui.slider.drag_threshold = 0
+ui.slider.step_line_h = 5
+ui.slider.step_line_color = '#fff'
 
-function ui.slider:slider_x()
-	return (self.position / self.size) * self.w
+function ui.slider:pin_cx(pos)
+	return ((pos or self.position) / self.size) * self.cw
 end
 
-function ui.slider:position_at_x(x)
-	return clamp((x / self.w) * self.size, 0, self.size)
+function ui.slider:position_at_cx(cx)
+	return clamp((cx / self.cw) * self.size, 0, self.size)
+end
+
+function ui.slider:_find_position(pos, choose)
+	local ref_pos = pos or self.position
+	local best_pos
+	if self.snap_to_labels and self.step_labels then
+		for label, pos in pairs(self.step_labels) do
+			if choose(pos, best_pos, ref_pos) then
+				best_pos = pos
+			end
+		end
+	end
+	if self.step then
+		for pos = ref_pos - self.step, ref_pos + self.step, self.step do
+			pos = snap(pos, self.step)
+			if choose(pos, best_pos, ref_pos) then
+				best_pos = pos
+			end
+		end
+	end
+	return clamp(best_pos or ref_pos, 0, self.size)
+end
+
+local function nearest_pos(pos, best_pos, ref_pos)
+	return not best_pos or math.abs(pos - ref_pos) < math.abs(best_pos - ref_pos)
+end
+function ui.slider:snap_position(pos)
+	return self:_find_position(pos, nearest_pos)
+end
+
+local function next_pos(pos, best_pos, ref_pos)
+	return pos > ref_pos and (not best_pos or pos < best_pos)
+end
+function ui.slider:next_position(pos)
+	return self:_find_position(pos, next_pos)
+end
+
+local function prev_pos(pos, best_pos, ref_pos)
+	return pos < ref_pos and (not best_pos or pos > best_pos)
+end
+function ui.slider:prev_position(pos)
+	return self:_find_position(pos, prev_pos)
 end
 
 function ui.slider:get_position()
 	return self._position
 end
 
-function ui.slider:set_position(pos)
+function ui.slider:update_position(pos, animate, snap)
+	pos = pos or self._position
 	self._position = pos
 	if self.updating then return end
-	local sx = self:slider_x()
-	self.pin.x = sx
-	self.fill.w = sx
-	self:invalidate()
+	if snap then
+		pos = self:snap_position(pos)
+		self._position = pos
+	end
+	local br = self.border.corner_radius_top_left
+	local sx = self:pin_cx()
+	local pw = select(4, self.pin:border_rect(1))
+	local dt = animate and .5 or 0
+	self.pin:transition('x', sx - pw / 2, dt, 'expo out')
+	self.fill:transition('w', sx + br, dt, 'expo out')
+end
+
+function ui.slider:set_position(pos)
+	self:update_position(pos)
+end
+
+function ui.slider:leftmousedown(mx)
+	self:update_position(self:position_at_cx(mx), true, true)
+	self.active = true
+end
+
+function ui.slider:leftmouseup()
+	self.active = false
+	self:update_position(nil, true, true)
+end
+
+function ui.slider:start_drag()
+	return self.pin, self.pin.border_outer_w / 2, 0
+end
+
+function ui.slider:keypress(key)
+	if key == 'left' or key == 'up' or key == 'pageup' then
+		self:update_position(self:prev_position(), true, true)
+	elseif key == 'right' or key == 'down' or key == 'pagedown' then
+		self:update_position(self:next_position(), true, true)
+	elseif key == 'home' then
+		self:update_position(0, true, true)
+	elseif key == 'end' then
+		self:update_position(self.size, true, true)
+	end
+end
+
+function ui.slider:hit_test_content(x, y)
+	local _, _, bw, bh = self.pin:border_rect(1)
+	return box2d.hit(x, y, -bw/2, 0, self.cw + bw, self.ch) and self
 end
 
 function ui.slider:after_init()
-	local sx = self:slider_x()
+	local br = self.border.corner_radius_top_left
 	self.border = self.border(self.ui, {
 		id = self:_subtag'border',
-		x = 0, y = (self.h - self.border.h) / 2, w = self.w, parent = self,
+		x = -br,
+		y = (self.h - self.border.h) / 2,
+		w = self.cw + 2 * br,
+		parent = self,
 	})
 	self.fill = self.fill(self.ui, {
 		id = self:_subtag'fill',
-		x = 0, y = 0, w = sx, h = self.border.h,
+		h = self.border.h,
 		parent = self.border,
 	})
 	self.pin = self.pin(self.ui, {
 		id = self:_subtag'pin',
-		x = sx, y = (self.h - self.pin.h) / 2, parent = self,
+		y = (self.h - self.pin.h) / 2,
+		parent = self,
 	})
+	if self.step_labels then
+		for label, value in pairs(self.step_labels) do
+			self.step_label(self.ui, {
+				x = self:pin_cx(value) - 100,
+				y = self.h,
+				w = 200,
+				h = 20,
+				text = label,
+				id = self:_subtag'step_label',
+				issteplabel = true,
+				parent = self,
+			})
+		end
+	end
+	self:update_position(nil, true, true)
+end
+
+function ui.slider:step_lines_visible()
+	return self.step and self.step_line_color and self.size / self.step >= 5
+end
+
+function ui.slider:draw_step_lines()
+	if not self:step_lines_visible() then return end
+	local cr = self.window.cr
+	cr:rgba(self.ui:color(self.step_line_color))
+	cr:line_width(1)
+	cr:new_path()
+	for pos = 0, self.size + self.step / 2, self.step do
+		cr:move_to(self:pin_cx(math.min(pos, self.size)), self.h)
+		cr:rel_line_to(0, self.step_line_h)
+	end
+	cr:stroke()
+end
+
+function ui.slider:after_draw_content()
+	self:draw_step_lines()
 end
 
 --demo -----------------------------------------------------------------------
 
 if not ... then require('ui_demo')(function(ui, win)
+
+	ui:style('slider focused', {
+		border_color = '#fff',
+	})
 
 	ui:style('slider_fill', {
 		background_type = 'gradient',
@@ -120,7 +241,20 @@ if not ... then require('ui_demo')(function(ui, win)
 	})
 
 	ui:slider{
-		x = 100, y = 100, w = 200, parent = win, position = 5, size = 10,
+		x = 100, y = 100, w = 200, parent = win,
+		position = 5, size = 10,
+		step_labels = {Low = 0, Medium = 5, High = 10},
+		border_color = '#0000',
+		snap_to_labels = true,
+		border_width = 1,
+	}
+
+	ui:slider{
+		x = 100, y = 200, w = 200, parent = win,
+		position = 5, size = 10,
+		border_color = '#0000',
+		step = 1.5,
+		border_width = 1,
 	}
 
 end) end

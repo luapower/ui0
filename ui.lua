@@ -21,6 +21,7 @@ local fs = require'fs'
 local push = table.insert
 local pop = table.remove
 
+local round = glue.round
 local indexof = glue.indexof
 local update = glue.update
 local merge = glue.merge
@@ -37,10 +38,6 @@ local function popval(t, v)
 	return i and pop(t, i)
 end
 
-local function round(x)
-	return math.floor(x + .5)
-end
-
 --object system --------------------------------------------------------------
 
 local object = oo.object()
@@ -48,6 +45,7 @@ local object = oo.object()
 --speed up class field lookup by converting subclassing to static
 --inheritance. note that runtime patching of non-final classes doesn't work
 --anymore (extending classes still works but it's less useful).
+--TODO: be one smarter and only do this once on super on instantiation.
 function object:override_subclass(inherited, ...)
 	return inherited(self, ...):inherit(self)
 end
@@ -78,6 +76,10 @@ end
 local ui = oo.ui(object)
 ui.object = object
 
+function ui:after_init(t)
+	glue.update(self, t)
+end
+
 function ui:error(msg, ...)
 	msg = string.format(msg, ...)
 	io.stderr:write(msg)
@@ -92,13 +94,27 @@ end
 --selectors ------------------------------------------------------------------
 
 ui.selector = oo.selector(ui.object)
+ui.selector.isselector = true
+
+function ui.selector:override_create(inherited, ui, sel, ...)
+	if type(sel) == 'table' and sel.isselector then
+		return sel
+	end
+	return inherited(self, ui, sel, ...)
+end
 
 local function noop() end
 local function gmatch_tags(s)
 	return s and s:gmatch'[^%s]+' or noop
 end
 
-function ui.selector:after_init(ui, sel, filter)
+function ui.selector:after_init(ui, sel)
+	local filter
+	if type(sel) == 'function' then
+		sel, filter = '', sel
+	elseif sel == nil then
+		sel = ''
+	end
 	if sel:find'>' then --parents filter
 		self.parent_tags = {} --{{tag,...}, ...}
 		sel = sel:gsub('([^>]+)%s*>', function(s) -- tags... >
@@ -108,8 +124,21 @@ function ui.selector:after_init(ui, sel, filter)
 		end)
 	end
 	self.tags = collect(gmatch_tags(sel)) --tags filter
-	assert(next(self.tags))
-	self.filter = filter --custom filter
+	if filter then
+		self:filter(filter)
+	end
+end
+
+function ui.selector:filter(filter)
+	if not self._filter then
+		self._filter = filter
+	else
+		local prev_filter = self._filter
+		self._filter = function(elem)
+			return prev_filter(elem) and filter(elem)
+		end
+	end
+	return self
 end
 
 --check that all needed_tags are found in tags table as keys
@@ -142,7 +171,7 @@ function ui.selector:selects(elem)
 		end
 		return false
 	end
-	if self.filter and not self.filter(elem) then
+	if self._filter and not self._filter(elem) then
 		return false
 	end
 	return true
@@ -501,9 +530,7 @@ function ui.element_list:find(sel)
 end
 
 function ui:find(sel)
-	if type(sel) == 'string' or type(sel) == 'function' then
-		sel = self:selector(sel)
-	end
+	sel = self:selector(sel)
 	return self._element_index:find_elements(sel)
 end
 
@@ -624,10 +651,12 @@ function ui.element:transition(attr, val, duration, ease, delay)
 			self._transitions[attr] = nil --remove existing transition on attr
 		end
 		self[attr] = val --set attr directly
+		self:invalidate()
 	else --set attr with transition
 		self._transitions = self._transitions or {}
 		self._transitions[attr] =
 			self.ui:transition(self, attr, val, duration, ease, delay)
+		self:invalidate()
 	end
 end
 
@@ -638,14 +667,13 @@ function ui.element:draw()
 	local clock = self.frame_clock
 	local invalidate
 	for attr, transition in pairs(a) do
-		if transition:update(clock) then
-			invalidate = true
-		else
+		if not transition:update(clock) then
 			a[attr] = nil --finished, remove it
 		end
+		invalidate = true
 	end
 	if invalidate then
-		self:invalidate(true)
+		self:invalidate()
 	end
 end
 
@@ -674,7 +702,11 @@ function ui.window:after_init(ui, t)
 
 	self.mouse_x = win:mouse'x' or false
 	self.mouse_y = win:mouse'y' or false
-	self.mouse = {left = false, right = false} --{button -> true|false}
+	self.mouse_left = false
+	self.mouse_right = false
+	self.mouse_middle = false
+	self.mouse_x1 = false --mouse aux button 1
+	self.mouse_x2 = false --mouse aux button 2
 
 	local function setcontext()
 		self.frame_clock = time.clock()
@@ -707,10 +739,12 @@ function ui.window:after_init(ui, t)
 			self.ui:_window_mousemove(self, mx, my)
 		end
 		setmouse(mx, my)
-		--self.mouse_clock = self.frame_clock
-		self.mouse[button] = true
-		self:fire('mousedown', button, mx, my)
+		self['mouse_'..button] = true
 		self.ui:_window_mousedown(self, button, mx, my)
+	end)
+
+	win:on('mouseclick.ui', function(win, button, count, mx, my)
+		self.ui:_window_mouseclick(self, button, count, mx, my)
 	end)
 
 	win:on('mouseup.ui', function(win, button, mx, my)
@@ -718,9 +752,25 @@ function ui.window:after_init(ui, t)
 			self.ui:_window_mousemove(self, mx, my)
 		end
 		setmouse(mx, my)
-		--self.mouse_clock = self.frame_clock
-		self.mouse[button] = false
+		self['mouse_'..button] = false
 		self.ui:_window_mouseup(self, button, mx, my)
+	end)
+
+	win:on('mousewheel.ui', function(delta, mx, my)
+		--TODO:
+		--self.ui:_window_mousewheel(self, button, mx, my)
+	end)
+
+	win:on('keydown.ui', function(win, key)
+		self:_keydown(key)
+	end)
+
+	win:on('keyup.ui', function(win, key)
+		self:_keyup(key)
+	end)
+
+	win:on('keypress.ui', function(win, key)
+		self:_keypress(key)
 	end)
 
 	win:on('repaint.ui', function(win)
@@ -743,7 +793,7 @@ function ui.window:after_init(ui, t)
 		self:free()
 	end)
 
-	self.layer = self.layer_class(self.ui, merge({
+	self.layer = self.layer(self.ui, merge({
 		id = self:_subtag'layer', tags = 'window_layer',
 		x = 0, y = 0, w = self.w, h = self.h,
 		content_clip = false, window = self,
@@ -765,12 +815,8 @@ function ui.window:before_free()
 	self.native_window = false
 end
 
-function ui.window:get_mouse_clock(clock)
-	return self._mouse_clock
-end
-
 function ui.window:find(sel)
-	local sel = ui:selector(sel, function(elem)
+	local sel = ui:selector(sel):filter(function(elem)
 		return elem.window == self
 	end)
 	return self.ui:find(sel)
@@ -827,6 +873,8 @@ function ui:_accept_drop(drag_widget, drop_widget, mx, my, area)
 end
 
 function ui:_window_mousedown(window, button, mx, my)
+	window:fire('mousedown', button, mx, my)
+	window:fire(button..'mousedown', mx, my)
 	local hot_widget, hot_area = window:hit_test(mx, my)
 	if self.active_widget then
 		local area = self.active_widget == hot_widget and hot_area or nil
@@ -838,6 +886,10 @@ function ui:_window_mousedown(window, button, mx, my)
 			hot_widget:_mousedown(button, mx, my, hot_area, hot_widget, hot_area)
 		end
 	end
+end
+
+function ui:_window_mouseclick(window, button, count, mx, my)
+	--TODO:
 end
 
 function ui:_widget_mousedown(widget, button, mx, my, area)
@@ -906,11 +958,14 @@ function ui:_widget_mousemove(widget, mx, my, area)
 		local dx = math.abs(self.drag_mx - mx)
 		local dy = math.abs(self.drag_my - my)
 		if dx >= widget.drag_threshold or dy >= widget.drag_threshold then
-			self.drag_widget = widget:_start_drag(
+			local dx, dy
+			self.drag_widget, dx, dy = widget:_start_drag(
 				self.drag_button,
 				self.drag_mx,
 				self.drag_my,
 				self.drag_area)
+			if dx then self.drag_mx = dx end
+			if dy then self.drag_my = dy end
 		end
 	end
 end
@@ -929,6 +984,7 @@ end
 
 function ui:_window_mouseup(window, button, mx, my)
 	window:fire('mouseup', button, mx, my)
+	window:fire(button..'mouseup', mx, my)
 	local hot_widget, hot_area = window:hit_test(mx, my)
 	if self.active_widget then
 		local area = self.active_widget == hot_widget and hot_area or nil
@@ -954,6 +1010,63 @@ function ui:_window_mouseup(window, button, mx, my)
 			end
 		end
 		self:_reset_drag_state()
+	end
+end
+
+--keyboard events routing with focus logic
+
+function ui:key(query)
+	return self.native_app:key(query)
+end
+
+function ui.window:near_focusable_widget(dir)
+	--TODO:
+	local fw = self.focused_widget
+	for _,elem in ipairs(self:find(function(elem) return elem.focusable end)) do
+		if elem ~= fw then
+			return elem
+		end
+	end
+end
+
+function ui.window:next_focusable_widget()
+	--TODO:
+	return self:near_focusable_widget()
+end
+
+function ui.window:prev_focusable_widget()
+	--TODO:
+	return self:near_focusable_widget()
+end
+
+function ui.window:_keydown(key)
+	self:fire('keydown', key)
+	if self.focused_widget then
+		self.focused_widget:fire('keydown', key)
+	end
+end
+
+function ui.window:_keyup(key)
+	self:fire('keyup', key)
+	if self.focused_widget then
+		self.focused_widget:fire('keyup', key)
+	end
+end
+
+function ui.window:_keypress(key)
+	self:fire('keypress', key)
+	if key == 'tab' then
+		local next_widget
+		if self.ui:key'ctrl' then
+			next_widget = self:prev_focusable_widget()
+		else
+			next_widget = self:next_focusable_widget()
+		end
+		if next_widget then
+			next_widget:focus()
+		end
+	elseif self.focused_widget then
+		self.focused_widget:fire('keypress', key)
 	end
 end
 
@@ -1107,13 +1220,7 @@ function ui.window:line_extents(s)
 end
 
 function ui.window:textbox(x, y, w, h, s, halign, valign)
-
-	self.cr:save()
-	self.cr:rectangle(x, y, w, h)
-	self.cr:clip()
-
 	local cr = self.cr
-
 	local line_h = self._font_height * self._line_spacing
 
 	if halign == 'right' then
@@ -1144,6 +1251,7 @@ function ui.window:textbox(x, y, w, h, s, halign, valign)
 		y = y - lines_h
 	end
 
+	cr:new_path()
 	for s in glue.lines(s) do
 		if halign == 'right' then
 			local tw = self:line_extents(s)
@@ -1159,8 +1267,6 @@ function ui.window:textbox(x, y, w, h, s, halign, valign)
 		cr:show_text(s)
 		y = y + line_h
 	end
-
-	self.cr:restore()
 end
 
 --layers ---------------------------------------------------------------------
@@ -1212,7 +1318,7 @@ function expand:background_scale(scale)
 end
 
 ui.layer = oo.layer(ui.element)
-ui.window.layer_class = ui.layer
+ui.window.layer = ui.layer
 
 function ui.layer:set_padding(s) expand_attr('padding', s, self) end
 function ui.layer:set_border_color(s) expand_attr('border_color', s, self) end
@@ -1226,6 +1332,8 @@ end
 ui.layer.iswidget = true
 ui.layer.x = 0
 ui.layer.y = 0
+ui.layer.w = 0
+ui.layer.h = 0
 ui.layer.rotation = 0
 ui.layer.rotation_cx = 0
 ui.layer.rotation_cy = 0
@@ -1236,7 +1344,7 @@ ui.layer.scale_cy = 0
 
 ui.layer.opacity = 1
 
-ui.layer.content_clip = true --'padding'/true, 'background', false
+ui.layer.content_clip = false --'padding'/true, 'background', false
 
 ui.layer.padding = 0
 
@@ -1294,7 +1402,10 @@ ui.layer.text_valign = 'center'
 ui.layer.text = nil
 
 ui.layer.drag_threshold = 10 --snapping pixels before starting to drag
+
 ui.layer.hover_delay = 1 --hover event delay
+
+ui.layer.canfocus = false
 
 function ui.layer:before_free()
 	self:_free_layers()
@@ -1460,12 +1571,14 @@ end
 function ui.layer:_mousedown(button, mx, my, area, hot_widget, hot_area)
 	local mx, my = self:from_window(mx, my)
 	self:fire('mousedown', button, mx, my, area, hot_widget, hot_area)
+	self:fire(button..'mousedown', mx, my, area, hot_widget, hot_area)
 	self.ui:_widget_mousedown(self, button, mx, my, area)
 end
 
 function ui.layer:_mouseup(button, mx, my, area, hot_widget, hot_area)
 	local mx, my = self:from_window(mx, my)
 	self:fire('mouseup', button, mx, my, area, hot_widget, hot_area)
+	self:fire(button..'mouseup', mx, my, area, hot_widget, hot_area)
 end
 
 --called on a potential drop target widget to accept the dragged widget.
@@ -1513,7 +1626,7 @@ end
 
 --called on drag_start_widget to initiate a drag operation.
 function ui.layer:_start_drag(button, mx, my, area)
-	local widget = self:start_drag(button, mx, my, area)
+	local widget, dx, dy = self:start_drag(button, mx, my, area)
 	if widget then
 		self:settags'drag_source'
 		for i,elem in ipairs(self.ui.elements) do
@@ -1525,7 +1638,7 @@ function ui.layer:_start_drag(button, mx, my, area)
 		end
 		widget:_started_dragging()
 	end
-	return widget
+	return widget, dx, dy
 end
 
 --stub: return a widget to drag (self works too).
@@ -1533,6 +1646,7 @@ function ui.layer:start_drag(button, mx, my, area) end
 
 function ui.layer:_end_drag() --called on the drag_start_widget
 	self:settags'-drag_source'
+	self:fire('end_drag', self.drag_widget)
 end
 
 function ui.layer:_drop(widget, mx, my, area) --called on the drop target
@@ -1551,6 +1665,19 @@ function ui.layer:drag(dx, dy)
 	self.x = self.x + dx
 	self.y = self.y + dy
 	self:invalidate()
+end
+
+--focusing and keyboard event handling
+
+function ui.layer:focus()
+	local fw = self.window.focused_widget
+	if fw then
+		fw:fire'lostfocus'
+		fw:settags'-focused'
+	end
+	self:fire'focused' --focused widget not changed yet
+	self:settags'focused'
+	self.window.focused_widget = self
 end
 
 --layers geometry, drawing and hit testing
@@ -1616,6 +1743,11 @@ function ui.layer:border_rect(offset, size_offset)
 	local h = self.h - h2 - h1
 	return box2d.offset(size_offset or 0, w1, h1, w, h)
 end
+
+function ui.layer:get_border_outer_x() return (select(1, self:border_rect(1))) end
+function ui.layer:get_border_outer_y() return (select(2, self:border_rect(1))) end
+function ui.layer:get_border_outer_w() return (select(3, self:border_rect(1))) end
+function ui.layer:get_border_outer_h() return (select(4, self:border_rect(1))) end
 
 --corner radius at pixel offset from the stroke's center on one dimension.
 local function offset_radius(r, o)
@@ -2058,7 +2190,7 @@ function ui.layer:draw_text()
 	if not text then return end
 	self:setfont()
 	self.window:textbox(0, 0, self.cw, self.ch,
-		self.text, self.align, self.valign)
+		self.text, self.text_align, self.text_valign)
 end
 
 --content-box geometry, drawing and hit testing

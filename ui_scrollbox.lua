@@ -133,16 +133,12 @@ function ui.scrollbar:after_init(ui, t)
 		drag_threshold = 0,
 	})
 
-	function self.grabbar:after_mousedown(button)
-		if button == 'left' then
-			self.active = true
-		end
+	function self.grabbar:leftmousedown(button)
+		self.active = true
 	end
 
-	function self.grabbar:after_mouseup(button)
-		if button == 'left' then
-			self.active = false
-		end
+	function self.grabbar:leftmouseup(button)
+		self.active = false
 	end
 
 	function self.grabbar:start_drag()
