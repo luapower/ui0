@@ -212,10 +212,9 @@ end
 function ui.tablist:after_remove_layer(tab)
 	if not tab.istab then return end
 	tab:off'.tablist'
-	local index = self:index(tab)
-	table.remove(self.tabs, index)
+	table.remove(self.tabs, self:index(tab))
 	assert(not tab.parent)
-	tab.index = index
+	tab.index = 1/0 --reset to default
 end
 
 function ui.tablist:draw_tabline_underneath(active_tab)
