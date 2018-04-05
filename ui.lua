@@ -1042,7 +1042,7 @@ end
 ]]
 
 function ui.window:first_focusable_widget()
-	--TODO:
+	return self.layer:tabindex_layers()[1]
 end
 
 function ui.window:next_focusable_widget(forward)
