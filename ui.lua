@@ -860,10 +860,10 @@ function ui:_set_hot_widget(widget, mx, my, area)
 	if self.hot_widget then
 		self.hot_widget:_mouseleave()
 	end
-	self.hot_widget = widget
 	if widget then
-		widget:_mouseenter(mx, my, area)
+		widget:_mouseenter(mx, my, area) --hot widget not changed yet
 	end
+	self.hot_widget = widget
 end
 
 function ui:_accept_drop(drag_widget, drop_widget, mx, my, area)
@@ -1687,9 +1687,23 @@ function ui.layer:focus()
 		fw:fire'lostfocus'
 		fw:settags'-focused'
 	end
-	self:fire'focused' --focused widget not changed yet
-	self:settags'focused'
-	self.window.focused_widget = self
+	if not self.visible then
+		return
+	end
+	if self.focusable then
+		self:fire'focused'
+		self:settags'focused'
+		self.window.focused_widget = self
+		return true
+	else --focus first focusable child
+		if self.layers then
+			for i,layer in ipairs(self.layers) do
+				if layer:focus() then
+					return true
+				end
+			end
+		end
+	end
 end
 
 function ui.layer:tabindex_layers()
