@@ -2430,6 +2430,13 @@ function ui.layer:set_active(active)
 	self:invalidate()
 end
 
+function ui.layer:activate()
+	if not self.active then
+		self.active = true
+		self.active = false
+	end
+end
+
 --utils in content space to use from draw_content() and hit_test_content()
 
 function ui.layer:rect() return 0, 0, self.w, self.h end --the box itself

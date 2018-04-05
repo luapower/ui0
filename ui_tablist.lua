@@ -15,6 +15,7 @@ ui.tab = ui.layer:subclass'tab'
 ui.tab.istab = true
 ui.tab._tab_index = 1/0 --add to the tablist tail
 ui.tab.close_button = ui.button
+ui.tab.focusable = true
 
 function ui.tab:get_tab_index()
 	return self._tab_index
@@ -37,11 +38,28 @@ end
 
 function ui.tab:after_set_active(active)
 	if active then
+		self:to_front()
 		if self.parent.active_tab then
 			self.parent.active_tab:settags'-active_tab'
 		end
-		self:to_front()
 		self:settags'active_tab'
+		self:focus()
+	end
+end
+
+function ui.tab:keypress(key)
+	if key == 'tab' and self.ui:key'ctrl' then
+		if not self.ui:key'shift' then
+			local tabs = self.parent.tabs
+			local next_tab = tabs[self.tab_index + 1] or tabs[1]
+			next_tab:activate()
+		else
+			local tabs = self.parent.tabs
+			local prev_tab = tabs[self.tab_index - 1] or tabs[#tabs]
+			prev_tab:activate()
+		end
+	elseif key == 'enter' then
+		self:activate()
 	end
 end
 
@@ -94,8 +112,12 @@ function ui.tablist:after_init()
 	self.tabs = {} --{tab1,...}
 end
 
+function ui.layer:clamped_tab_index(tab)
+	return clamp(tab.tab_index, 1, math.max(1, #self.tabs))
+end
+
 function ui.layer:_move_tab(tab, index)
-	local new_index = clamp(index, 1, #self.tabs)
+	local new_index = self:clamped_tab_index(tab)
 	local old_index = indexof(tab, self.tabs)
 	if old_index ~= new_index then
 		local active_tab = self.active_tab
@@ -149,7 +171,7 @@ function ui.tablist:after_add_layer(tab)
 	if self.active_tab then
 		self.active_tab:settags'active_tab'
 	end
-	local index = clamp(tab.tab_index, 1, #self.tabs)
+	local index = self:clamped_tab_index(tab)
 	table.insert(self.tabs, index, tab)
 	tab.h = self.h + 1
 	tab.w = self.tab_w
@@ -220,6 +242,14 @@ if not ... then require('ui_demo')(function(ui, win)
 		transition_background_color = true,
 		transition_duration = 1.5,
 		transition_ease = 'expo out',
+	})
+
+	ui:style('tab focused', {
+		font_weight = 'bold',
+	})
+
+	ui:style('tab active', {
+		font_slant = 'italic',
 	})
 
 	ui:style('tab active_tab', {
