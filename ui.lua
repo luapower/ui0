@@ -860,11 +860,10 @@ function ui:_set_hot_widget(widget, mx, my, area)
 	if self.hot_widget then
 		self.hot_widget:_mouseleave()
 	end
+	self.hot_widget = widget
 	if widget then
-		--the hot widget is still the old widget when entering the new widget
 		widget:_mouseenter(mx, my, area)
 	end
-	self.hot_widget = widget
 end
 
 function ui:_accept_drop(drag_widget, drop_widget, mx, my, area)
@@ -1027,6 +1026,10 @@ function ui.window:near_focusable_widget(dir)
 			return elem
 		end
 	end
+end
+
+function ui.window:first_focusable_widget()
+	--TODO:
 end
 
 function ui.window:next_focusable_widget()
@@ -1610,14 +1613,16 @@ end
 
 --called on the dragged widget when dragging starts.
 function ui.layer:_started_dragging()
+	self.dragging = true
 	self:settags'dragging'
 	self:fire'started_dragging'
 end
 
 --called on the dragged widget when dragging ends.
 function ui.layer:_ended_dragging()
-	self:fire'ended_dragging'
+	self.dragging = false
 	self:settags'-dragging'
+	self:fire'ended_dragging'
 end
 
 function ui.layer:_set_drop_target(set)

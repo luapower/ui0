@@ -16,6 +16,7 @@ ui.tab.istab = true
 ui.tab._tab_index = 1/0 --add to the tablist tail
 ui.tab.close_button = ui.button
 ui.tab.focusable = true
+ui.tab.drag_threshold = 0
 
 function ui.tab:get_tab_index()
 	return self._tab_index
@@ -48,17 +49,7 @@ function ui.tab:after_set_active(active)
 end
 
 function ui.tab:keypress(key)
-	if key == 'tab' and self.ui:key'ctrl' then
-		if not self.ui:key'shift' then
-			local tabs = self.parent.tabs
-			local next_tab = tabs[self.tab_index + 1] or tabs[1]
-			next_tab:activate()
-		else
-			local tabs = self.parent.tabs
-			local prev_tab = tabs[self.tab_index - 1] or tabs[#tabs]
-			prev_tab:activate()
-		end
-	elseif key == 'enter' then
+	if key == 'enter' or key == 'space' then
 		self:activate()
 	end
 end
@@ -107,9 +98,33 @@ ui.tablist.tabs_padding_left = 10
 ui.tablist.tab_spacing = -10
 ui.tablist.tab_slant_left = 70 --degrees
 ui.tablist.tab_slant_right = 70 --degrees
+ui.tablist.main_tablist = true --responds to tab/ctrl+tab globally
 
 function ui.tablist:after_init()
 	self.tabs = {} --{tab1,...}
+	self.window:on({'keypress', self}, function(win, key)
+		self:_window_keypress(key)
+	end)
+end
+
+function ui.tablist:before_free()
+	self.window:off({nil, self})
+end
+
+function ui.tablist:_window_keypress(key)
+	if not self.main_tablist then return end
+	if key == 'tab' and self.ui:key'ctrl' then
+		local tabs = self.tabs
+		local active_tab = self.active_tab
+		local tab_index = active_tab and active_tab.tab_index
+		if not self.ui:key'shift' then
+			local next_tab = tab_index and tabs[tab_index + 1] or tabs[1]
+			next_tab:activate()
+		else
+			local prev_tab = tab_index and tabs[tab_index - 1] or tabs[#tabs]
+			prev_tab:activate()
+		end
+	end
 end
 
 function ui.layer:clamped_tab_index(tab)

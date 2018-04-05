@@ -37,8 +37,7 @@ ui.slider.step_label = ui.layer
 
 function ui.slider.pin:drag(dx, dy)
 	local cx = self.x + dx + self.corner_radius_top_left
-	self.parent:update_position(self.parent:position_at_cx(cx), false,
-		self.parent.snap_while_dragging)
+	self.parent.position = self.parent:position_at_cx(cx)
 end
 
 ui.slider.h = 20
@@ -46,7 +45,6 @@ ui.slider._position = 0
 ui.slider.size = 1
 ui.slider.step = false --no stepping
 ui.slider.snap_to_labels = true --...if there are any
-ui.slider.snap_while_dragging = false
 ui.slider.step_labels = false --{label = value, ...}
 ui.slider.background_color = '#0000'
 ui.slider.drag_threshold = 0
@@ -107,35 +105,32 @@ function ui.slider:get_position()
 	return self._position
 end
 
-function ui.slider:update_position(pos, animate, snap)
-	pos = pos or self._position
+function ui.slider:set_position(pos)
+	local old_pos = self._position
+	pos = pos or old_pos
 	self._position = pos
 	if self.updating then return end
-	if snap then
-		pos = self:snap_position(pos)
-		self._position = pos
-	end
+	self._position = self:snap_position(pos)
 	local br = self.border.corner_radius_top_left
-	local sx = self:pin_cx()
+	if not self.pin.dragging and self._position ~= old_pos then
+		pos = self._position
+	end
+	local dt = self.pin.dragging and self.window.mouse_left and 0 or .5
+	local sx = self:pin_cx(pos)
 	local pw = select(4, self.pin:border_rect(1))
-	local dt = animate and .5 or 0
 	self.pin:transition('x', sx - pw / 2, dt, 'expo out')
 	self.fill:transition('w', sx + br, dt, 'expo out')
 end
 
-function ui.slider:set_position(pos)
-	self:update_position(pos)
-end
-
 function ui.slider:leftmousedown(mx)
-	self:update_position(self:position_at_cx(mx), true, true)
 	self.active = true
+	self.position = self:position_at_cx(mx)
 	self:focus()
 end
 
 function ui.slider:leftmouseup()
 	self.active = false
-	self:update_position(nil, true, true)
+	self.position = self.position
 end
 
 function ui.slider:start_drag()
@@ -144,13 +139,13 @@ end
 
 function ui.slider:keypress(key)
 	if key == 'left' or key == 'up' or key == 'pageup' then
-		self:update_position(self:prev_position(), true, true)
+		self.position = self:prev_position()
 	elseif key == 'right' or key == 'down' or key == 'pagedown' then
-		self:update_position(self:next_position(), true, true)
+		self.position = self:next_position()
 	elseif key == 'home' then
-		self:update_position(0, true, true)
+		self.position = 0
 	elseif key == 'end' then
-		self:update_position(self.size, true, true)
+		self.position = self.size
 	end
 end
 
@@ -192,7 +187,7 @@ function ui.slider:after_init()
 			})
 		end
 	end
-	self:update_position(nil, true, true)
+	self.position = self.position
 end
 
 function ui.slider:step_lines_visible()
