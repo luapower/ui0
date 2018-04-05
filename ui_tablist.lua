@@ -13,28 +13,29 @@ local clamp = glue.clamp
 ui.tab = ui.layer:subclass'tab'
 
 ui.tab.istab = true
-ui.tab._tab_index = 1/0 --add to the tablist tail
+ui.tab._index = 1/0 --add to the tablist tail
 ui.tab.close_button = ui.button
 ui.tab.focusable = true
 ui.tab.drag_threshold = 0
 
-function ui.tab:get_tab_index()
-	return self._tab_index
+function ui.tab:get_index()
+	return self.parent and self.parent:index(self) or self._index
 end
 
 function ui.tab:get_active_tab()
 	return self.parent and self == self.parent.active_tab
 end
 
-function ui.tab:set_tab_index(tab_index)
-	self._tab_index = tab_index
-	if not self.updating and self.parent then
-		self._tab_index = self.parent:_move_tab(self, tab_index)
+function ui.tab:set_index(index)
+	if self.updating or not self.parent then
+		self._index = index
+	else
+		self.parent:_move_tab(self, index)
 	end
 end
 
 function ui.tab:after_end_update()
-	self.tab_index = self.tab_index
+	self.index = self.index
 end
 
 function ui.tab:after_set_active(active)
@@ -116,41 +117,43 @@ function ui.tablist:_window_keypress(key)
 	if key == 'tab' and self.ui:key'ctrl' then
 		local tabs = self.tabs
 		local active_tab = self.active_tab
-		local tab_index = active_tab and active_tab.tab_index
+		local index = active_tab and active_tab.index
 		if not self.ui:key'shift' then
-			local next_tab = tab_index and tabs[tab_index + 1] or tabs[1]
+			local next_tab = index and tabs[index + 1] or tabs[1]
 			next_tab:activate()
 		else
-			local prev_tab = tab_index and tabs[tab_index - 1] or tabs[#tabs]
+			local prev_tab = index and tabs[index - 1] or tabs[#tabs]
 			prev_tab:activate()
 		end
 	end
 end
 
-function ui.layer:clamped_tab_index(tab)
-	return clamp(tab.tab_index, 1, math.max(1, #self.tabs))
+function ui.layer:clamped_index(index, add)
+	return clamp(index, 1, math.max(1, #self.tabs + (add and 1 or 0)))
 end
 
 function ui.layer:_move_tab(tab, index)
-	local new_index = self:clamped_tab_index(tab)
-	local old_index = indexof(tab, self.tabs)
+	local old_index = self:index(tab)
+	local new_index = self:clamped_index(index)
 	if old_index ~= new_index then
-		local active_tab = self.active_tab
 		table.remove(self.tabs, old_index)
 		table.insert(self.tabs, new_index, tab)
 		self:_update_tabs_pos()
 	end
-	return new_index
 end
 
 function ui.tablist:get_active_tab()
 	if not self.layers then return end
-	for i = #self.layers, 1, -1 do
+	for i = #self.layers, 1, -1 do --outmost layer that is a tab
 		local tab = self.layers[i]
 		if tab.istab then
 			return tab
 		end
 	end
+end
+
+function ui.tablist:index(tab)
+	return indexof(tab, self.tabs)
 end
 
 function ui.tablist:pos_by_index(index)
@@ -177,16 +180,9 @@ end
 function ui.tablist:before_add_layer(tab)
 	if not tab.istab then return end
 	if self.active_tab then
-		self.active_tab:settags'-active_tab'
-	end
-end
-
-function ui.tablist:after_add_layer(tab)
-	if not tab.istab then return end
-	if self.active_tab then
 		self.active_tab:settags'active_tab'
 	end
-	local index = self:clamped_tab_index(tab)
+	local index = self:clamped_index(tab.index, true)
 	table.insert(self.tabs, index, tab)
 	tab.h = self.h + 1
 	tab.w = self.tab_w
@@ -203,7 +199,7 @@ function ui.tablist:after_add_layer(tab)
 	end)
 	function tab.drag(tab, dx, dy)
 		tab.active = true
-		tab.tab_index = self:index_by_pos(tab.x + dx)
+		tab.index = self:index_by_pos(tab.x + dx)
 		tab.x = self:clamp_tab_pos(tab.x + dx)
 		tab:invalidate()
 	end
@@ -216,7 +212,7 @@ end
 function ui.tablist:after_remove_layer(tab)
 	if not tab.istab then return end
 	tab:off'.tablist'
-	table.remove(self.tabs, indexof(tab, self.tabs))
+	table.remove(self.tabs, self:index(tab))
 end
 
 function ui.tablist:draw_tabline_underneath(active_tab)
@@ -280,7 +276,11 @@ if not ... then require('ui_demo')(function(ui, win)
 
 	for i = 1, 5 do
 		local bg_color = {i / 5, i / 5, 0, 1}
-		local tab = ui:tab{parent = tl, background_color = bg_color, padding_left = 15}
+		local tab = ui:tab{
+			parent = tl,
+			background_color = bg_color,
+			padding_left = 15,
+		}
 
 		local content = ui:layer{parent = win,
 			x = tl.x, y = tl.y + tl.h, w = 800, h = (win.h or 0) - tl.h,

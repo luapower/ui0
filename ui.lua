@@ -1018,28 +1018,39 @@ function ui:key(query)
 	return self.native_app:key(query)
 end
 
-function ui.window:near_focusable_widget(dir)
+--[[
+function ui.window:_choose_focusable_widget(choose)
 	--TODO:
-	local fw = self.focused_widget
-	for _,elem in ipairs(self:find(function(elem) return elem.focusable end)) do
-		if elem ~= fw then
-			return elem
+	local focused_widget = self.focused_widget
+	local widgets = self:find(function(elem) return elem.focusable end)
+	for _,widget in ipairs(widgets) do
+		if choose(widget, focused_widget) then
+			return widget
 		end
 	end
 end
+
+local function next_focusable_sibling(widget, target_widget)
+	--loock for next sibling
+	local parent = focused_widget.parent
+	if not parent then return focused_widget end
+	for i,layer in ipairs(parent.layers) do
+
+	end
+end
+
+]]
 
 function ui.window:first_focusable_widget()
 	--TODO:
 end
 
-function ui.window:next_focusable_widget()
-	--TODO:
-	return self:near_focusable_widget()
-end
-
-function ui.window:prev_focusable_widget()
-	--TODO:
-	return self:near_focusable_widget()
+function ui.window:next_focusable_widget(forward)
+	if self.focused_widget then
+		return self.focused_widget:next_focusable_widget(forward)
+	else
+		return self:first_focusable_widget()
+	end
 end
 
 function ui.window:_keydown(key)
@@ -1059,12 +1070,7 @@ end
 function ui.window:_keypress(key)
 	self:fire('keypress', key)
 	if key == 'tab' and not self.ui:key'ctrl' then
-		local next_widget
-		if self.ui:key'shift' then
-			next_widget = self:prev_focusable_widget()
-		else
-			next_widget = self:next_focusable_widget()
-		end
+		local next_widget = self:next_focusable_widget(not self.ui:key'shift')
 		if next_widget then
 			next_widget:focus()
 		end
@@ -1409,6 +1415,7 @@ ui.layer.drag_threshold = 10 --snapping pixels before starting to drag
 ui.layer.hover_delay = 1 --hover event delay
 
 ui.layer.canfocus = false
+ui.layer.tabindex = false
 
 function ui.layer:before_free()
 	self:_free_layers()
@@ -1683,6 +1690,45 @@ function ui.layer:focus()
 	self:fire'focused' --focused widget not changed yet
 	self:settags'focused'
 	self.window.focused_widget = self
+end
+
+function ui.layer:tabindex_layers()
+	local t = {}
+	for i,layer in ipairs(self.layers) do
+		if layer.focusable then
+			push(t, layer)
+		end
+	end
+	table.sort(t, function(t1, t2)
+		if t1.tabindex == t2.tabindex then
+			if t1.x == t2.x then
+				return t1.y < t2.y
+			else
+				return t1.x < t2.x
+			end
+		else
+			return t1.tabindex < t2.tabindex
+		end
+	end)
+	return t
+end
+
+function ui.layer:next_focusable_sibling_widget(widget, forward)
+	assert(widget.parent == self)
+	local t = self:tabindex_layers()
+	for i,layer in ipairs(t) do
+		if layer == widget then
+			return t[i + (forward and 1 or -1)]
+		end
+	end
+end
+
+function ui.layer:next_focusable_widget(forward)
+	if not self.parent then
+		return self
+	else
+		return self.parent:next_focusable_sibling_widget(self, forward)
+	end
 end
 
 --layers geometry, drawing and hit testing
