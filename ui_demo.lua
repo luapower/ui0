@@ -3,19 +3,14 @@ jit.off(true, true)
 
 local time = require'time'
 local ui = require'ui'
-local nw = require'nw'
-local app = nw:app()
-local win = app:window{x = 840, y = 300, w = 900, h = 500, visible = false,
-	--transparent = true, frame = 'none',
-	}
-local ui = ui{native_app = app}
-local win = ui:window{native_window = win}
+local ui = ui()
+local win = ui:window{x = 840, y = 300, w = 900, h = 500, visible = false}
 
 if ... == 'ui_demo' then --loaded via require()
 	return function(test)
 		test(ui, win)
-		win.native_window:show()
-		app:run()
+		win:show()
+		ui:run()
 		ui:free()
 	end
 end
@@ -370,17 +365,13 @@ local function test_drag()
 		--function layer1:drop(drag_object, mx, my, area) end --stub
 		--function layer1:cancel(drag_object) end --stub
 
-		function layer:mousedown(button, mx, my, area)
+		function layer:mousedown(mx, my, area)
 			--print('mousedown', time.clock(), self.id, button, mx, my, area)
-			if button == 'left' then
-				self.active = true
-			end
+			self.active = true
 		end
 
-		function layer:mouseup(button, mx, my, area)
-			if button == 'left' then
-				self.active = false
-			end
+		function layer:mouseup(mx, my, area)
+			self.active = false
 		end
 		--function layer:mousemove(...) print('mousemove', time.clock(), self.id, ...) end
 		--function layer:mouseup(...) print('mouseup', time.clock(), self.id, ...) end
@@ -393,6 +384,6 @@ end
 --test_layers()
 test_drag()
 
-win.native_window:show()
-app:run()
+win:show()
+ui:run()
 ui:free()

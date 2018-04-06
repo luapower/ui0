@@ -55,6 +55,11 @@ end
 function ui.tab:keypress(key)
 	if key == 'enter' or key == 'space' then
 		self:activate()
+	elseif key == 'left' or key == 'right' then
+		local next_tab = self.parent:next_tab(self, key == 'right')
+		if next_tab then
+			next_tab:activate()
+		end
 	end
 end
 
@@ -115,19 +120,24 @@ function ui.tablist:before_free()
 	self.window:off({nil, self})
 end
 
+function ui.tablist:next_tab(tab, forward, rotate)
+	local first_index = forward and 1 or #self.tabs
+	if tab == nil then
+		tab = self.front_tab
+	end
+	if tab == false then
+		return self.tabs[first_index]
+	else
+		return self.tabs[tab.index + (forward and 1 or -1)]
+			or (rotate and self.tabs[first_index])
+	end
+end
+
 function ui.tablist:_window_keypress(key)
 	if not self.main_tablist then return end
+	if #self.tabs == 0 then return end
 	if key == 'tab' and self.ui:key'ctrl' then
-		local tabs = self.tabs
-		local front_tab = self.front_tab
-		local index = front_tab and front_tab.index
-		if not self.ui:key'shift' then
-			local next_tab = index and tabs[index + 1] or tabs[1]
-			next_tab:activate()
-		else
-			local prev_tab = index and tabs[index - 1] or tabs[#tabs]
-			prev_tab:activate()
-		end
+		self:next_tab(nil, not self.ui:key'shift', true):activate()
 	end
 end
 
@@ -190,18 +200,17 @@ function ui.tablist:before_add_layer(tab)
 	table.insert(self.tabs, index, tab)
 	tab.h = self.h + 1
 	tab.w = self.tab_w
-	tab:on('leftmousedown.tablist', function(tab)
+	tab:on('mousedown.tablist', function(tab)
 		tab.active = true
 	end)
-	tab:on('leftmouseup.tablist', function(tab)
+	tab:on('mouseup.tablist', function(tab)
 		tab.active = false
 		self:_update_tabs_pos()
 	end)
 	function tab.drag(tab, dx, dy)
 		tab.active = true
 		tab.index = self:index_by_pos(tab.x + dx)
-		tab.x = self:clamp_tab_pos(tab.x + dx)
-		tab:invalidate()
+		tab:transition('x', self:clamp_tab_pos(tab.x + dx))
 	end
 	function tab:start_drag()
 		return self

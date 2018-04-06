@@ -133,11 +133,11 @@ function ui.scrollbar:after_init(ui, t)
 		drag_threshold = 0,
 	})
 
-	function self.grabbar:leftmousedown(button)
+	function self.grabbar:mousedown()
 		self.active = true
 	end
 
-	function self.grabbar:leftmouseup(button)
+	function self.grabbar:mouseup()
 		self.active = false
 	end
 

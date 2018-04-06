@@ -76,8 +76,20 @@ end
 local ui = oo.ui(object)
 ui.object = object
 
-function ui:after_init(t)
-	glue.update(self, t)
+function ui:native_app()
+	local nw = require'nw'
+	return nw:app()
+end
+
+function ui:init(t)
+	if not (t and t.native_app) then
+		self.native_app = self:native_app()
+	end
+	update(self, t)
+end
+
+function ui:run(t)
+	return self.native_app:run()
 end
 
 function ui:error(msg, ...)
@@ -264,37 +276,30 @@ function ui.stylesheet:_gather_attrs(elem)
 	return t
 end
 
-local transition_fields = {delay=1, duration=1, ease=1, speed=1}
-
 local nilkey = {}
 local function encode_nil(x) return x == nil and nilkey or x end
 local function decode_nil(x) if x == nilkey then return nil end; return x; end
 
-ui.initial = {} --value to use for "initial value" in stylesheets
+--attr. value to use in styles for "initial value of this attr"
+function ui.initial(self, attr)
+	return self:initial_value(attr)
+end
+
+--attr. value to use in styles for "inherit value from parent for this attr"
+function ui.inherit(self, attr)
+	return self:parent_value(attr)
+end
 
 function ui.stylesheet:update_element(elem)
 	local attrs = self:_gather_attrs(elem)
 
-	--gather transition-enabled attrs
-	local tr
-	for attr, val in pairs(attrs) do
-		if val == true then
-			local tr_attr = attr:match'^transition_(.*)'
-			if tr_attr and not transition_fields[tr_attr] then
-				tr = tr or {}
-				tr[tr_attr] = true
-			end
-		end
-	end
-
 	--add the saved initial values of attributes that were overwritten by this
 	--function in the past but are missing from the computed styles this time.
 	local rt = elem._initial_values
-	local initial = self.ui.initial
 	if rt then
 		for attr, init_val in pairs(rt) do
 			local val = attrs[attr]
-			if val == nil or val == initial then
+			if val == nil then
 				attrs[attr] = decode_nil(init_val)
 			end
 		end
@@ -313,29 +318,20 @@ function ui.stylesheet:update_element(elem)
 		return rt
 	end
 
-	--gather global transition values
-	local duration = attrs.transition_duration or 0
-	local ease = attrs.transition_ease
-	local delay = attrs.transition_delay or 0
-	local speed = attrs.transition_speed or 1
+	--set transition attrs first so that elem:transition() can use them.
+	for attr, val in pairs(attrs) do
+		if attr:find'^transition_' then
+			elem[attr] = val
+		end
+	end
 
 	--set all attribute values into elem via transition().
 	local changed = false
 	for attr, val in pairs(attrs) do
-		if val ~= initial then
-			if tr and tr[attr] then
-				rt = save(elem, attr, rt)
-				local duration = attrs['transition_duration_'..attr] or duration
-				local ease = attrs['transition_ease_'..attr] or ease
-				local delay = attrs['transition_delay_'..attr] or delay
-				local speed = attrs['transition_speed_'..attr] or speed
-				elem:transition(attr, val, duration / speed, ease, delay)
-				changed = true
-			elseif not attr:find'^transition_' then
-				rt = save(elem, attr, rt)
-				elem:transition(attr, val, 0)
-				changed = true
-			end
+		if not attr:find'^transition_' then
+			rt = save(elem, attr, rt)
+			elem:transition(attr, val)
+			changed = true
 		end
 	end
 
@@ -473,12 +469,6 @@ function ui:after_init()
 	self._element_index = self:element_index()
 end
 
-function ui:before_free()
-	while #self.elements > 0 do
-		self.elements[#self.elements]:free()
-	end
-end
-
 function ui:_add_element(elem)
 	push(self.elements, elem)
 	self._element_index:add_element(elem)
@@ -553,6 +543,11 @@ ui.element.text_size = 14
 ui.element.text_color = '#fff'
 ui.element.line_spacing = 1
 
+ui.element.transition_duration = 0
+ui.element.transition_ease = false --'linear'
+ui.element.transition_delay = 0
+ui.element.transition_speed = 1
+
 --tags & styles
 
 local function add_tags(tags, t)
@@ -572,13 +567,7 @@ function ui.element:after_init(ui, t)
 	tags[self.classname] = true
 	add_tags(t.tags, tags)
 	self.tags = tags
-	--update elements in lexicographic order so that eg. `border_width` comes
-	--before `border_width_left` even though it's actually undefined behavior.
-	self:begin_update()
-	for k,v in sortedpairs(t) do
-		self[k] = v
-	end
-	self:end_update()
+	self:update(t)
 	self.tags = tags
 	if self.id then
 		tags[self.id] = true
@@ -586,7 +575,7 @@ function ui.element:after_init(ui, t)
 	self:update_styles()
 end
 
-function ui.element:before_free()
+function ui.element:free()
 	self.ui:_remove_element(self)
 	self.ui = false
 end
@@ -594,6 +583,16 @@ end
 function ui.element:begin_update()
 	assert(not self.updating)
 	self.updating = true
+end
+
+function ui.element:update(t)
+	self:begin_update()
+	--update elements in lexicographic order so that eg. `border_width` comes
+	--before `border_width_left` even though it's actually undefined behavior.
+	for k,v in sortedpairs(t) do
+		self[k] = v
+	end
+	self:end_update()
 end
 
 function ui.element:end_update()
@@ -640,12 +639,28 @@ function ui.element:initial_value(attr)
 	return self[attr]
 end
 
+function ui.element:parent_value(attr)
+	local val = self[attr]
+	if val == nil and self.parent then
+		return self:parent_value(self.parent, attr)
+	end
+	return val
+end
+
 --animated attribute transitions
 
-function ui.element:transition(attr, val, duration, ease, delay)
+function ui.element:transition(attr, val, duration, ease, delay, speed)
 	if type(val) == 'function' then
 		val = val(self, attr)
 	end
+	if not duration and self['transition_'..attr] then
+		duration = self['transition_duration_'..attr] or self.transition_duration
+		ease = ease or self['transition_ease_'..attr] or self.transition_ease
+		delay = delay or self['transition_delay_'..attr] or self.transition_delay
+		speed = speed or self['transition_speed_'..attr] or self.transition_speed
+	end
+	delay = delay or 0
+	speed = speed or 1
 	if not duration or duration <= 0 then
 		if self._transitions then
 			self._transitions[attr] = nil --remove existing transition on attr
@@ -665,16 +680,12 @@ function ui.element:draw()
 	local a = self._transitions
 	if not a or not next(a) then return end
 	local clock = self.frame_clock
-	local invalidate
 	for attr, transition in pairs(a) do
 		if not transition:update(clock) then
 			a[attr] = nil --finished, remove it
 		end
-		invalidate = true
 	end
-	if invalidate then
-		self:invalidate()
-	end
+	self:invalidate()
 end
 
 --direct manipulation interface
@@ -694,11 +705,36 @@ ui:style('window_layer', {
 	background_operator = 'source',
 })
 
+function ui:native_window(t)
+	return self.native_app:window(t)
+end
+
+function ui:after_init()
+	self.windows = {}
+end
+
+function ui:free()
+	for win in pairs(self.windows) do
+		win:free()
+	end
+end
+
+function ui.window:update(t)
+	--don't update fields wholesale because most are for the native window.
+end
+
 function ui.window:after_init(ui, t)
 
 	local win = self.native_window
+	if not win then
+		win = self.ui:native_window(t)
+		self.native_window = win
+		self.own_native_window = true
+	end
+	self.ui.windows[self] = true
 
-	self.x, self.y, self.w, self.h = self.native_window:client_rect()
+	self.x, self.y, self.w, self.h = self.native_window:frame_rect()
+	self.cx, self.cy, self.cw, self.ch = self.native_window:client_rect()
 
 	self.mouse_x = win:mouse'x' or false
 	self.mouse_y = win:mouse'y' or false
@@ -812,7 +848,25 @@ end
 function ui.window:before_free()
 	self.native_window:off'.ui'
 	self.layer:free()
+	if self.own_native_window then
+		self.native_window:close()
+	end
 	self.native_window = false
+	self.ui.windows[self] = nil
+end
+
+function ui.window:get_visible()
+	return self.native_window:visible()
+end
+
+function ui.window:set_visible(visible)
+	self.native_window:visible(visible)
+end
+
+for method in pairs{show=1, hide=1} do
+	ui.window[method] = function(self, ...)
+		return self.native_window[method](self.native_window, ...)
+	end
 end
 
 function ui.window:find(sel)
@@ -872,8 +926,8 @@ function ui:_accept_drop(drag_widget, drop_widget, mx, my, area)
 end
 
 function ui:_window_mousedown(window, button, mx, my)
-	window:fire('mousedown', button, mx, my)
-	window:fire(button..'mousedown', mx, my)
+	local event = button == 'left' and 'mousedown' or button..'mousedown'
+	window:fire(event, mx, my)
 	local hot_widget, hot_area = window:hit_test(mx, my)
 	if self.active_widget then
 		local area = self.active_widget == hot_widget and hot_area or nil
@@ -888,6 +942,8 @@ function ui:_window_mousedown(window, button, mx, my)
 end
 
 function ui:_window_mouseclick(window, button, count, mx, my)
+	local event = button == 'left' and 'mousedown' or button..'mousedown'
+	window:fire(event, count, mx, my)
 	--TODO:
 end
 
@@ -982,8 +1038,8 @@ function ui:_window_mouseleave(window)
 end
 
 function ui:_window_mouseup(window, button, mx, my)
-	window:fire('mouseup', button, mx, my)
-	window:fire(button..'mouseup', mx, my)
+	local event = button == 'left' and 'mouseup' or button..'mouseup'
+	window:fire(event, mx, my)
 	local hot_widget, hot_area = window:hit_test(mx, my)
 	if self.active_widget then
 		local area = self.active_widget == hot_widget and hot_area or nil
@@ -1018,31 +1074,8 @@ function ui:key(query)
 	return self.native_app:key(query)
 end
 
---[[
-function ui.window:_choose_focusable_widget(choose)
-	--TODO:
-	local focused_widget = self.focused_widget
-	local widgets = self:find(function(elem) return elem.focusable end)
-	for _,widget in ipairs(widgets) do
-		if choose(widget, focused_widget) then
-			return widget
-		end
-	end
-end
-
-local function next_focusable_sibling(widget, target_widget)
-	--loock for next sibling
-	local parent = focused_widget.parent
-	if not parent then return focused_widget end
-	for i,layer in ipairs(parent.layers) do
-
-	end
-end
-
-]]
-
 function ui.window:first_focusable_widget()
-	return self.layer:tabindex_layers()[1]
+	return self.layer:focusable_widgets()[1]
 end
 
 function ui.window:next_focusable_widget(forward)
@@ -1082,7 +1115,6 @@ end
 --rendering
 
 function ui.window:after_draw()
-	if not self.visible or self.opacity == 0 then return end
 	self.cr:save()
 	self.cr:new_path()
 	self.layer:draw()
@@ -1580,15 +1612,15 @@ end
 
 function ui.layer:_mousedown(button, mx, my, area, hot_widget, hot_area)
 	local mx, my = self:from_window(mx, my)
-	self:fire('mousedown', button, mx, my, area, hot_widget, hot_area)
-	self:fire(button..'mousedown', mx, my, area, hot_widget, hot_area)
+	local event = button == 'left' and 'mousedown' or button..'mousedown'
+	self:fire(event, mx, my, area, hot_widget, hot_area)
 	self.ui:_widget_mousedown(self, button, mx, my, area)
 end
 
 function ui.layer:_mouseup(button, mx, my, area, hot_widget, hot_area)
 	local mx, my = self:from_window(mx, my)
-	self:fire('mouseup', button, mx, my, area, hot_widget, hot_area)
-	self:fire(button..'mouseup', mx, my, area, hot_widget, hot_area)
+	local event = button == 'left' and 'mouseup' or button..'mouseup'
+	self:fire(event, mx, my, area, hot_widget, hot_area)
 end
 
 --called on a potential drop target widget to accept the dragged widget.
@@ -1681,36 +1713,38 @@ end
 
 --focusing and keyboard event handling
 
+function ui.window:remove_focus()
+	local fw = self.focused_widget
+	if not fw then return end
+	fw:fire'lostfocus'
+	fw:settags'-focused'
+end
+
 function ui.layer:focus()
-	local fw = self.window.focused_widget
-	if fw then
-		fw:fire'lostfocus'
-		fw:settags'-focused'
-	end
 	if not self.visible then
 		return
 	end
 	if self.focusable then
+		self.window:remove_focus()
 		self:fire'focused'
 		self:settags'focused'
 		self.window.focused_widget = self
 		return true
 	else --focus first focusable child
-		if self.layers then
-			for i,layer in ipairs(self.layers) do
-				if layer:focus() then
-					return true
-				end
-			end
+		local layer = self.layers and self:focusable_widgets()[1]
+		if layer and layer:focus() then
+			return true
 		end
 	end
 end
 
-function ui.layer:tabindex_layers()
+function ui.layer:focusable_widgets()
 	local t = {}
-	for i,layer in ipairs(self.layers) do
-		if layer.focusable then
-			push(t, layer)
+	if self.layers then
+		for i,layer in ipairs(self.layers) do
+			if layer.focusable then
+				push(t, layer)
+			end
 		end
 	end
 	table.sort(t, function(t1, t2)
@@ -1729,7 +1763,7 @@ end
 
 function ui.layer:next_focusable_sibling_widget(widget, forward)
 	assert(widget.parent == self)
-	local t = self:tabindex_layers()
+	local t = self:focusable_widgets()
 	for i,layer in ipairs(t) do
 		if layer == widget then
 			return t[i + (forward and 1 or -1)]

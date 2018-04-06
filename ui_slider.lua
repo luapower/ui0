@@ -122,13 +122,13 @@ function ui.slider:set_position(pos)
 	self.fill:transition('w', sx + br, dt, 'expo out')
 end
 
-function ui.slider:leftmousedown(mx)
+function ui.slider:mousedown(mx)
 	self.active = true
 	self.position = self:position_at_cx(mx)
 	self:focus()
 end
 
-function ui.slider:leftmouseup()
+function ui.slider:mouseup()
 	self.active = false
 	self.position = self.position
 end
