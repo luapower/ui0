@@ -291,6 +291,9 @@ if not ... then require('ui_demo')(function(ui, win)
 			parent = tl,
 			background_color = bg_color,
 			padding_left = 15,
+			style = {
+				font_slant = 'normal',
+			},
 		}
 
 		local content = ui:layer{parent = win,

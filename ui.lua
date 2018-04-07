@@ -25,6 +25,7 @@ local round = glue.round
 local indexof = glue.indexof
 local update = glue.update
 local merge = glue.merge
+local extend = glue.extend
 local attr = glue.attr
 local lerp = glue.lerp
 local clamp = glue.clamp
@@ -206,9 +207,9 @@ end
 ui.stylesheet = oo.stylesheet(ui.object)
 
 function ui:after_init()
-	local class_stylesheet = self._stylesheet
-	self._stylesheet = self:stylesheet()
-	self._stylesheet:add_stylesheet(class_stylesheet)
+	local class_stylesheet = self.stylesheet
+	self.stylesheet = self:stylesheet()
+	self.stylesheet:add_stylesheet(class_stylesheet)
 end
 
 function ui.stylesheet:after_init(ui)
@@ -234,13 +235,7 @@ end
 
 function ui.stylesheet:add_stylesheet(stylesheet)
 	for tag, selectors in pairs(stylesheet.tags) do
-		if self.tags[tag] then
-			for i,sel in ipairs(selectors) do
-				push(self.tags, sel)
-			end
-		else
-			self.tags[tag] = selectors
-		end
+		extend(attr(self.tags, tag), selectors)
 	end
 end
 
@@ -273,6 +268,7 @@ function ui.stylesheet:_gather_attrs(elem)
 	for _,sel in ipairs(st) do
 		update(t, sel.attrs)
 	end
+	update(t, elem.style)
 	return t
 end
 
@@ -351,11 +347,11 @@ function ui:style(sel, attrs)
 		end
 	else
 		local sel = self:selector(sel)
-		self._stylesheet:add_style(sel, attrs)
+		self.stylesheet:add_style(sel, attrs)
 	end
 end
 
-ui._stylesheet = ui:stylesheet()
+ui.stylesheet = ui:stylesheet()
 
 --attribute types ------------------------------------------------------------
 
@@ -534,7 +530,7 @@ ui.element = oo.element(ui.object)
 
 ui.element.visible = true
 ui.element.iswindw = false
-ui.element.iswidget = false
+ui.element.islayer = false
 
 ui.element.font_family = 'Open Sans'
 ui.element.font_weight = 'normal'
@@ -625,7 +621,7 @@ function ui.element:settags(s)
 end
 
 function ui.element:update_styles()
-	return self.ui._stylesheet:update_element(self)
+	return self.ui.stylesheet:update_element(self)
 end
 
 function ui.element:initial_value(attr)
@@ -1060,7 +1056,7 @@ function ui:_window_mouseup(window, button, mx, my)
 		end
 		self.drag_start_widget:_end_drag()
 		for _,elem in ipairs(self.elements) do
-			if elem.iswidget then
+			if elem.islayer then
 				elem:_set_drop_target(false)
 			end
 		end
@@ -1312,6 +1308,9 @@ end
 
 --layers ---------------------------------------------------------------------
 
+ui.layer = oo.layer(ui.element)
+ui.window.layer = ui.layer
+
 local function args4(s, convert) --parse a string of 4 non-space args
 	local a1, a2, a3, a4
 	if type(s) == 'string' then
@@ -1358,9 +1357,6 @@ function expand:background_scale(scale)
 	self.background_scale_y = scale
 end
 
-ui.layer = oo.layer(ui.element)
-ui.window.layer = ui.layer
-
 function ui.layer:set_padding(s) expand_attr('padding', s, self) end
 function ui.layer:set_border_color(s) expand_attr('border_color', s, self) end
 function ui.layer:set_border_width(s) expand_attr('border_width', s, self) end
@@ -1370,7 +1366,7 @@ function ui.layer:set_background_scale(scale)
 	expand_attr('background_scale', scale, self)
 end
 
-ui.layer.iswidget = true
+ui.layer.islayer = true
 ui.layer.x = 0
 ui.layer.y = 0
 ui.layer.w = 0
@@ -1674,7 +1670,7 @@ function ui.layer:_start_drag(button, mx, my, area)
 	if widget then
 		self:settags'drag_source'
 		for i,elem in ipairs(self.ui.elements) do
-			if elem.iswidget then
+			if elem.islayer then
 				if self.ui:_accept_drop(widget, elem) then
 					elem:_set_drop_target(true)
 				end
