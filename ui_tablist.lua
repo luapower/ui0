@@ -48,17 +48,18 @@ function ui.tab:after_set_active(active)
 		end
 		self:settags'front_tab'
 		self:to_front()
-		self:focus()
 	end
 end
 
 function ui.tab:keypress(key)
 	if key == 'enter' or key == 'space' then
 		self:activate()
+		self:focus()
 	elseif key == 'left' or key == 'right' then
 		local next_tab = self.parent:next_tab(self, key == 'right')
 		if next_tab then
 			next_tab:activate()
+			next_tab:focus()
 		end
 	end
 end
@@ -137,7 +138,12 @@ function ui.tablist:_window_keypress(key)
 	if not self.main_tablist then return end
 	if #self.tabs == 0 then return end
 	if key == 'tab' and self.ui:key'ctrl' then
-		self:next_tab(nil, not self.ui:key'shift', true):activate()
+		local next_tab = self:next_tab(nil, not self.ui:key'shift', true)
+		next_tab:activate()
+		local widget = self.focused_widget
+		if widget and widget.istab and self:index(widget) then
+			next_tab:focus()
+		end
 	end
 end
 
@@ -202,6 +208,7 @@ function ui.tablist:before_add_layer(tab)
 	tab.w = self.tab_w
 	tab:on('mousedown.tablist', function(tab)
 		tab.active = true
+		tab:focus()
 	end)
 	tab:on('mouseup.tablist', function(tab)
 		tab.active = false

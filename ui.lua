@@ -1734,6 +1734,24 @@ function ui.layer:focus()
 	end
 end
 
+function ui.layer:get_hasfocus()
+	return self.window and self.window.focused_widget == self
+end
+
+function ui.layer:get_focused_widget()
+	if self.hasfocus then
+		return self
+	end
+	if self.layers then
+		for _,layer in ipairs(self.layers) do
+			local focused_widget = layer.focused_widget
+			if focused_widget then
+				return focused_widget
+			end
+		end
+	end
+end
+
 function ui.layer:focusable_widgets()
 	local t = {}
 	if self.layers then
