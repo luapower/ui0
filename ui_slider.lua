@@ -24,6 +24,9 @@ ui.slider.border.content_clip = true
 ui.slider.fill = ui.layer:subclass'slider_fill'
 ui.slider.fill.h = 10
 ui.slider.fill.background_color = '#fff'
+ui.slider.fill.transition_w = true
+ui.slider.fill.transition_duration_w = .2
+ui.slider.fill.transition_ease_w = 'expo out'
 
 ui.slider.pin = ui.layer:subclass'slider_pin'
 ui.slider.pin.w = 16
@@ -33,12 +36,28 @@ ui.slider.pin.border_width = 1
 ui.slider.pin.border_color = '#fff'
 ui.slider.pin.background_color = '#000'
 
-ui.slider.step_label = ui.layer
+ui:style('slider_pin', {
+	transition_x = true,
+	transition_duration_x = .2,
+})
+
+ui:style('slider_pin dragging', {
+	transition_x = false,
+})
 
 function ui.slider.pin:drag(dx, dy)
 	local cx = self.x + dx + self.corner_radius_top_left
 	self.parent.position = self.parent:position_at_cx(cx)
 end
+
+ui.slider.step_label = ui.layer:subclass'slider_step_label'
+
+ui.slider.tooltip = ui.layer:subclass'slider_tooltip'
+ui.slider.tooltip.y = -16
+ui.slider.tooltip.format = '%g'
+ui.slider.tooltip.border_width = 0
+ui.slider.tooltip.border_color = '#fff'
+ui.slider.tooltip.border_offset = 1
 
 ui.slider.h = 20
 ui.slider._position = 0
@@ -118,19 +137,23 @@ function ui.slider:set_position(pos)
 	local dt = self.pin.dragging and self.window.mouse_left and 0 or .5
 	local sx = self:pin_cx(pos)
 	local pw = select(4, self.pin:border_rect(1))
-	self.pin:transition('x', sx - pw / 2, dt, 'expo out')
-	self.fill:transition('w', sx + br, dt, 'expo out')
+	self.pin:transition('x', sx - pw / 2)
+	self.fill:transition('w', sx + br)
+	self.tooltip:transition('text',
+		string.format(self.tooltip.format, self._position))
 end
 
 function ui.slider:mousedown(mx)
 	self.active = true
 	self.position = self:position_at_cx(mx)
 	self:focus()
+	self.tooltip.visible = true
 end
 
 function ui.slider:mouseup()
 	self.active = false
 	self.position = self.position
+	self.tooltip.visible = false
 end
 
 function ui.slider:start_drag()
@@ -187,6 +210,12 @@ function ui.slider:after_init()
 			})
 		end
 	end
+	self.tooltip = self.tooltip(self.ui, {
+		id = self:_subtag'tooltip',
+		x = self.pin.w / 2,
+		parent = self.pin,
+		visible = false,
+	})
 	self.position = self.position
 end
 
@@ -230,6 +259,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	})
 
 	ui:style('slider_pin hot', {
+		border_color = '#000',
 		border_offset = 1,
 		transition_border_offset = true,
 		transition_duration = .5,

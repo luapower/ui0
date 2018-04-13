@@ -18,6 +18,11 @@ ui.tab.close_button = ui.button
 ui.tab.focusable = true
 ui.tab.drag_threshold = 0
 
+ui:style('tab', {
+	transition_x = true,
+	transition_duration_x = 0.5,
+})
+
 function ui.tab:get_index()
 	return self.parent and self.parent:index(self) or self._index
 end
@@ -187,7 +192,7 @@ end
 function ui.tablist:_update_tabs_pos()
 	for i,tab in ipairs(self.tabs) do
 		if not tab.active then
-			tab:transition('x', self:pos_by_index(i), 0.5, 'expo out')
+			tab:transition('x', self:pos_by_index(i))
 		end
 	end
 end
@@ -196,7 +201,7 @@ function ui.tablist:clamp_tab_pos(x)
 	return clamp(x, self.tabs_padding_left, self.w - self.tab_w)
 end
 
-function ui.tablist:before_add_layer(tab)
+function ui.tablist:after_add_layer(tab)
 	if not tab.istab then return end
 	if self.front_tab then
 		self.front_tab:settags'-front_tab'
@@ -217,7 +222,7 @@ function ui.tablist:before_add_layer(tab)
 	function tab.drag(tab, dx, dy)
 		tab.active = true
 		tab.index = self:index_by_pos(tab.x + dx)
-		tab:transition('x', self:clamp_tab_pos(tab.x + dx))
+		tab:transition('x', self:clamp_tab_pos(tab.x + dx), 0)
 	end
 	function tab:start_drag()
 		return self
@@ -269,7 +274,6 @@ if not ... then require('ui_demo')(function(ui, win)
 		background_color = '#dd8',
 		transition_background_color = true,
 		transition_duration = 1.5,
-		transition_ease = 'expo out',
 	})
 
 	ui:style('tab focused', {
