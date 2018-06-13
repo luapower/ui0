@@ -624,55 +624,56 @@ end
 
 --elements -------------------------------------------------------------------
 
-ui.element = ui.object:subclass'element'
+local element = ui.object:subclass'element'
+ui.element = element
 ui.element.ui = ui
 
-ui.element.visible = true
-ui.element.activable = false --can be clicked and set as hot
-ui.element.targetable = false --can be a potential drop target
-ui.element.vscrollable = false --can be hit for vscroll
-ui.element.hscrollable = false --can be hit for hscroll
-ui.element.scrollable = false --can be hit for vscroll or hscroll
-ui.element.focusable = false --can be focused
+element.visible = true
+element.activable = false --can be clicked and set as hot
+element.targetable = false --can be a potential drop target
+element.vscrollable = false --can be hit for vscroll
+element.hscrollable = false --can be hit for hscroll
+element.scrollable = false --can be hit for vscroll or hscroll
+element.focusable = false --can be focused
 
-ui.element.font_family = 'Open Sans'
-ui.element.font_weight = 'normal'
-ui.element.font_slant = 'normal'
-ui.element.text_size = 14
-ui.element.text_color = '#fff'
-ui.element.line_spacing = 1
+element.font_family = 'Open Sans'
+element.font_weight = 'normal'
+element.font_slant = 'normal'
+element.text_size = 14
+element.text_color = '#fff'
+element.line_spacing = 1
 
-ui.element.transition_duration = 0
-ui.element.transition_ease = default_ease
-ui.element.transition_delay = 0
-ui.element.transition_speed = 1
-ui.element.transition_blend = 'replace_nodelay'
+element.transition_duration = 0
+element.transition_ease = default_ease
+element.transition_delay = 0
+element.transition_speed = 1
+element.transition_blend = 'replace_nodelay'
 
 --tags & styles
 
-function ui.element:init_ignore(t)
+function element:init_ignore(t)
 	if self._init_ignore == self.super._init_ignore then
 		self._init_ignore = update({}, self.super._init_ignore)
 	end
 	update(self._init_ignore, t)
 end
 
-function ui.element:init_priority(t)
+function element:init_priority(t)
 	if self._init_priority == self.super._init_priority then
 		self._init_priority = update({}, self.super._init_priority)
 	end
 	update(self._init_priority, t)
 end
 
-ui.element:init_priority{}
-ui.element:init_ignore{tags=1}
+element:init_priority{}
+element:init_ignore{tags=1}
 
 --override element constructor to take in additional initialization tables
-function ui.element:override_create(inherited, ui, t, ...)
+function element:override_create(inherited, ui, t, ...)
 	return inherited(self, ui, t and update({}, t, ...))
 end
 
-function ui.element:expand_attr(attr, val)
+function element:expand_attr(attr, val)
 	return self.ui:expand_attr(attr, val, self)
 end
 
@@ -682,7 +683,7 @@ local function add_tags(tags, s)
 		tags[tag] = true
 	end
 end
-function ui.element:after_init(ui, t)
+function element:after_init(ui, t)
 	self.ui = ui()
 	self.ui:_add_element(self)
 
@@ -730,16 +731,16 @@ function ui.element:after_init(ui, t)
 	self:update_styles()
 end
 
-function ui.element:free()
+function element:free()
 	self.ui:_remove_element(self)
 	self.ui = false
 end
 
-function ui.element:get_id()
+function element:get_id()
 	return self._id
 end
 
-function ui.element:set_id(id)
+function element:set_id(id)
 	if self._id == id then return end
 	if self._id then
 		self.tags[self._id] = nil
@@ -749,7 +750,7 @@ function ui.element:set_id(id)
 	self._styles_valid = false
 end
 
-function ui.element:settag(tag, op)
+function element:settag(tag, op)
 	local had_tag = self.tags[tag]
 	if op == '~' then
 		self.tags[tag] = not had_tag
@@ -766,7 +767,7 @@ function ui.element:settag(tag, op)
 	end
 end
 
-function ui.element:settags(s)
+function element:settags(s)
 	if type(s) == 'string' then
 		for op, tag in s:gmatch'([-+~]?)([^%s]+)' do
 			if op == '+' or op == '' then
@@ -783,12 +784,12 @@ function ui.element:settags(s)
 	end
 end
 
-function ui.element:update_styles()
+function element:update_styles()
 	self.ui.stylesheet:update_element(self)
 	self._styles_valid = true
 end
 
-function ui.element:_save_initial_value(attr)
+function element:_save_initial_value(attr)
 	local init = self._initial_values
 	if not init then
 		init = {}
@@ -799,7 +800,7 @@ function ui.element:_save_initial_value(attr)
 	end
 end
 
-function ui.element:initial_value(attr)
+function element:initial_value(attr)
 	local t = self._initial_values
 	if t then
 		local ival = t[attr]
@@ -810,7 +811,7 @@ function ui.element:initial_value(attr)
 	return self[attr]
 end
 
-function ui.element:parent_value(attr)
+function element:parent_value(attr)
 	local val = self[attr]
 	if val == nil and self.parent then
 		return self:parent_value(self.parent, attr)
@@ -843,7 +844,7 @@ function ui.blend.wait_nodelay(ui, tran, elem, attr, val, duration, ease, delay,
 	return tran
 end
 
-function ui.element:end_value(attr)
+function element:end_value(attr)
 	local tran = self.transitions and self.transitions[attr]
 	if tran then
 		return tran:end_value()
@@ -852,7 +853,7 @@ function ui.element:end_value(attr)
 	end
 end
 
-function ui.element:transition(attr, val, duration, ease, delay, blend)
+function element:transition(attr, val, duration, ease, delay, blend)
 
 	if type(val) == 'function' then --computed value
 		val = val(self, attr)
@@ -910,7 +911,7 @@ function ui.element:transition(attr, val, duration, ease, delay, blend)
 	end
 end
 
-function ui.element:draw()
+function element:draw()
 	if not self._styles_valid then
 		self:update_styles()
 	end
@@ -930,7 +931,7 @@ end
 
 --windows --------------------------------------------------------------------
 
-local window = ui.element:subclass'window'
+local window = element:subclass'window'
 ui.window = window
 
 function ui:after_init()
@@ -1938,7 +1939,7 @@ end
 
 --layers ---------------------------------------------------------------------
 
-local layer = ui.element:subclass'layer'
+local layer = element:subclass'layer'
 ui.layer = layer
 
 layer.activable = true
