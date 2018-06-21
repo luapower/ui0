@@ -62,6 +62,8 @@ ui:style('button focused', {
 	shadow_color = '#666',
 })
 
+button:init_priority{text=1, key=2}
+
 function button:press()
 	self:fire'pressed'
 	if self.default then
@@ -69,6 +71,37 @@ function button:press()
 	elseif self.cancel then
 		self.window:close'cancel'
 	end
+end
+
+function button:get_text()
+	return self._text
+end
+
+function button:set_text(s)
+	if s == '' or not s then s = false end
+	if self._text == s then return end
+	if not s then
+		self._text = false
+		self.underline_pos = false
+		self.underline_text = false
+	else
+		local pos, key = s:match'()&(.)'
+		self._text = s:gsub('&([^&])', '%1')
+		if key then
+			self.key = key:upper()
+			self.underline_pos = pos
+			self.underline_text = key
+		end
+	end
+end
+
+function button:get_key()
+	return self._key
+end
+
+function button:set_key(key)
+	self._key = key
+	self.underline_pos = false
 end
 
 function button:mousedown()
@@ -132,24 +165,25 @@ function button:set_cancel(cancel)
 	self:settag('cancel', cancel)
 end
 
+function button:allow_key(key)
+	local win = self.window
+	return not win or not win.focused_widget
+		or not win.focused_widget:uses_key(key)
+end
+
 function button:after_set_window(win)
 	if not win then return end
 	local action
 	win:on({'keydown', self}, function(win, key)
-		if self.default and key == 'enter' then
-			if not win.focused_widget
-				or not win.focused_widget:uses_key'enter'
-			then
-				action = true
-				self:keydown'enter'
-			end
-		elseif self.cancel and key == 'esc' then
-			if not win.focused_widget
-				or not win.focused_widget:uses_key'esc'
-			then
-				action = true
-				self:keydown'enter'
-			end
+		if key == self.key and self:allow_key(key) then
+			action = true
+			self:keydown'enter'
+		elseif self.default and key == 'enter' and self:allow_key'enter' then
+			action = true
+			self:keydown'enter'
+		elseif self.cancel and key == 'esc' and self:allow_key'esc' then
+			action = true
+			self:keydown'enter'
 		end
 	end)
 	win:on({'keyup', self}, function(win, key)
@@ -158,6 +192,25 @@ function button:after_set_window(win)
 			self:keyup'enter'
 		end
 	end)
+end
+
+--drawing
+
+--TODO: use the future hi-level text API to draw the underline
+function button:before_draw_text(cr)
+	if not self:text_visible() then return end
+	if not self.underline_pos then return end
+	--measure
+	local x, y, w, h = self:text_bounding_box() --sets font
+	local line_w = self.window:text_size(self.underline_text, self.text_multiline)
+	local s = self.text:sub(1, self.underline_pos - 1)
+	local line_pos = self.window:text_size(s, self.text_multiline)
+	--draw
+	cr:rgba(self.ui:color(self.text_color))
+	cr:line_width(1)
+	cr:move_to(x + line_pos + 1, math.floor(y + h + 2) + .5)
+	cr:rel_line_to(line_w - 2, 0)
+	cr:stroke()
 end
 
 --checkbox -------------------------------------------------------------------
@@ -343,8 +396,9 @@ if not ... then require('ui_demo')(function(ui, win)
 	local b1 = ui:button{
 		parent = win,
 		x = 100, y = 100, w = 100,
-		text = 'OK',
+		text = '&OK',
 		default = true,
+		text_align = 'center',
 	}
 
 	local btn = button:subclass'btn'
@@ -359,7 +413,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local b3 = btn(ui, {
 		parent = win,
 		x = 100, y = 200, w = 100,
-		text = 'Cancel',
+		text = '&Cancel',
 		cancel = true,
 	})
 
