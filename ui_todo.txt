@@ -1,3 +1,53 @@
+UI ---------------------------------------------------------------------------
+
+- fix tab navigation
+- fix module autoloading vs css decl. order conflict
+-
+
+
+EDITBOX ----------------------------------------------------------------------
+
+- fix hscroll
+- maxchars
+- key filter
+- password_char & eye_icon
+- text_align: left, right, center
+- mask:
+	- select/navigate text with the mask or without
+	- 0	digit required
+	- 9	digit or space, optional
+	- #	digit or space or +/-
+	- L	a-zA-Z
+	-
+
+- fix editbox->editor/view/cursor/selection property proxying
+
+
+LATER/HARD
+- autowrap
+
+
+DROPDOWN ---------------------------------------------------------------------
+
+- static-text-dropdown
+- editbox-dropdown
+- calendar + maskedit dropdown
+-
+
+LITTLE WIDGETS ---------------------------------------------------------------
+
+- checkbox
+- radio-button
+- menu bar
+- menu
+- popup menu
+- tooltip
+- progress-bar
+- calendar
+- color-picker
+- linear-calendar
+
+GRID -------------------------------------------------------------------------
 
 --ctrl+page-up/page-down navigation based on fixed pages
 
