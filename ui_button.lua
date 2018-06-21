@@ -62,6 +62,15 @@ ui:style('button focused', {
 	shadow_color = '#666',
 })
 
+function button:press()
+	self:fire'pressed'
+	if self.default then
+		self.window:close'default'
+	elseif self.cancel then
+		self.window:close'cancel'
+	end
+end
+
 function button:mousedown()
 	if self.active_by_key then return end
 	self.active = true
@@ -77,7 +86,7 @@ function button:mouseup()
 	if self.active_by_key then return end
 	self.active = false
 	if self.tags.over then
-		self:fire'pressed'
+		self:press()
 	end
 end
 
@@ -96,12 +105,7 @@ function button:keyup(key)
 		self.active_by_key = false
 		self:settag('over', false)
 		if key == 'enter' or key == 'space' then
-			self:fire'pressed'
-			if self.default then
-				self.window:close'default'
-			elseif self.cancel then
-				self.window:close'cancel'
-			end
+			self:press()
 		end
 	end
 end
