@@ -14,6 +14,8 @@ button.h = 26
 button.background_color = '#444'
 button.border_color = '#888'
 button.border_width = 1
+button.padding_left = 8
+button.padding_right = 8
 button._default = false
 button._cancel = false
 
@@ -245,6 +247,7 @@ cbutton.font_family = 'media/fonts/Font Awesome 5 Free-Solid-900.otf'
 cbutton.text_checked = '\xEF\x80\x8C'
 cbutton.text_size = 10
 cbutton.padding_left = 2
+cbutton.padding_right = 0
 
 ui:style('checkbox_button hot', {
 	text_color = '#fff',
@@ -408,6 +411,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		x = 100, y = 150, w = 100,
 		text = 'Disabled',
 		enabled = false,
+		text_align = 'right',
 	})
 
 	local b3 = btn(ui, {
@@ -415,6 +419,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		x = 100, y = 200, w = 100,
 		text = '&Cancel',
 		cancel = true,
+		text_align = 'left',
 	})
 
 	function b1:gotfocus() print'b1 got focus' end
