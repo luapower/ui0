@@ -80,8 +80,9 @@ hue_bar.pointer_bar_class = pbar
 
 pbar.activable = false
 
-pbar.h = 12
+pbar.h = 8
 pbar.opacity = .7
+pbar.border_offset = 1
 pbar.border_width = 2
 pbar.border_color = '#fff'
 pbar.corner_radius = 3
@@ -109,8 +110,7 @@ function hue_bar:draw_pointer_bar(cr, y)
 	end
 	local pb = self.pointer_bar
 	pb.y = glue.round(y - pb.h / 2)
-	pb.w = self.w + pb.border_width_left + pb.border_width_right
-	pb.x = -pb.border_width_left
+	pb.w = self.w
 end
 
 function hue_bar:background_visible()
