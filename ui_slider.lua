@@ -425,7 +425,7 @@ function slider:mousewheel(pages)
 	--move the pin to the final position animated as if clicked
 	self.pin.animate = true
 	local progress_delta =
-		  -pages
+		  -pages / 3
 		* (self.ui:key'shift' and 0.01 or 1)
 		* (self.ui:key'ctrl' and 0.1 or 1)
 		* self.key_nav_speed
