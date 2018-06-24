@@ -151,7 +151,7 @@ function hue_bar:keypress(key)
 		or key == 'home' or key == 'end'
 	then
 		local delta =
-			(key:find'down' and 1 or -1)
+			  (key:find'down' and 1 or -1)
 			* (self.ui:key'shift' and .01 or 1)
 			* (self.ui:key'ctrl' and .1 or 1)
 			* (key:find'page' and 5 or 1)
