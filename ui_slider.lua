@@ -31,7 +31,7 @@ slider.h = 20
 
 slider._min_position = 0
 slider._max_position = false --overrides size
-slider._position = 0
+slider.position = 0
 slider._progress = false --overrides position
 slider.step_start = 0
 slider.step = false --no stepping
@@ -409,8 +409,12 @@ function slider:keypress(key)
 			((key == 'up' or key == 'down') and 0.1 or 1) *
 			(key:find'page' and 5 or 1) *
 			self.key_nav_speed --constant speed
-		self.position = self:nearest_position(
-			self.position + delta * self.size * dir, dir)
+		local apos = self.position + delta * self.size * dir
+		local pos = self:nearest_position(apos)
+		if pos == self.position then --nearest-to-target pos is the current pos
+			pos = self:nearest_position(apos, dir)
+		end
+		self.position = pos
 	elseif key == 'home' then
 		self.progress = 0
 	elseif key == 'end' then
@@ -452,8 +456,8 @@ function slider:nearest_position(ref_pos, rounding)
 	end
 	if self.step then
 		ref_pos = clamp(ref_pos, self:position_range())
-		local sp1 = self:snap_position(ref_pos - self.step)
-		local sp2 = self:snap_position(ref_pos + self.step)
+		local sp1 = self:snap_position(ref_pos - 2 * self.step)
+		local sp2 = self:snap_position(ref_pos + 2 * self.step)
 		for pos = sp1, sp2, self.step do
 			if choose(pos, best_pos, ref_pos) then
 				best_pos = pos
@@ -569,7 +573,8 @@ if not ... then require('ui_demo')(function(ui, win)
 
 	ui:slider{
 		x = 100, y = 300, w = 200, parent = win,
-		progress = .3, size = 10,
+		progress = .3,
+		size = 1,
 	}
 
 end) end
