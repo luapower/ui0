@@ -1016,7 +1016,6 @@ local native_fields = {
 	frame=1, title=1, transparent=1, corner_radius=1,
 	sticky=1, topmost=1, minimizable=1, maximizable=1, closeable=1,
 	resizeable=1, fullscreenable=1, activable=1, autoquit=1, edgesnapping=1,
-	tooltip=1,
 }
 
 window:init_ignore{native_window=1, parent=1}
@@ -1419,7 +1418,7 @@ end
 local props = {
 	--r/w properties
 	autoquit=1, visible=1, fullscreen=1, enabled=1, edgesnapping=1,
-	topmost=1, title=1, tooltip=1,
+	topmost=1, title=1,
 	--r/o properties
 	dead=0,
 	closeable=0, activable=0, minimizable=0, maximizable=0, resizeable=0,
@@ -1536,6 +1535,10 @@ function window:set_max_ch(ch)
 	else
 		self._max_ch = ch
 	end
+end
+
+function window:_settooltip(text)
+	return self.native_window:tooltip(text)
 end
 
 --element query interface
@@ -2446,12 +2449,12 @@ function layer:_mouseenter(mx, my, area)
 		self:settag('hot_'..area, true)
 	end
 	self:fire('mouseenter', mx, my, area)
-	self.window.tooltip = self.tooltip
+	self.window:_settooltip(self.tooltip)
 	self:invalidate()
 end
 
 function layer:_mouseleave()
-	self.window.tooltip = false
+	self.window:_settooltip(false)
 	self:fire'mouseleave'
 	local area = self.ui.hot_area
 	self:settag('hot', false)
@@ -2648,7 +2651,7 @@ end
 function layer:set_tooltip(text)
 	self._tooltip = text
 	if self.window and self.hot then --change tooltip text on the fly
-		self.window.tooltip = text
+		self.window:_settooltip(text)
 	end
 end
 

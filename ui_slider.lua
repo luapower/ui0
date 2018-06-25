@@ -344,10 +344,16 @@ function pin:start_drag()
 end
 
 function pin:drag(dx)
+	local cx1, cx2 = self:cx_range()
+	local cxsize = cx2 - cx1
 	local cx = self.x + dx + self.w / 2
-	local cx = clamp(cx, self:cx_range())
+	if self.ui:key'ctrl' then
+		cx = snap(cx - cx1, .1 * cxsize) + cx1
+	elseif self.ui:key'shift' then
+		cx = snap(cx - cx1, .01 * cxsize) + cx1
+	end
+	local cx = clamp(cx, cx1, cx2)
 	self.slider.position = self:position_at_cx(cx)
-
 	if self.slider.phantom_dragging or self.slider.smooth_dragging then
 		self:move(cx) --grab the drag-pin instantly, cancelling any animation
 		if self.slider.phantom_dragging and self.slider.smooth_dragging then
