@@ -152,11 +152,6 @@ function editbox:tripleclick(mx, my)
 	self.editor:tripleclick(mx, my)
 end
 
-function ui.scrollbar:hit_test_near(mx, my)
-	return box2d.hit(mx, my,
-		box2d.offset(self.autohide_offset, self:content_rect()))
-end
-
 function editbox:mousewheel(delta, mx, my, area, pdelta)
 	self:_sync()
 	self.vscrollbar:scroll(-delta * self.editor.view.line_h)
