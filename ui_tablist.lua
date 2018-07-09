@@ -250,7 +250,7 @@ end
 
 --drawing
 
-tab.clip_content = true
+tab.clip_content = 'background' --TODO: find a way to set this as 'padding'
 tab.border_width = 1
 tab.border_color = '#222'
 tab.background_color = '#111'
@@ -337,8 +337,6 @@ tab.title_padding_left = 2
 
 function tab:before_draw_content(cr)
 	if self.title then
-		cr:save()
-		cr:reset_clip()
 		local wl, wr = self:slant_widths()
 		self:setfont()
 		cr:operator'over'
@@ -347,7 +345,6 @@ function tab:before_draw_content(cr)
 			-self.tab_h - self.padding_top,
 				self.tab_w, self.tab_h,
 			self.title, 'left', 'center', false)
-		cr:restore()
 	end
 end
 
