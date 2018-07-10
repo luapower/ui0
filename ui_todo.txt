@@ -60,7 +60,6 @@ TABLIST ----------------------------------------------------------------------
 
 BUTTON -----------------------------------------------------------------------
 
-- bug: non-focusable + cancel
 - profiles: text, outlined, contained, toggle
 - icon, icon_align left/right
 
