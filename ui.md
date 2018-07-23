@@ -10,7 +10,7 @@ Extensible UI toolkit written in Lua with layouts, styles and animations.
 
 ## Features:
 
-  * OMG widgets! including a grid and a code editor (seeee the demos!).
+  * OMG widgets! including a grid and a code editor (see demos!).
   * easily extensible and composable with [oo] and a base layer object.
   * cascading styles with `> parent` and `:state` selectors.
   * transition-based animations.
