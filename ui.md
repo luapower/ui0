@@ -8,10 +8,20 @@ tagline: extensible UI toolkit
 
 Extensible UI toolkit written in Lua with layouts, styles and animations.
 
-## Features:
+## Features
 
-  * OMG widgets! including a grid and a code editor (see demos!).
-  * easily extensible and composable with [oo] and a base layer object.
+  * OMG widgets!
+    * an editable grid that can scroll on millions of rows at 60 fps?
+	 * a tab list with animated, moveable, draggable, dockable tabs?
+	 * a code editor in Lua?
+	 * see demos!
   * cascading styles with `> parent` and `:state` selectors.
   * transition-based animations.
   * constraint-based, container-based and flow-based layout systems.
+  * affine transforms.
+
+## Programming Features
+
+  * [object system][oo] with virtual properties and method overriding hooks.
+  * a kitchen-sink base layer class for making widgets out of.
+  * a drag & drop system which almost works by itself.
