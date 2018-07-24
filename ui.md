@@ -22,4 +22,4 @@ Extensible UI toolkit written in Lua with layouts, styles and animations.
 
   * [object system][oo] with virtual properties and method overriding hooks.
   * a kitchen-sink base layer class for making widgets out of.
-  * a drag & drop system which almost works by itself.
+  * simple drag & drop API.
