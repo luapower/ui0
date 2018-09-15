@@ -1981,10 +1981,12 @@ function ui:add_mem_font(...) return self.tr:add_mem_font(...) end
 
 function ui:after_init()
 	self.tr = tr()
+
 	--use our own overridable rgba parser.
 	function self.tr.rs.rgba(c)
 		return self:rgba(c)
 	end
+
 	--add a font searcher for the google fonts repository.
 	--$ git clone https://github.com/google/fonts media/fonts/gfonts
 	local function find_font(font_db, name, weight, slant)
@@ -1994,6 +1996,8 @@ function ui:after_init()
 		return font, real_weight
 	end
 	push(self.tr.rs.font_db.searchers, find_font)
+
+	--add default fonts.
 	--$ mgit clone fonts-awesome
 	self:add_font_file('media/fonts/fa-regular-400.ttf', 'Font Awesome')
 	self:add_font_file('media/fonts/fa-solid-900.ttf', 'Font Awesome Bold')
