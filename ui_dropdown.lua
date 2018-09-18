@@ -71,12 +71,18 @@ function dropdown:value_picked(val, text, commit)
 end
 
 function dropdown:commit()
-	if not self.pending then return end
+	if not self.pending then
+		self:close()
+		return
+	end
 	self:value_picked(self.pending_value, self.editbox.text, true)
 end
 
 function dropdown:cancel()
-	if not self.pending then return end
+	if not self.pending then
+		self:close()
+		return
+	end
 	self.value = self.value
 end
 

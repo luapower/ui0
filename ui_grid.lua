@@ -1455,9 +1455,12 @@ function grid:after_sync()
 	self.w, self.h = w, h
 
 	--sync columns size
-	local vci = self.pick_col_index
-	local tci = self.pick_text_col_index or vci
-	self.cols[tci].w = self.cw
+	if #self.cols == 1 then
+		local vci = self.pick_col_index
+		local tci = self.pick_text_col_index or vci
+		assert(vci == tci)
+		self.cols[tci].w = self.cw
+	end
 end
 
 --picking values
