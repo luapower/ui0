@@ -107,11 +107,11 @@ __attribute transitions__
 `elem.transition_delay = 0`
 `elem.transition_repeat = 1`
 `elem.transition_speed = 1`
-`elem.transition_blend = `
-  `'replace_nodelay'`
-`elem:transition(attr, val, dt, `
-  `ease, duration, ease, delay,`
-  `times, backval, blend)`
+|`elem.transition_blend = `
+|   `'replace_nodelay'`
+|`elem:transition(attr, val, dt, `
+|   `ease, duration, ease, delay,`
+|   `times, backval, blend)`
 `elem:transitioning(attr) -> t|f`
 -------------------------------------- ---------------------------------------
 
