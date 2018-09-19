@@ -27,7 +27,22 @@ Extensible UI toolkit written in Lua with layouts, styles and animations.
 ## Example
 
 ~~~
+local ui = require'ui'
 
+local win = ui:window{
+	cw = 500, ch = 300,
+	title = 'luapower!',
+}
+
+local b = ui:button{
+	x = win.cw - ui.button.w - 20,
+	y = win.ch - ui.button.h - 20,
+	parent = win,
+	text = 'Close',
+	cancel = true,
+}
+
+ui:run()
 ~~~
 
 ## User API
@@ -35,51 +50,29 @@ Extensible UI toolkit written in Lua with layouts, styles and animations.
 ### UI Object
 
 -------------------------------------- ---------------------------------------
-`ui:free()`                            free the ui object and resources
-__message loop__
-`ui:clock() -> time`
-`ui:run(func)`
-`ui:poll(timeout)`
-`ui:stop()`
-`ui:quit()`
-`ui:get_autoquit()`
-`ui:set_autoquit(aq)`
-`ui:get_maxfps()`
-`ui:set_maxfps(fps)`
-`ui:runevery(t, f)`
-`ui:runafter(t, f)`
-`ui:sleep(s)`
-__app activation__
-`ui:get_app_active()`
-`ui:activate_app()`
-`ui:get_app_visible()`
-`ui:set_app_visible(v)`
-`ui:hide_app()`
-`ui:unhide_app()`
-__keyboard state__
-`ui:key(query)`
-`ui:get_caret_blink_time()`
-__displays__
-`ui:get_displays()`
-`ui:get_main_display()`
-`ui:get_active_display()`
-__clipboard__
-`ui:getclipboard(type)`
-`ui:setclipboard(s, type)`
-__open/save dialogs__
-`ui:opendialog(t)`
-`ui:savedialog(t)`
-__single-app instance__
-`ui:set_app_id(id)`
-`ui:get_app_id(id)`
-`ui:app_already_running()`
-`ui:wakeup_other_app_instances()`
-`ui:check_single_app_instance()`
-__color parsing__
-`ui:rgba(s) -> r, g, b, a`
-__font handling__
-`ui:add_font_file(...)`
-`ui:add_mem_font(...)`
+__native properties__
+
+`autoquit, maxfps, app_active,` \      these map directly to `nw:app()` \
+`app_visible, caret_blink_time,` \     features, see [nw].
+`displays, main_display,` \
+`active_display, app_id`
+
+__native methods__
+
+`run, poll, stop, quit, runevery,` \   these map directly to `nw:app()` \
+`runafter, sleep, activate_app,` \     features, see [nw].
+`hide_app, unhide_app, key,` \
+`getclipboard, setclipboard,` \
+`opendialog, savedialog,` \
+`app_already_running,` \
+`wakeup_other_app_instances,` \
+`check_single_app_instance,` \
+
+__font registration__
+
+`ui:add_font_file(...)`                see [tr:add_font_file(...)][tr]
+
+`ui:add_mem_font(...)`                 see [tr:add_mem_font(...)][tr]
 -------------------------------------- ---------------------------------------
 
 ### Elements
