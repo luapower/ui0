@@ -1,7 +1,7 @@
 
 ## `local ui = require'ui'`
 
-Extensible UI toolkit written in Lua with layouts, styles and animations.
+Extensible UI toolkit written in Lua featuring layouts, styles and animations.
 
 ## Status
 
