@@ -85,33 +85,58 @@ __font handling__
 ### Elements
 
 -------------------------------------- ---------------------------------------
+
 __selectors__
+
 TODO
+
 __stylesheets__
+
 TODO
+
 __attribute types__
+
 TODO
+
 __transition animations__
+
 TODO
+
 __interpolators__
+
 TODO
+
 __element lists__
+
 TODO
+
 __tags & styles__
+
 `elem.stylesheet`
+
 `elem:settag(tag, on)`
+
 `elem:settags('+tag1 -tag2 ...')`
+
 __attribute transitions__
+
 `elem.transition_duration = 0`
+
 `elem.transition_ease = 'expo out'`
+
 `elem.transition_delay = 0`
+
 `elem.transition_repeat = 1`
+
 `elem.transition_speed = 1`
-`elem.transition_blend =
-   'replace_nodelay'`
+
+`elem.transition_blend =` \
+	`'replace_nodelay'`
+
 `elem:transition(attr, val, dt, ` \
    `ease, duration, ease, delay,` \
    `times, backval, blend)`
+
 `elem:transitioning(attr) -> t|f`
 -------------------------------------- ---------------------------------------
 
@@ -119,39 +144,60 @@ __attribute transitions__
 
 -------------------------------------- ---------------------------------------
 `ui:window{...} -> win`
+
 `win:free()`
+
 __parent/child relationship__
+
 `win.parent`
+
 `win:to_parent(x, y)`
+
 `win:from_parent(x, y)`
+
 __native methods__
-`frame_rect, client_rect,`
-`client_to_frame, frame_to_client,`
-`closing, close, show, hide,`
-`activate, minimize, maximize,`
-`restore, shownormal, raise, lower,`
+
+`frame_rect, client_rect,` \
+`client_to_frame, frame_to_client,` \
+`closing, close, show, hide,` \
+`activate, minimize, maximize,` \
+`restore, shownormal, raise, lower,` \
 `to_screen, from_screen`
+
 __native properties__
-`x, y, w, h, cx, cy, cw, ch,`
-`min_cw, min_ch, max_cw, max_ch,`
-`autoquit, visible, fullscreen,`
-`enabled, edgesnapping, topmost,`
-`title, dead, closeable, activable,`
-`minimizable, maximizable,`
-`resizeable, fullscreenable, frame,`
-`transparent, corner_radius, sticky,`
-`dead, active, isminimized,`
+
+`x, y, w, h, cx, cy, cw, ch,` \
+`min_cw, min_ch, max_cw, max_ch,` \
+`autoquit, visible, fullscreen,` \
+`enabled, edgesnapping, topmost,` \
+`title, dead, closeable,` \
+`activable, minimizable,`
+`maximizable, resizeable,` \
+`fullscreenable, frame,` \
+`transparent, corner_radius,`
+`sticky, dead, active, isminimized,` \
 `ismaximized, display, cursor`
+
 __element query interface__
+
 `win:find(sel) -> elem_list`
+
 `win:each(sel, f)`
+
 __mouse state__
+
 `win.mouse_x, win.mouse_y`
+
 `win:mouse_pos() -> x, y`
+
 __drawing__
+
 `win:draw(cr)`
+
 `win:invalidate()`
+
 __frameless windows__
+
 `win.move_layer`
 -------------------------------------- ---------------------------------------
 
