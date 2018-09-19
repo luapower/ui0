@@ -201,27 +201,27 @@ TODO
 
 -------------------------------------- ---------------------------------------
 __input__
-`ui:editbox(...)`                      editbox
-`ui:dropdown(...)`                     drop-down
-`ui:slider(...)`                       slider
-`ui:checkbox(...)`                     check box
-`ui:radiobutton(...)`                  radio button
-`ui:choicebutton(...)`                 multi-choice button
-`ui:colorpicker(...)`                  calendar
+`ui:editbox(...)`                      create an editbox
+`ui:dropdown(...)`                     create a drop-down
+`ui:slider(...)`                       create a slider
+`ui:checkbox(...)`                     create a check box
+`ui:radiobutton(...)`                  create a radio button
+`ui:choicebutton(...)`                 create a multi-choice button
+`ui:colorpicker(...)`                  create a calendar
 `ui:calendar(...)`
 __output__
-`ui:image(...)`                        image
-`ui:progressbar(...)`                  progress bar
+`ui:image(...)`                        create an image
+`ui:progressbar(...)`                  create a progress bar
 __input/output__
-`ui:grid(...)`                         editable grid
+`ui:grid(...)`                         create a grid
 __action__
-`ui:button(...)`                       button
-`ui:menu(...)`                         menu
+`ui:button(...)`                       create a button
+`ui:menu(...)`                         create a menu
 __containers__
-`ui:scrollbar(...)`                    scroll bar
-`ui:scrollbox(...)`                    scroll box
-`ui:popup(...)`                        pop-up window
-`ui:tablist(...)`                      tab list
+`ui:scrollbar(...)`                    create a scroll bar
+`ui:scrollbox(...)`                    create a scroll box
+`ui:popup(...)`                        create a pop-up window
+`ui:tablist(...)`                      create a tab list
 -------------------------------------- ---------------------------------------
 
 __TIP:__ Widgets are implemented in separate modules. Run each module
