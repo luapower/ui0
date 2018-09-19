@@ -1,9 +1,12 @@
 
-<warn>Work in Progress</warn>
-
 ## `local ui = require'ui'`
 
 Extensible UI toolkit written in Lua with layouts, styles and animations.
+
+## Status
+
+See [issues](https://github.com/luapower/ui/issues)
+and [milestones](https://github.com/luapower/ui/milestones).
 
 ## Features
 
