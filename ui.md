@@ -156,8 +156,8 @@ __parent/child relationship__
 
 __native methods__
 
-`frame_rect, client_rect,` \
-`client_to_frame, frame_to_client,` \
+`frame_rect, client_rect,` \           these map directly to [nw] features \
+`client_to_frame, frame_to_client,` \  so they are documented there.
 `closing, close, show, hide,` \
 `activate, minimize, maximize,` \
 `restore, shownormal, raise, lower,` \
@@ -165,8 +165,8 @@ __native methods__
 
 __native properties__
 
-`x, y, w, h, cx, cy, cw, ch,` \
-`min_cw, min_ch, max_cw, max_ch,` \
+`x, y, w, h, cx, cy, cw, ch,` \        these map directly to [nw] features \
+`min_cw, min_ch, max_cw, max_ch,` \    so they are documented there.
 `autoquit, visible, fullscreen,` \
 `enabled, edgesnapping, topmost,` \
 `title, dead, closeable,` \
@@ -199,8 +199,6 @@ __frameless windows__
 
 `win.move_layer`
 -------------------------------------- ---------------------------------------
-
-Native properties and methods map directly to [nw] features so they are documented there.
 
 ### Layers
 
