@@ -43,14 +43,14 @@ ui:run()
 __native properties__
 
 `autoquit, maxfps, app_active,` \      these map directly to `nw:app()` \
-`app_visible, caret_blink_time,` \     features, see [nw].
+`app_visible, caret_blink_time,` \     features, so see [nw].
 `displays, main_display,` \
 `active_display, app_id`
 
 __native methods__
 
 `run, poll, stop, quit, runevery,` \   these map directly to `nw:app()` \
-`runafter, sleep, activate_app,` \     features, see [nw].
+`runafter, sleep, activate_app,` \     features, so see [nw].
 `hide_app, unhide_app, key,` \
 `getclipboard, setclipboard,` \
 `opendialog, savedialog,` \
@@ -139,8 +139,8 @@ __parent/child relationship__
 
 __native methods__
 
-`frame_rect, client_rect,` \           these map directly to [nw] features \
-`client_to_frame, frame_to_client,` \  so they are documented there.
+`frame_rect, client_rect,` \           these map directly to `nw:window()` \
+`client_to_frame, frame_to_client,` \  methods, so see [nw].
 `closing, close, show, hide,` \
 `activate, minimize, maximize,` \
 `restore, shownormal, raise, lower,` \
@@ -148,8 +148,8 @@ __native methods__
 
 __native properties__
 
-`x, y, w, h, cx, cy, cw, ch,` \        these map directly to [nw] features \
-`min_cw, min_ch, max_cw, max_ch,` \    so they are documented there.
+`x, y, w, h, cx, cy, cw, ch,` \        these map directly to `nw:window()` \
+`min_cw, min_ch, max_cw, max_ch,` \    methods, so see [nw].
 `autoquit, visible, fullscreen,` \
 `enabled, edgesnapping, topmost,` \
 `title, dead, closeable,` \
