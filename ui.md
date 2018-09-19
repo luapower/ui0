@@ -26,7 +26,7 @@ Extensible UI toolkit written in Lua with layouts, styles and animations.
 
 ## Example
 
-~~~
+~~~{.lua}
 local ui = require'ui'
 
 local win = ui:window{
