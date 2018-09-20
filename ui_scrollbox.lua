@@ -277,34 +277,43 @@ end
 
 --scrollbox ------------------------------------------------------------------
 
-ui.scrollbox = ui.layer:subclass'scrollbox'
-ui.scrollbox.vscrollbar_class = scrollbar
-ui.scrollbox.hscrollbar_class = scrollbar
+local scrollbox = ui.layer:subclass'scrollbox'
+ui.scrollbox = scrollbox
+
+scrollbox.vscrollbar_class = scrollbar
+scrollbox.hscrollbar_class = scrollbar
 
 --default geometry
 
-ui.scrollbox.scrollbar_margin_left = 6
-ui.scrollbox.scrollbar_margin_right = 6
-ui.scrollbox.scrollbar_margin_top = 6
-ui.scrollbox.scrollbar_margin_bottom = 6
+scrollbox.scrollbar_margin_left = 6
+scrollbox.scrollbar_margin_right = 6
+scrollbox.scrollbar_margin_top = 6
+scrollbox.scrollbar_margin_bottom = 6
 
 --default behavior
 
-ui.scrollbox.vscrollable = true
-ui.scrollbox.hscrollable = true
-ui.scrollbox.vscroll = 'always' --true/'always', 'near', 'auto', false/'never'
-ui.scrollbox.hscroll = 'always'
-ui.scrollbox.wheel_scroll_length = 50 --pixels per scroll wheel notch
-ui.scrollbox.autohide = true --single option for both scrollbars
+scrollbox.vscrollable = true
+scrollbox.hscrollable = true
+scrollbox.vscroll = 'always' --true/'always', 'near', 'auto', false/'never'
+scrollbox.hscroll = 'always'
+scrollbox.wheel_scroll_length = 50 --pixels per scroll wheel notch
+scrollbox.autohide = true --single option for both scrollbars
 
-function ui.scrollbox:after_init(ui, t)
+function scrollbox:after_init(ui, t)
 
-	self.content_container = self.ui:layer{
+	self.view = self.ui:layer{
 		parent = self, clip_content = true,
 	}
 
-	self.content.parent = self.content_container
-	self.content.clip_content = true --for faster bounding box computation
+	if not self.content or not self.content.islayer then
+		self.content = self.ui:layer({
+			tags = 'content',
+			parent = self.view,
+			clip_content = true, --for faster bounding box computation
+		}, self.content)
+	elseif self.content then
+		self.content.parent = self.view
+	end
 
 	self.vscrollbar = self.vscrollbar_class(self.ui, {
 		tags = 'vscrollbar',
@@ -339,47 +348,47 @@ end
 
 --mouse interaction: wheel scrolling
 
-function ui.scrollbox:mousewheel(delta)
+function scrollbox:mousewheel(delta)
 	self.vscrollbar:scroll(-delta * self.wheel_scroll_length)
 end
 
 --drawing
 
-function ui.scrollbox:after_sync()
+function scrollbox:after_sync()
 	local vs = self.vscrollbar
 	local hs = self.hscrollbar
 	local cw, ch = self:content_size()
 	local sw = vs.h
 	local sh = hs.h
-	local cc = self.content_container
+	local cv = self.view
 	local ct = self.content
+	ct.parent = cv
 	local hm1 = hs.autohide and self.scrollbar_margin_left or 0
 	local hm2 = hs.autohide and self.scrollbar_margin_right or 0
 	local vm1 = vs.autohide and self.scrollbar_margin_top or 0
 	local vm2 = vs.autohide and self.scrollbar_margin_bottom or 0
 	local ctw, cth = select(3, ct:bounding_box())
-	cc.w = cw - (vs.autohide and 0 or sw)
-	cc.h = ch - (hs.autohide and 0 or sh)
+	cv.w = cw - (vs.autohide and 0 or sw)
+	cv.h = ch - (hs.autohide and 0 or sh)
 	vs.visible = self.vscrollable
-	vs.x = cc.w - (vs.autohide and sw or 0) - vm1
+	vs.x = cv.w - (vs.autohide and sw or 0) - vm1
 	vs.y = vm1
-	vs.w = cc.h - (hs.visible and sw or 0) - vm1 - vm2
-	vs.view_length = cc.h
+	vs.w = cv.h - (hs.visible and sw or 0) - vm1 - vm2
+	vs.view_length = cv.h
 	vs.content_length = cth
 	ct.y = -vs.offset
 	hs.visible = self.hscrollable
-	hs.y = cc.h - (hs.autohide and sw or 0) - hm1
+	hs.y = cv.h - (hs.autohide and sw or 0) - hm1
 	hs.x = hm1
-	hs.w = cc.w - (vs.visible and sw or 0) - hm1 - hm2
-	hs.view_length = cc.w
+	hs.w = cv.w - (vs.visible and sw or 0) - hm1 - hm2
+	hs.view_length = cv.w
 	hs.content_length = ctw
 	ct.x = -hs.offset
 end
 
 --scroll API
 
-function ui.scrollbox:scroll_to_view(x, y, w, h)
-	self:sync()
+function scrollbox:scroll_to_view(x, y, w, h)
 	self.hscrollbar:scroll_to_view(x, w)
 	self.vscrollbar:scroll_to_view(y, h)
 end
@@ -405,7 +414,6 @@ if not ... then require('ui_demo')(function(ui, win)
 		parent = win,
 		x = 0, y = 0, w = 900, h = 500,
 		background_color = '#111',
-		vscrollbar = {view_length = 100, content_length = 1000, offset = 10},
 		content = content,
 		autohide = true,
 	}
