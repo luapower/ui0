@@ -620,7 +620,7 @@ function ui.transition:after_init(ui, elem, attr, to,
 		return to
 	end
 
-	--NOTE: chain_to() replaces the next transaction, it does not chain to it.
+	--NOTE: chain_to() replaces the next transition, it does not chain to it.
 	function self:chain_to(tran)
 		start = tran:end_clock() + delay
 		from = tran:end_value()
@@ -869,27 +869,29 @@ function element:settags(s)
 	end
 end
 
-function element:sync_styles()
+function element:update_styles()
 	if not self._styles_valid then
 		self.stylesheet:update_element(self)
 		self._styles_valid = true
 	end
-	--update transitioning attributes
-	local tr = self.transitions
-	if tr and next(tr) then
-		local clock = self.frame_clock
-		for attr, transition in pairs(tr) do
-			if not transition:update(clock) then
-				tr[attr] = transition.next_transition
-			end
-		end
-		--TODO: when transition is in delay, set a timer, don't invalidate.
-		self:invalidate()
-	end
 end
 
-function element:before_sync()
-	self:sync_styles()
+function element:update_transitions()
+	local tr = self.transitions
+	if not tr or not next(tr) then return end
+	local clock = self.frame_clock
+	for attr, transition in pairs(tr) do
+		if not transition:update(clock) then
+			tr[attr] = transition.next_transition
+		end
+	end
+	--TODO: when transition is in delay, set a timer, don't invalidate.
+	self:invalidate()
+end
+
+function element:sync()
+	self:update_styles()
+	self:update_transitions()
 end
 
 function element:_save_initial_value(attr)
@@ -3329,9 +3331,10 @@ function layer:content_bounding_box(strict)
 end
 
 function layer:draw(cr) --called in parent's content space; child intf.
-	if not self.visible or self.opacity == 0 then return end
-	if self.opacity <= 0 then return end
+	--must always sync because the layer might become visible as an effect
+	--of sync'ing or from tag, style or transition changes.
 	self:sync()
+	if not self.visible or self.opacity <= 0 then return end
 
 	local opacity = self.opacity
 	local compose = opacity < 1
