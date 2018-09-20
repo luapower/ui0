@@ -44,7 +44,7 @@ function pane:cols_w()
 	return w
 end
 
-function pane:after_sync()
+function pane:sync_grid()
 	--sync columns parent and height based on their pane property.
 	local col_h = self.grid.col_h
 	for _,col in ipairs(self.grid.cols) do
@@ -56,9 +56,11 @@ function pane:after_sync()
 	end
 	--sync column positions.
 	self:sync_cols_x()
+end
 
-	self.header_layer:sync()
-	self.rows_layer:sync()
+function pane:sync_header_and_rows()
+	self.header_layer:sync_pane()
+	self.rows_layer:sync_pane()
 end
 
 function pane:col_at_x(x, clamp_left, clamp_right)
@@ -111,9 +113,10 @@ function freeze_pane:max_w()
 	return self.grid.cw - self.grid.splitter.w
 end
 
-function freeze_pane:after_sync()
+function freeze_pane:after_sync_grid()
 	self.h = self.grid.ch
 	self.cw = self:cols_w()
+	self:sync_header_and_rows()
 end
 
 --scroll pane ----------------------------------------------------------------
@@ -138,7 +141,7 @@ function scroll_pane:col_index_range()
 	return self.grid.freeze_col and self.grid.freeze_col + 1 or 1, 1/0
 end
 
-function scroll_pane:after_sync()
+function scroll_pane:after_sync_grid()
 	self.h = self.grid.ch
 	self.content.h = self.h
 	local fp = self.freeze_pane
@@ -151,8 +154,9 @@ function scroll_pane:after_sync()
 		self.content.w = math.max(self.content.w, self:cols_w())
 	else
 		--prevent going smaller than container to prevent clipping while moving
-		self.content.w = math.max(self:cols_w(), self.content_container.cw)
+		self.content.w = math.max(self:cols_w(), self.view.cw)
 	end
+	self:sync_header_and_rows()
 end
 
 --freeze pane splitter -------------------------------------------------------
@@ -185,7 +189,7 @@ function grid:create_splitter()
 	}, self.splitter)
 end
 
-function splitter:sync()
+function splitter:sync_grid()
 	self:transition('x', self.grid.scroll_pane.x - self.w)
 	self.h = self.grid.ch
 end
@@ -308,7 +312,7 @@ function grid:create_header_layer(pane)
 	}, self.header_layer)
 end
 
-function header:after_sync()
+function header:sync_pane()
 	self.visible = self.grid.header_visible
 	self.w = self.pane.content.w
 	self.h = self.grid.col_h
@@ -330,11 +334,12 @@ function grid:create_rows_layer(pane)
 	}, self.rows_layer)
 end
 
-function rows:after_sync()
-	self.y = self.pane.header_layer.visible and self.grid.col_h or 0
+function rows:sync_pane()
+	local header = self.pane.header_layer
+	self.y = header.visible and header.h or 0
 	self.w = self.pane.content.w
-	local ct = self.pane.content_container
-	self.h = (ct and ct.h or self.pane.h) - self.y
+	local cv = self.pane.view
+	self.h = (cv and cv.h or self.pane.h) - self.y
 end
 
 function rows:before_draw_content(cr)
@@ -801,7 +806,7 @@ function grid:cell_value(i, col)
 end
 
 function grid:sync_cell(cell, i, col, val)
-	cell:sync_value(i, col, self:cell_value(i, col))
+	cell:sync_value(i, col, val)
 end
 
 function grid:draw_cell(cr, i, col, hot) --TODO: unused
@@ -1342,7 +1347,7 @@ function grid:create_vscrollbar()
 	}, self.vscrollbar)
 end
 
-function vscrollbar:after_sync()
+function vscrollbar:sync_grid()
 	local m1 = grid.vscrollbar_margin_top
 	local m2 = grid.vscrollbar_margin_bottom
 	local m3 = grid.vscrollbar_margin_right
@@ -1360,10 +1365,10 @@ grid:init_ignore{freeze_col=1}
 
 function grid:after_sync()
 	self:sync_freeze_col()
-	self.freeze_pane:sync()
-	self.scroll_pane:sync()
-	self.splitter:sync()
-	self.vscrollbar:sync()
+	self.freeze_pane:sync_grid()
+	self.scroll_pane:sync_grid()
+	self.splitter:sync_grid()
+	self.vscrollbar:sync_grid()
 end
 
 function grid:after_init(ui, t)
@@ -1375,7 +1380,7 @@ function grid:after_init(ui, t)
 	self.cols = {}
 	if cols then
 		for i,col in ipairs(cols) do
-			push(self.cols, self:create_col(col, 1))
+			push(self.cols, self:create_col(col, i))
 		end
 	end
 	self.freeze_pane = self:create_freeze_pane(self.freeze_pane)
@@ -1445,7 +1450,7 @@ end
 
 --metrics
 
-function grid:after_sync()
+function grid:sync_dropdown()
 	if not self.dropdown then return end
 
 	--sync size
