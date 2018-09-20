@@ -219,6 +219,7 @@ end
 
 function scrollbar:_check_visible()
 	return self.visible
+		and not self.ui.active_widget
 		and (not self.autohide_empty or not self:empty())
 		and (not self.autohide or self.grip.active or 'hit_test')
 end
