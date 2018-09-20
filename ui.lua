@@ -880,6 +880,7 @@ function element:update_transitions()
 	local tr = self.transitions
 	if not tr or not next(tr) then return end
 	local clock = self.frame_clock
+	if not clock then return end --not inside repaint
 	for attr, transition in pairs(tr) do
 		if not transition:update(clock) then
 			tr[attr] = transition.next_transition
@@ -1140,7 +1141,6 @@ function window:override_init(inherited, ui, t)
 	self.mouse_y = win:mouse'y' or false
 
 	local function setcontext()
-		self.frame_clock = ui:clock()
 		self.bitmap = win:bitmap()
 		self.cr = self.bitmap:cairo()
 	end
@@ -1207,6 +1207,26 @@ function window:override_init(inherited, ui, t)
 	end)
 
 	win:on({'mousewheel', self}, function(win, delta, mx, my, pdelta)
+
+		--forward mouse wheel events to non-activable child popups, if any.
+		--TODO: do this in nw in a portable way!
+		for win in pairs(self.ui.windows) do
+			if win.parent and win.parent.window == self
+				and not win.activable
+				and win.visible
+			then
+				local mx, my = win:from_screen(self:to_screen(mx, my))
+				local _, _, pw, ph = win:client_rect()
+				if box2d.hit(mx, my, 0, 0, pw, ph) then
+					self.ui:_window_mousewheel(win, delta, mx, my, pdelta)
+					return
+				end
+				--break because this is a hack which doesn't work with multiple
+				--children because they are not given in z-order (fix this in nw).
+				break
+			end
+		end
+
 		local moved = self.mouse_x ~= mx or self.mouse_y ~= my
 		setmouse(mx, my)
 		if moved then
@@ -1240,7 +1260,9 @@ function window:override_init(inherited, ui, t)
 		if self.mouse_x then
 			self.ui:_window_mousemove(self, self.mouse_x, self.mouse_y)
 		end
+		self.frame_clock = ui:clock()
 		self:draw(self.cr)
+		self.frame_clock = false
 	end)
 
 	win:on({'client_rect_changed', self}, function(win, cx, cy, cw, ch)

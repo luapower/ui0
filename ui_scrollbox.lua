@@ -172,7 +172,7 @@ end
 
 --scroll API
 
-function scrollbar:scroll_to(offset)
+function scrollbar:scroll_to(offset, duration)
 	if self.visible and self.autohide and not self.grip.active
 		and (not self.autohide_empty or not self:empty())
 	then
@@ -180,21 +180,21 @@ function scrollbar:scroll_to(offset)
 		self:sync()
 		self:settag(':near', false)
 	end
-	self:transition('offset', offset)
+	self:transition('offset', offset, duration)
 end
 
-function scrollbar:scroll_to_view(x, w)
+function scrollbar:scroll_to_view(x, w, duration)
 	local sx = self.offset
 	local sw = self.view_length
-	self:scroll_to(clamp(sx, x + w - sw, x))
+	self:scroll_to(clamp(sx, x + w - sw, x), duration)
 end
 
-function scrollbar:scroll(delta)
-	self:scroll_to(self:end_value'offset' + delta)
+function scrollbar:scroll(delta, duration)
+	self:scroll_to(self:end_value'offset' + delta, duration)
 end
 
-function scrollbar:scroll_pages(pages)
-	self:scroll(self.view_length * (pages or 1))
+function scrollbar:scroll_pages(pages, duration)
+	self:scroll(self.view_length * (pages or 1), duration)
 end
 
 --mouse interaction: grip dragging
