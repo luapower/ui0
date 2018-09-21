@@ -371,13 +371,16 @@ function scrollbox:after_sync()
 	local sw = vs.h + vs.margin
 	local sh = hs.h + hs.margin
 
+	local vs_overlap = vs.autohide or vs.overlap
+	local hs_overlap = hs.autohide or hs.overlap
+
 	--compute view dimensions by deciding which scrollbar should be hidden.
 	local hide_vs, hide_hs
 
-	local hide_vs = not vs.visible or vs.autohide
+	local hide_vs = not vs.visible or vs_overlap
 		or (vs.autohide_empty and ch <= h and (ch <= h - sh or 'depends'))
 
-	local hide_hs = not hs.visible or hs.autohide
+	local hide_hs = not hs.visible or hs_overlap
 		or (hs.autohide_empty and cw <= w and (cw <= w - sw or 'depends'))
 
 	if    (hide_vs == 'depends' and not hide_hs)
@@ -404,18 +407,18 @@ function scrollbox:after_sync()
 
 	--shorten the dimensions if scrollbars are overlapping.
 	--NOTE: scrollbars state must be already set since we call `empty()`.
-	local hs_overlaps = hs.visible and hs.autohide
+	local hs_overlaps = hs.visible and hs_overlap
 		and (not hs.autohide_empty or not hs:empty())
 
-	local vs_overlaps = vs.visible and vs.autohide
+	local vs_overlaps = vs.visible and vs_overlap
 		and (not vs.autohide_empty or not vs:empty())
 
-	vs.w = vs.w - (vs.autohide and hs_overlaps and sh or 0)
-	hs.w = hs.w - (hs.autohide and vs_overlaps and sw or 0)
+	vs.w = vs.w - (vs_overlap and hs_overlaps and sh or 0)
+	hs.w = hs.w - (hs_overlap and vs_overlaps and sw or 0)
 
 	--compute scrollbar positions.
-	vs.x = view.w - (vs.autohide and sw or 0)
-	hs.y = view.h - (hs.autohide and sh or 0)
+	vs.x = view.w - (vs_overlap and sw or 0)
+	hs.y = view.h - (hs_overlap and sh or 0)
 	vs.y = vs.margin
 	hs.x = hs.margin
 end
@@ -454,7 +457,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local x, y = 10, 10
 	local function xy()
 		x = x + 200
-		if x + 200 > win.cw then
+		if x + 190 > win.cw then
 			x = 10
 			y = y + 200
 		end
@@ -470,14 +473,14 @@ if not ... then require('ui_demo')(function(ui, win)
 	}
 	xy()
 
-	--autohide, custom bar metrics
+	--overlap, custom bar metrics
 	ui:scrollbox{
 		parent = win,
 		x = x, y = y, w = 180, h = 180,
 		content = mkcontent(),
 		vscrollbar = {h = 20, margin = 20},
 		hscrollbar = {h = 30, margin = 10},
-		scrollbar = {autohide = true},
+		scrollbar = {overlap = true},
 	}
 	xy()
 
@@ -520,8 +523,9 @@ if not ... then require('ui_demo')(function(ui, win)
 	ui:scrollbox{
 		parent = win,
 		x = x, y = y, w = 180, h = 180,
-		content = mkcontent(),
+		content = mkcontent(180, 180),
 	}
+	xy()
 
 	--autohide
 	ui:scrollbox{
