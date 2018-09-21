@@ -179,10 +179,10 @@ end
 
 --visibility state
 
-function scrollbar:check_visible(mx, my, brk)
+function scrollbar:check_visible(...)
 	return self.visible
 		and (not self.autohide_empty or not self:empty())
-		and (not self.autohide or self:check_visible_autohide(mx, my, brk))
+		and (not self.autohide or self:check_visible_autohide(...))
 end
 
 --scroll API
@@ -245,7 +245,7 @@ function scrollbar:hit_test_near(mx, my) --mx,my in window space
 		box2d.offset(self.autohide_distance, self:content_rect()))
 end
 
-function scrollbar:check_visible_autohide(mx, my, brk)
+function scrollbar:check_visible_autohide(mx, my)
 	return self.grip.active
 		or (not self.ui.active_widget and self:hit_test_near(mx, my))
 end
@@ -337,7 +337,7 @@ function scrollbox:after_init(ui, t)
 	}, self.super.scrollbar, t.scrollbar, self.hscrollbar)
 
 	--make autohide scrollbars to show and hide in sync.
-	--TODO: remove the brk hack.
+	--TODO: remove the brk anti-recursion barrier hack.
 	local vs = self.vscrollbar
 	local hs = self.hscrollbar
 	function vs:override_check_visible_autohide(inherited, mx, my, brk)
@@ -368,11 +368,10 @@ function scrollbox:after_sync()
 
 	local _, _, cw, ch = content:bounding_box()
 	local w, h = self:content_size()
-	local sw = vs.h
-	local sh = hs.h
+	local sw = vs.h + vs.margin
+	local sh = hs.h + hs.margin
 
-	--compute view dimensions by deciding which scrollbar must be hidden,
-	--as in does not occupy an area outside from the view.
+	--compute view dimensions by deciding which scrollbar should be hidden.
 	local hide_vs, hide_hs
 
 	local hide_vs = not vs.visible or vs.autohide
@@ -400,8 +399,8 @@ function scrollbox:after_sync()
 	content.x = -hs.offset
 
 	--compute scrollbar dimensions.
-	vs.w = view.h --.w is its height!
-	hs.w = view.w
+	vs.w = view.h - 2 * vs.margin --.w is its height!
+	hs.w = view.w - 2 * hs.margin
 
 	--shorten the dimensions if scrollbars are overlapping.
 	--NOTE: scrollbars state must be already set since we call `empty()`.
@@ -417,19 +416,8 @@ function scrollbox:after_sync()
 	--compute scrollbar positions.
 	vs.x = view.w - (vs.autohide and sw or 0)
 	hs.y = view.h - (hs.autohide and sh or 0)
-
-	--apply margins to scrollbar positions and dimensions.
-	local hm1 = hs.margin_left or hs.margin
-	local hm2 = hs.margin_right or hs.margin
-	local vm1 = vs.margin_top or vs.margin
-	local vm2 = vs.margin_bottom or vs.margin
-
-	vs.x = vs.x - vm1
-	vs.w = vs.w - vm1 - vm2
-	hs.y = hs.y - hm1
-	hs.w = hs.w - hm1 - hm2
-	vs.y = vm1
-	hs.x = hm1
+	vs.y = vs.margin
+	hs.x = hs.margin
 end
 
 --scroll API
@@ -477,8 +465,19 @@ if not ... then require('ui_demo')(function(ui, win)
 		parent = win,
 		x = x, y = y, w = 180, h = 180,
 		content = mkcontent(),
-		vscrollbar = {h = 20},
-		hscrollbar = {h = 30},
+		vscrollbar = {h = 20, margin = 20},
+		hscrollbar = {h = 30, margin = 10},
+	}
+	xy()
+
+	--autohide, custom bar metrics
+	ui:scrollbox{
+		parent = win,
+		x = x, y = y, w = 180, h = 180,
+		content = mkcontent(),
+		vscrollbar = {h = 20, margin = 20},
+		hscrollbar = {h = 30, margin = 10},
+		scrollbar = {autohide = true},
 	}
 	xy()
 
@@ -516,6 +515,13 @@ if not ... then require('ui_demo')(function(ui, win)
 		autohide = true,
 	}
 	xy()
+
+	--autohide_empty case
+	ui:scrollbox{
+		parent = win,
+		x = x, y = y, w = 180, h = 180,
+		content = mkcontent(),
+	}
 
 	--autohide
 	ui:scrollbox{
