@@ -160,11 +160,13 @@ end
 --sync'ing
 
 function editbox:override_sync_text(inherited)
+	if self.password then
+		self.text_align = 'left' --only left-alignment supported!
+	end
 	local segs = inherited(self)
 	if not self.selection then
 		return segs
 	end
-
 	if self.password then
 		self:sync_password_mask(segs)
 	end
@@ -661,35 +663,19 @@ if not ... then require('ui_demo')(function(ui, win)
 	}
 	xy()
 
-	--password, scrolling, left align
-	ui:editbox{
-		x = x, y = y, parent = win,
-		text = s,
-		password = true,
-	}
-	xy()
+	local s = '0123 4567 8901 2345'
 
-	--password, scrolling, right align
+	--password, scrolling, left align (the only alignment supported)
 	ui:editbox{
 		x = x, y = y, parent = win,
 		text = s,
 		password = true,
-		text_align = 'right',
-	}
-	xy()
-
-	--password, scrolling, center align
-	ui:editbox{
-		x = x, y = y, parent = win,
-		text = s,
-		password = true,
-		text_align = 'center',
+		text_align = 'right', --overriden!
 	}
 	xy()
 
 	--rtl
 	ui:editbox{
-		--font = 'fixedsys,16',
 		x = x, y = y, parent = win,
 		font = 'Amiri,20',
 		text = 'السَّلَامُ عَلَيْكُمْ',
@@ -701,7 +687,6 @@ if not ... then require('ui_demo')(function(ui, win)
 	--multiline
 	ui:editbox{
 		x = x, y = y, parent = win,
-		--font = 'fixedsys,16',
 		h = 200,
 		parent = win,
 		text = 'Hello World!',
