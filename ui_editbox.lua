@@ -139,11 +139,18 @@ function editbox:after_init(ui, t)
 	self.selection = self:sync_text():selection()
 	self.text = t.text
 
-	function self.selection.cursor1.changed()
+	--reset the caret blinking whenever the cursor is being acted upon,
+	--regardles of whether it changes or not.
+	local c1, c2 = self.selection:cursors()
+	local set = c1.set
+	function c1.set(...)
 		self:blink_caret()
+		return set(...)
 	end
-	function self.selection.cursor2.changed()
+	local set = c2.set
+	function c2.set(...)
 		self:blink_caret()
+		return set(...)
 	end
 end
 
@@ -374,11 +381,11 @@ function editbox:keypress(key)
 					return true
 				end
 			else
+				local c1, c2 = c1, c2
 				if key == 'left' then
-					return c2:move_to_cursor(c1)
-				else
-					return c1:move_to_cursor(c2)
+					c1, c2 = c2, c1
 				end
+				return c1:move_to_cursor(c2)
 			end
 		end
 	elseif key == 'up' or key == 'down' then
