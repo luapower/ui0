@@ -206,7 +206,10 @@ function editbox:override_sync_text(inherited)
 		--apply the scroll offset.
 		segs.lines.x = sx - ax
 	else
-		segs.lines.x = 0
+		--make the cursor visible when the text is right-aligned.
+		local adjustment = self.text_align == 'right' and -w or 0
+		--reset the x-offset in order to use the default alignment from `tr`.
+		segs.lines.x = 0 + adjustment
 	end
 
 	--clip the text segments to the content rectangle to avoid drawing
