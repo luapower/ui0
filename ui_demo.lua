@@ -26,7 +26,7 @@ win.native_window:on('repaint', function(self)
 	self:title(string.format('%d fps', fps()))
 end)
 
-if ... == 'ui_demo' then --loaded via require()
+if ... == 'ui_demo' and not DEMO then --loaded via require()
 	return function(test)
 		test(ui, win)
 		win:show()
@@ -402,8 +402,7 @@ local function test_text()
 		x = 100, y = 100,
 		w = 200, h = 200,
 		text = 'gftjim;\nqTv\nxyZ',
-		text_align = 'center',
-		text_valign = 'center',
+		text_align = 'center middle',
 		text_color = '#fff',
 		text_size = 36,
 		border_width = 1,
@@ -421,10 +420,74 @@ local function test_text()
 
 end
 
+local function test_layouting()
+	local parent = ui:layer{
+		parent = win,
+		x = 100, y = 100,
+		w = 200, h = 200,
+		border_width = 1,
+		border_color = '#333',
+	}
+
+	local minmax = ui:layer{
+		parent = parent,
+		text = 'Hello World! Hello World! Hello World! Hello World! \nxxxxxxxxxxx\nxxxxxxxxx\nxxxxx\nxxxxxxxxxxxxx',
+		text_align = 'm c',
+		align = 'b r',
+		minw = 100,
+		maxw = 1000,
+		minh = 150,
+		maxh = 1/0,
+		layout = 'minmax',
+		border_width = 10,
+		padding = 10,
+	}
+
+	local flex = ui:layer{
+		parent = win,
+		layout = 'flexbox',
+		flex_wrap = true,
+		--flex_direction = 'column',
+		align_content = 'space_around',
+		align_items = 'center',
+		justify_content = 'space_around',
+		--justify_content = 'space_around',
+		border_width = 10,
+		padding = 10,
+		border_color = '#333',
+		x = 400, y = 100,
+		w = win.cw - 400 - 20,
+		h = win.ch - 100 - 20,
+	}
+
+	for i = 1, 10 do
+		local b = ui:layer{
+			parent = flex,
+			border_width = 1,
+			--padding = 10,
+			w = 40 * (1 + math.random()),
+			h = 40 * (1 + math.random()),
+			--flex_align = i == 3 and 'stretch' or i == 1 and 'bottom' or 'baseline',
+			--layout = 'minmax',
+			--text_align = 'c m',
+			text = tostring(i),
+			--text_size = 10 + i * 3,
+		}
+	end
+
+	function win:client_resized()
+		flex.w = win.cw - 400 - 20
+		flex.h = win.ch - 100 - 20
+		self:invalidate()
+	end
+
+end
+
 --test_css()
-test_layers()
+--test_layers()
 --test_drag()
 --test_text()
+test_layouting()
 win:show()
 ui:run()
 ui:free()

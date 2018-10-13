@@ -2,7 +2,7 @@
 --Extensible UI toolkit in Lua.
 --Written by Cosmin Apreutesei. Public Domain.
 
-if not ... then require'ui_demo'; return end
+if not ... then DEMO=true; require'ui_demo'; return end
 
 local oo = require'oo'
 local events = require'events'
@@ -200,7 +200,7 @@ function ui:before_free()
 	self.app = false
 end
 
-function ui:error(msg, ...)
+function ui:warn(msg, ...)
 	msg = string.format(msg, ...)
 	io.stderr:write(msg)
 	io.stderr:write'\n'
@@ -208,7 +208,7 @@ end
 
 function ui:check(ret, ...)
 	if ret then return ret end
-	self:error(...)
+	self:warn(...)
 end
 
 --native app proxy methods ---------------------------------------------------
@@ -913,7 +913,7 @@ function element:tags_tostring()
 	return table.concat(t, ' ')
 end
 
-function element:update_styles()
+function element:sync_styles()
 	if not self._styles_valid then
 		self.stylesheet:update_element(self)
 		self._styles_valid = true
@@ -1140,7 +1140,7 @@ function element:transition(
 	end
 end
 
-function element:update_transitions()
+function element:sync_transitions()
 	local tr = self.transitions
 	if not tr or not next(tr) then return end
 	local clock = self.frame_clock
@@ -1162,8 +1162,8 @@ end
 --sync'ing
 
 function element:sync()
-	self:update_styles()
-	self:update_transitions()
+	self:sync_styles()
+	self:sync_transitions()
 end
 
 --windows --------------------------------------------------------------------
@@ -2034,7 +2034,7 @@ function window:draw(cr)
 	self.view:draw(cr)
 	cr:restore()
 	if cr:status() ~= 0 then --see if cairo didn't shutdown
-		self:error(cr:status_string())
+		self:warn(cr:status_string())
 	end
 end
 
@@ -3075,7 +3075,7 @@ function layer:border_path(cr, offset, size_offset)
 	cr:close_path()
 end
 
-function layer:get_border_visible()
+function layer:border_visible()
 	return
 		self.border_width ~= 0
 		or self.border_width_left ~= 0
@@ -3085,7 +3085,7 @@ function layer:get_border_visible()
 end
 
 function layer:draw_border(cr)
-	if not self.border_visible then return end
+	if not self:border_visible() then return end
 
 	local border_color = self.border_color
 
@@ -3231,7 +3231,7 @@ function layer:detect_background_type()
 	end
 end
 
-function layer:get_background_visible()
+function layer:background_visible()
 	return (
 		--TODO: add 'auto' ?
 		--(self.background_type == 'auto' and self:detect_background_type())
@@ -3319,12 +3319,12 @@ layer.shadow_color = '#000'
 layer.shadow_blur = 0
 layer._shadow_blur_passes = 2
 
-function layer:get_shadow_visible()
+function layer:shadow_visible()
 	return self.shadow_blur > 0 or self.shadow_x ~= 0 or self.shadow_y ~= 0
 end
 
 function layer:shadow_rect(size)
-	if self.border_visible then
+	if self:border_visible() then
 		return self:border_rect(1, size)
 	else
 		return self:background_rect(size)
@@ -3332,7 +3332,7 @@ function layer:shadow_rect(size)
 end
 
 function layer:shadow_round_rect(size)
-	if self.border_visible then
+	if self:border_visible() then
 		return self:border_round_rect(1, size)
 	else
 		return self:background_round_rect(size)
@@ -3340,7 +3340,7 @@ function layer:shadow_round_rect(size)
 end
 
 function layer:shadow_path(cr, size)
-	if self.border_visible then
+	if self:border_visible() then
 		self:border_path(cr, 1, size)
 	else
 		self:background_path(cr, size)
@@ -3365,7 +3365,7 @@ function layer:shadow_store_key(t)
 end
 
 function layer:draw_shadow(cr)
-	if not self.shadow_visible then return end
+	if not self:shadow_visible() then return end
 	local t = self._shadow or {}
 	self._shadow = t
 	local passes = self._shadow_blur_passes
@@ -3429,11 +3429,27 @@ function layer:draw_shadow(cr)
 	cr:translate(-sx, -sy)
 end
 
+--parsing of '<halign> <valign>' property strings
+
+local haligns = {
+	left = 'left', center = 'center', right = 'right', stretch = 'stretch',
+	l = 'left', c = 'center', r = 'right',  s = 'stretch',
+}
+local valigns = {
+	top = 'top', middle = 'middle', bottom = 'bottom', stretch = 'stretch',
+	t = 'top', m = 'middle', b = 'bottom', s = 'stretch',
+}
+local default = {'center', 'middle'}
+function ui:_align(s)
+	local a1, a2 = s:match'([^%s]+)%s*([^%s]*)'
+	local h = haligns[a1] or haligns[a2]
+	local v = valigns[a1] or valigns[a2]
+	return self:check(h and v, 'invalid align: "%s"', s) and {h, v} or default
+end
+ui:memoize'_align'
+
 --text geometry and drawing
 
-layer.text_align = 'center'
-layer.text_valign = 'middle'
-layer.text_operator = 'over'
 layer.text = nil
 layer.font = 'Open Sans,14'
 layer.text_color = '#fff'
@@ -3441,8 +3457,9 @@ layer.line_spacing = 1
 layer.paragraph_spacing = 2
 layer.text_dir = 'auto' --auto, rtl, ltr
 layer.nowrap = false
+layer.text_operator = 'over'
 
-function layer:get_text_visible()
+function layer:text_visible()
 	return self.text and self.text ~= '' and true or false
 end
 
@@ -3450,8 +3467,56 @@ end
 --see editbox implementation for details.
 layer.text_editabe = false
 
+layer:stored_property'text_align'
+layer:nochange_barrier'text_align'
+
+function layer:after_set_text_align(s)
+	local t = self.ui:_align(s)
+	self._text_align_h = t[1]
+	self._text_align_v = t[2]
+end
+
+layer.text_align = 'center middle'
+
+layer:stored_property'text_halign'
+function layer:set_text_halign(h)
+	self._text_halign = h and self.ui:check(haligns[h], 'invalid halign: "%s"', h)
+end
+layer:instance_only'text_halign'
+
+layer:stored_property'text_valign'
+function layer:set_text_valign(v)
+	self._text_valign = v and self.ui:check(valigns[v], 'invalid valign: "%s"', v)
+end
+layer:instance_only'text_valign'
+
+function layer:text_aligns()
+	return
+		self._text_halign or self._text_align_h,
+		self._text_valign or self._text_align_v
+end
+
+function layer:textbox_size()
+	if self.layout == 'minmax' then
+		local maxw = math.min(math.max(self.maxw, self.minw), 1e6)
+		local maxh = math.min(math.max(self.maxh, self.minh), 1e6)
+		return
+			maxw - self.pw,
+			maxh - self.ph
+	else
+		return self:client_size()
+	end
+end
+
+function layer:get_baseline()
+	local segs = self._text_segments
+	if not segs then return 0 end
+	local lines = segs.lines
+	return lines.y + lines.baseline
+end
+
 function layer:sync_text()
-	if not self.text_visible then return end
+	if not self:text_visible() then return end
 	if not self._text_tree
 		or (not self.text_editabe and self.text ~= self._text_tree[1])
 		or self.font        ~= self._text_tree.font
@@ -3474,9 +3539,8 @@ function layer:sync_text()
 		self._text_segments = self.ui.tr:shape(self._text_tree)
 		self._text_w = false --force layout
 	end
-	local cw, ch = self:client_size()
-	local ha = self.text_align
-	local va = self.text_valign
+	local cw, ch = self:textbox_size()
+	local ha, va = self:text_aligns()
 	local ls = self.line_spacing
 	local ps = self.paragraph_spacing
 	if    cw ~= self._text_w
@@ -3499,14 +3563,16 @@ function layer:sync_text()
 end
 
 function layer:draw_text(cr)
-	if not self:sync_text() then return end
+	if not self:text_visible() then return end
 	self._text_tree.color    = self.text_color
 	self._text_tree.operator = self.text_operator
 	self._text_segments:paint(cr)
 end
 
 function layer:text_bounding_box()
-	if not self:sync_text() then return 0, 0, 0, 0 end
+	if not self:text_visible() then
+		return 0, 0, 0, 0
+	end
 	return self._text_segments:bounding_box()
 end
 
@@ -3514,6 +3580,14 @@ end
 
 layer.padding = 0
 
+function layer:get_pw()
+	local p = self.padding
+	return (self.padding_left or p) + (self.padding_right or p)
+end
+function layer:get_ph()
+	local p = self.padding
+	return (self.padding_top or p) + (self.padding_bottom or p)
+end
 function layer:get_pw1() return self.padding_left or self.padding end
 function layer:get_ph1() return self.padding_top or self.padding end
 function layer:get_pw2() return self.padding_right or self.padding end
@@ -3622,7 +3696,7 @@ function layer:draw(cr) --called in parent's content space; child intf.
 	cr:matrix(self:cr_abs_matrix(cr))
 
 	local cc = self.clip_content
-	local bg = self.background_visible
+	local bg = self:background_visible()
 
 	self:draw_shadow(cr)
 
@@ -3697,7 +3771,7 @@ function layer:hit_test(x, y, reason)
 	end
 
 	--border is drawn last so hit it first
-	if self.border_visible then
+	if self:border_visible() then
 		cr:new_path()
 		self:border_path(cr, 1)
 		if cr:in_fill(x, y) then --inside border outer edge
@@ -3719,7 +3793,7 @@ function layer:hit_test(x, y, reason)
 
 	--hit background's clip area
 	local in_bg
-	if cc or self.background_hittable or self.background_visible then
+	if cc or self.background_hittable or self:background_visible() then
 		cr:new_path()
 		self:background_path(cr)
 		in_bg = cr:in_fill(x, y)
@@ -3772,11 +3846,11 @@ function layer:bounding_box(strict) --child interface
 	end
 	if (not strict and cc)
 		or self.background_hittable
-		or self.background_visible
+		or self:background_visible()
 	then
 		x, y, w, h = box2d.bounding_box(x, y, w, h, self:background_rect())
 	end
-	if self.border_visible then
+	if self:border_visible() then
 		x, y, w, h = box2d.bounding_box(x, y, w, h, self:border_rect(1))
 	end
 	return x, y, w, h
@@ -3848,15 +3922,293 @@ function layer:get_y2() return self.y + self.h end
 function layer:set_x2(x2) self.w = x2 - self.x end
 function layer:set_y2(y2) self.h = y2 - self.y end
 
+function layer:size() return self.w, self.h end
 function layer:rect() return self.x, self.y, self.w, self.h end
 
 --layouting
 
---layer.minw = 0
---layer.minh = 0
---layer.align = 'left'
---layer.valign = 'top'
---layer.position = 'free'
+layer.layout = false --false, 'minmax', 'flexbox', 'grid', ''
+
+--minmax layout
+
+layer.minw = 0
+layer.minh = 0
+layer.maxw = 1/0
+layer.maxh = 1/0
+
+layer.align = 'center middle'
+layer.halign = nil --horizontal override
+layer.valign = nil --vertical override
+
+layer:stored_property'align'
+layer:nochange_barrier'align'
+function layer:after_set_align(s)
+	local t = self.ui:_align(s)
+	self._align_h = t[1]
+	self._align_v = t[2]
+end
+layer:instance_only'align'
+
+layer:stored_property'halign'
+function layer:set_halign(h)
+	self._halign = h and self.ui:check(haligns[h], 'invalid halign: "%s"', h)
+end
+layer:instance_only'halign'
+
+layer:stored_property'valign'
+function layer:set_valign(v)
+	self._valign = v and self.ui:check(valigns[v], 'invalid valign: "%s"', v)
+end
+layer:instance_only'valign'
+
+function layer:aligns()
+	return
+		self._halign or self._align_h,
+		self._valign or self._align_v
+end
+
+function layer:layout_minmax()
+	local segs = self._text_segments
+	local cw, ch
+	if segs then
+		local _, _, w, h = segs:bounding_box()
+		cw = math.max(w, self.minw - self.pw)
+		ch = math.max(h, self.minh - self.ph)
+		local ha, va = self:text_aligns()
+		if ha == 'right' then
+			segs.lines.x = -segs.lines.w + cw
+		elseif ha == 'center' then
+			segs.lines.x = (-segs.lines.w + cw) / 2
+		end
+		if va == 'bottom' then
+			segs.lines.y = -segs.lines.h + ch
+		elseif va == 'middle' then
+			segs.lines.y = (-segs.lines.h + ch) / 2
+		end
+	else
+		cw, ch = 0, 0
+	end
+	self.cw, self.ch = cw, ch
+	local ha, va = self:aligns()
+	local va = va == 'middle' and 'center' or va
+	if self.parent then
+		self.x, self.y = box2d.align(self.w, self.h, ha, va,
+			self.parent:client_rect())
+	end
+end
+
+--flexbox layout
+
+--container properties
+layer.flex_direction = 'row' --row | row-reverse | column | column-reverse
+layer.align_content = 'stretch' --flex-start | flex-end | center | space-between | space-around | stretch
+layer.align_items = 'stretch' --flex-start | flex-end | center | baseline | stretch
+layer.justify_content = 'flex_start' --flex-start | flex-end | center | space-between | space-around
+layer.flex_wrap = false -- true | false
+
+--item properties
+layer.flex_align = nil --overrides parent.align_items
+--layer.flex = '0 1 auto' --none | [ <‘flex-grow’> <‘flex-shrink’>? || <‘flex-basis’> ]
+--layer.flex_basis = 'auto' --content | <‘width’>
+--layer.flex_flow = nil --<flex-direction> || <flex-wrap>
+--layer.flex_grow = 0 --<number>
+--layer.flex_shrink = 1 --<number>
+--layer.order = 0 --<number>
+
+function layer:flexbox_next_line(i)
+	local layers = self.layers
+	local n = #layers
+	local line_w = 0
+	while true do
+		if i > n then break end
+		local layer = layers[i]
+		if layer.visible then
+
+		end
+		i = i + 1
+	end
+end
+
+function layer:flexbox_lines()
+	return self.flexbox_next_line, self, 1
+end
+
+function layer:layout_flexbox()
+
+	local layers = self.layers
+	if not layers then
+		return
+	end
+
+	local n = #layers
+	local horizontal = self.flex_direction == 'row'
+	local justify = self.justify_content
+	local align_items = self.align_items
+	local align_lines = self.align_content
+
+	--the algorithm assumes horizontal main-axis so we use these indirections
+	--to make it work for vertical main-axis without duplicating code.
+	local X, Y, W, H, CW, CH
+	local LEFT, RIGHT, CENTER
+	local TOP, BOTTOM, MIDDLE
+	if horizontal then
+		X, Y, W, H, CW, CH = 'x', 'y', 'w', 'h', 'cw', 'ch'
+		LEFT, RIGHT, CENTER = 'left', 'right', 'center'
+		TOP, BOTTOM, MIDDLE = 'top', 'bottom', 'middle'
+	else
+		X, Y, W, H, CW, CH = 'y', 'x', 'h', 'w', 'ch', 'cw'
+		LEFT, RIGHT, CENTER = 'top', 'bottom', 'middle'
+		TOP, BOTTOM, MIDDLE = 'left', 'right', 'center'
+	end
+
+	local container_w = self[CW]
+	local container_h = self[CH]
+
+	--first pass thorugh all items: widen the container if necessary before
+	--performing line-wrapping. also exit if there's no visible layers.
+	local any_visible_layers
+	for i = 1, n do
+		local layer = layers[i]
+		if layer.visible then
+			container_w = math.max(container_w, layer[W])
+			any_visible_layers = true
+		end
+	end
+	if not any_visible_layers then
+		return
+	end
+
+	--second pass thorugh all items: perform line wrapping but only for
+	--computing vertical content metrics so we can align the lines.
+	local line_count = 0
+	local content_h = 0
+	local line1_baseline = 0
+	do
+		local max_line_w = self.flex_wrap and container_w or 1/0
+		local line_w = 0
+		local line_h = 0
+		for i = 1, n do
+			local layer = layers[i]
+			if layer.visible then
+				local item_w = layer[W]
+				local item_h = layer[H]
+				if line_w + item_w > max_line_w then
+					line_count = line_count + 1
+					content_h = content_h + line_h
+					line_w = 0
+					line_h = 0
+				end
+				line_w = line_w + item_w
+				line_h = math.max(line_h, item_h)
+				if line_count == 0 then
+					line1_baseline = math.max(line1_baseline, layer.baseline)
+				end
+			end
+		end
+		line_count = line_count + 1
+		content_h = content_h + line_h
+	end
+
+	--enlarge the container if necessary to contain all the lines.
+	container_h = math.max(container_h, content_h)
+
+	--compute vertical alignment metrics.
+	local content_y = 0
+	local line_spacing = 0
+	do
+		if align_lines == 'flex_end' or align_lines == BOTTOM then
+			content_y = container_h - content_h
+		elseif align_lines == 'center' or align_lines == MIDDLE then
+			content_y = (container_h - content_h) / 2
+		elseif align_lines == 'space_between' then
+			line_spacing = (container_h - content_h) / (line_count - 1)
+		elseif align_lines == 'space_around' then
+			line_spacing = (container_h - content_h) / (line_count + 1)
+			content_y = line_spacing
+		end
+	end
+
+	--third pass through all items: perform line wrapping once again, this
+	--time laying out all the items. for each line, we do two passes,
+	--one for computing line horizontal metrics, one for actual positioning.
+	local line_i = 1
+	local line_w = 0
+	local line_h = 0
+	local line_y = content_y
+	for i = 1, n + 1 do
+		local wrap, next_line_w0, next_line_h0
+		if i <= n then
+			local layer = layers[i]
+			if layer.visible then
+				local item_w = layer[W]
+				local item_h = layer[H]
+				if line_w + item_w > container_w then
+					next_line_w0 = item_w
+					next_line_h0 = item_h
+					wrap = true
+				else
+					line_w = line_w + item_w
+					line_h = math.max(line_h, item_h)
+				end
+			end
+		else
+			wrap = true
+		end
+		if wrap then
+			local item_count = i - line_i
+			local line_x = 0
+			local item_spacing = 0
+			if justify == 'flex_end' or justify == RIGHT then
+				line_x = container_w - line_w
+			elseif justify == 'center' or justify == MIDDLE then
+				line_x = (container_w - line_w) / 2
+			elseif justify == 'space_between' then
+				item_spacing = (container_w - line_w) / (item_count - 1)
+			elseif justify == 'space_around' then
+				item_spacing = (container_w - line_w) / (item_count + 1)
+				line_x = item_spacing
+			elseif justify == 'stretch' then
+				--
+			end
+			for i = line_i, i-1 do
+				local layer = layers[i]
+				if layer.visible then
+					local align = layer.flex_align or align_items
+					if align == 'stretch' then
+						layer[Y] = line_y
+						layer[H] = line_h
+					elseif align == 'flex_start' or align == TOP then
+						layer[Y] = line_y
+					elseif align == 'flex_end' or align == BOTTOM then
+						layer[Y] = line_y + line_h - layer[H]
+					elseif align == 'center' or align == MIDDLE then
+						layer[Y] = line_y + round(line_h - layer[H]) / 2
+					elseif horizontal and align == 'baseline' then
+						layer.y = line_y + line1_baseline - layer.baseline
+					end
+					layer[X] = line_x
+					line_x = line_x + layer[W] + item_spacing
+				end
+			end
+			line_i = i
+			line_y = line_y + line_h + line_spacing
+			line_w = next_line_w0
+			line_h = next_line_h0
+		end
+	end
+
+	self[CW] = container_w
+	self[CH] = container_h
+end
+
+function layer:sync_layout()
+	self:sync_text()
+	if self.layout == 'minmax' then
+		self:layout_minmax()
+	elseif self.layout == 'flexbox' then
+		self:layout_flexbox()
+	end
+end
 
 --sync layer's children depth-first.
 function layer:sync_layers()
@@ -3869,11 +4221,7 @@ end
 
 function layer:after_sync()
 	self:sync_layers()
-	if self._text_segments then
-		local _, _, w, h = self._text_segments:bounding_box()
-		--self.w = math.max(self.w, w)
-		--self.h = math.max(self.h, h)
-	end
+	self:sync_layout()
 end
 
 --top layer ------------------------------------------------------------------

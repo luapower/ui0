@@ -237,7 +237,7 @@ end
 --drawing
 
 function button:before_draw_text(cr)
-	if not self.text_visible then return end
+	if not self:text_visible() then return end
 	if not self.underline_pos then return end
 	do return end --TODO: use the future hi-level text API to draw the underline
 	--measure
@@ -296,11 +296,14 @@ ui:style('checkbox_button :active :over', {
 	background_color = '#888',
 })
 
+function cbutton:before_sync()
+	self.text = self.checkbox.checked and self.text_checked
+end
+
 function cbutton:after_sync()
 	self.h = self.checkbox.ch
 	self.w = self.h
 	self.x = self.checkbox.align == 'left' and 0 or self.checkbox.cw - self.h
-	self.text = self.checkbox.checked and self.text_checked
 end
 
 function cbutton:override_hit_test(inherited, mx, my, reason)
@@ -341,7 +344,7 @@ function clabel:after_sync()
 	self.w = self.checkbox.cw - self.checkbox.button.w
 	local align = self.checkbox.align
 	self.x = align == 'left' and self.checkbox.cw - self.w or 0
-	self.text_align = align
+	self.text_halign = align
 	self.padding_left = align == 'left' and self.h / 2 or 0
 	self.padding_right = align == 'right' and self.h / 2 or 0
 end
@@ -391,10 +394,6 @@ function radiobutton:override_set_checked(inherited, checked)
 	end
 end
 
-function radiobutton:check()
-	self.checked = true
-end
-
 local rbutton = ui.checkbox.button_class:subclass'radiobutton_button'
 radiobutton.button_class = rbutton
 
@@ -428,7 +427,7 @@ function rbutton:before_draw_content(cr)
 end
 
 function rbutton:checkbox_press()
-	self.checkbox:check()
+	self.checkbox.checked = true
 end
 
 --radio button list ----------------------------------------------------------
@@ -631,7 +630,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		x = 100, y = 150, w = 100,
 		text = 'Disabled',
 		enabled = false,
-		text_align = 'right',
+		text_halign = 'right',
 	})
 
 	local b3 = btn(ui, {
@@ -640,7 +639,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		x = 100, y = 200, w = 100,
 		text = '&Cancel',
 		cancel = true,
-		text_align = 'left',
+		text_halign = 'left',
 	})
 
 	function b1:gotfocus() print'b1 got focus' end

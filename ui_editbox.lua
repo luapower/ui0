@@ -182,8 +182,7 @@ function editbox:get_multiline()
 end
 
 ui:style('editbox multiline', {
-	text_align = 'left',
-	text_valign = 'top',
+	text_align = 'top left',
 })
 
 editbox.scrollbox_class = ui.scrollbox
@@ -254,7 +253,7 @@ function editbox:sync_scrollbox()
 	segs.lines.editbox_clipped = false
 end
 
-function editbox:get_text_visible()
+function editbox:text_visible()
 	return true --always sync, even for the empty string.
 end
 

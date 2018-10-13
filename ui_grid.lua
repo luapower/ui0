@@ -363,6 +363,7 @@ function grid:create_rows_pane(split_pane)
 		split_pane = split_pane,
 		grid = self,
 		content = rows,
+		rows_layer = rows,
 	}, self.rows_pane)
 	rows.rows_pane = rows_pane
 
@@ -417,7 +418,7 @@ end
 local col = ui.layer:subclass'grid_col'
 grid.col_class = col
 
-col.text_align = 'left'
+col.text_align = 'left middle'
 col.nowrap = true
 col._w = 200
 col.auto_w = true --distribute pane's width among all columns
@@ -703,7 +704,7 @@ ui:style('grid_col !last_col !:moving', {
 local cell = ui.layer:subclass'grid_cell'
 grid.cell_class = cell
 
-cell.text_align = 'left'
+cell.text_align = 'left middle'
 cell.nowrap = true
 cell.padding_left = 4
 cell.padding_right = 4
@@ -1759,8 +1760,8 @@ end
 --called by the dropdown to resize the picker's popup window before it is
 --shown (which is why we can't just set the grid size on sync()).
 function grid:sync_dropdown()
-	--update styles first because we use self's paddings.
-	self:update_styles()
+	--sync styles first because we use self's paddings.
+	self:sync_styles()
 
 	local w = self.dropdown.w
 	local noscroll_ch = self.rows_h
