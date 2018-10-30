@@ -231,7 +231,7 @@ local function test_css()
 
 
 	--ui:style('*', {transition_speed = 1/0})
-	--ui:style('*', {font_name = 'Roboto Condensed', font_weigt = 'bold', text_size = 24})
+	--ui:style('*', {font_name = 'Roboto Condensed', font_weigt = 'bold', font_size = 24})
 	--b1:update_styles()
 	--b2:update_styles()
 
@@ -404,7 +404,7 @@ local function test_text()
 		text = 'gftjim;\nqTv\nxyZ',
 		text_align = 'center middle',
 		text_color = '#fff',
-		text_size = 36,
+		font_size = 36,
 		border_width = 1,
 		border_color = '#fff',
 		parent = win,
@@ -420,7 +420,8 @@ local function test_text()
 
 end
 
-local function test_layouting()
+local function test_flexbox_inside_null()
+
 	local parent = ui:layer{
 		parent = win,
 		x = 100, y = 100,
@@ -429,55 +430,68 @@ local function test_layouting()
 		border_color = '#333',
 	}
 
-	local minmax = ui:layer{
+	local textwrap = ui:layer{
 		parent = parent,
 		text = 'Hello World! Hello World! Hello World! Hello World! \nxxxxxxxxxxx\nxxxxxxxxx\nxxxxx\nxxxxxxxxxxxxx',
 		text_align = 'm c',
-		align = 'b r',
-		minw = 100,
-		maxw = 1000,
-		minh = 150,
-		maxh = 1/0,
-		layout = 'minmax',
+		w = 100,
+		h = 100,
+		--align = 'b r',
+		--min_w = 100,
+		--max_w = 1000,
+		--min_h = 150,
+		--max_h = 1/0,
+		layout = 'flexbox',
 		border_width = 10,
 		padding = 10,
 	}
+end
+
+local function test_flexbox()
 
 	local flex = ui:layer{
 		parent = win,
 		layout = 'flexbox',
-		flex_wrap = true,
-		--flex_direction = 'column',
-		align_content = 'space_around',
-		align_items = 'center',
-		justify_content = 'space_around',
-		--justify_content = 'space_around',
+		--flex_wrap = true,
+		flex_axis = 'x',
+		align_cross = 'stretch',
+		align_lines = 'stretch',
 		border_width = 10,
-		padding = 10,
+		border_offset = 1,
+		--padding = 10,
 		border_color = '#333',
-		x = 400, y = 100,
-		w = win.cw - 400 - 20,
-		h = win.ch - 100 - 20,
+		x = 10, y = 10,
+		flex_w = win.cw - 20,
+		flex_h = win.ch - 20,
 	}
 
-	for i = 1, 10 do
+	for i = 1, 4 do
+		local r = math.random(10)
 		local b = ui:layer{
 			parent = flex,
+			layout = 'textbox',
+			--layout = 'flexbox',
 			border_width = 1,
+			w = 100 + r * 10,
+			h = 100 + r * 10,
 			--padding = 10,
-			w = 40 * (1 + math.random()),
-			h = 40 * (1 + math.random()),
 			--flex_align = i == 3 and 'stretch' or i == 1 and 'bottom' or 'baseline',
-			--layout = 'minmax',
+			--layout = 'text_wrap',
 			--text_align = 'c m',
-			text = tostring(i),
-			--text_size = 10 + i * 3,
+			text = ('x'):rep(r) .. ' ' .. ('x'):rep(10-r),
+			--text_align = 'r b',
+			flex_fr = r,
+			--font_size = 10 + i * 3,
 		}
+
+		function b:after_draw(cr)
+			--print(self.parent._layout_min_cw, self.parent.cw)
+		end
 	end
 
 	function win:client_resized()
-		flex.w = win.cw - 400 - 20
-		flex.h = win.ch - 100 - 20
+		flex.flex_w = win.cw - 20
+		flex.flex_h = win.ch - 20
 		self:invalidate()
 	end
 
@@ -487,7 +501,7 @@ end
 --test_layers()
 --test_drag()
 --test_text()
-test_layouting()
+test_flexbox()
 win:show()
 ui:run()
 ui:free()

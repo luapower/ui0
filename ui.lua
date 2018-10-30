@@ -549,8 +549,8 @@ function stylesheet:update_element(elem, update_children)
 			end
 		end
 	end
-	if update_children and elem.layers then
-		for _,layer in ipairs(elem.layers) do
+	if update_children then
+		for _,layer in ipairs(elem) do
 			self:update_element(layer, true)
 		end
 	end
@@ -697,10 +697,30 @@ function tran.interpolate:gradient_colors(d, t1, t2, t)
 	return t
 end
 
+--element index --------------------------------------------------------------
+
+ui.element_index = ui.object:subclass'element_index'
+
+function ui.element_index:after_init(ui)
+	self.ui = ui
+end
+
+function ui.element_index:add_element(elem)
+	--TODO: add element to the index.
+end
+
+function ui.element_index:remove_element(elem)
+	--TODO: remove element from the index.
+end
+
+function ui.element_index:find_elements(sel)
+	--TODO: use the index to find the element faster.
+	return self.ui:_find_elements(sel)
+end
+
 --element lists --------------------------------------------------------------
 
 ui.element_list = ui.object:subclass'element_list'
-ui.element_index = ui.object:subclass'element_index'
 
 function ui:after_init()
 	self.elements = self:element_list()
@@ -728,24 +748,6 @@ function ui:_find_elements(sel, elems)
 	return res
 end
 
-function ui.element_index:after_init(ui)
-	self.ui = ui
-end
-
-function ui.element_index:add_element(elem)
-	--TODO
-end
-
-function ui.element_index:remove_element(elem)
-	--TODO
-end
-
-function ui.element_index:find_elements(sel)
-	--TODO
-	return self.ui:_find_elements(sel)
-end
-
-
 function ui.element_list:each(f)
 	for i,elem in ipairs(self) do
 		local v = f(elem)
@@ -771,8 +773,6 @@ end
 local element = ui.object:subclass'element'
 ui.element = element
 ui.element.ui = ui
-
---init
 
 function element:init_ignore(t) --class method
 	if self._init_ignore == self.super._init_ignore then
@@ -831,7 +831,7 @@ function element:before_free()
 	self.ui = false
 end
 
---tags & styles
+--element tags & styles ------------------------------------------------------
 
 element.stylesheet = ui.stylesheet
 
@@ -955,7 +955,7 @@ function element:parent_value(attr)
 	return val
 end
 
---attribute transitions
+--element attribute transitions ----------------------------------------------
 
 --can be used as a css value.
 function element:end_value(attr)
@@ -1159,11 +1159,15 @@ function element:transitioning(attr)
 	return self.transactions and self.transactions[attr]
 end
 
---sync'ing
+--element sync'ing -----------------------------------------------------------
 
 function element:sync()
 	self:sync_styles()
 	self:sync_transitions()
+	--sync children depth-first.
+	for _,elem in ipairs(self) do
+		elem:sync()
+	end
 end
 
 --windows --------------------------------------------------------------------
@@ -1416,11 +1420,13 @@ function window:override_init(inherited, ui, t)
 	win:on({'client_rect_changed', self}, function(win, cx, cy, cw, ch)
 		if not cx then return end --hidden or minimized
 		setcontext()
-		self.view.w = cw
-		self.view.h = ch
+		self._cw = cw
+		self._ch = ch
 		self:fire('client_rect_changed', cx, cy, cw, ch)
 		self:invalidate()
 	end)
+
+	self._cw, self._ch = win:client_size()
 
 	function win.closing(win, closing_win)
 		local reason = self._close_reason
@@ -1481,7 +1487,7 @@ function window:before_free()
 	self.ui.windows[self] = nil
 end
 
---move frameless window by dragging it
+--move frameless window by dragging it ---------------------------------------
 
 window._move_layer = false
 
@@ -1512,45 +1518,7 @@ function window:set_move_layer(layer)
 	end
 end
 
---parent/child interface
-
-function window:get_parent()
-	return self._parent
-end
-
-function window:set_parent(parent)
-	assert(not self._parent, 'changing the parent is NYI')
-	if parent and parent.iswindow then
-		parent = parent.view
-	end
-	self._parent = parent
-end
-
-function window:to_parent(x, y)
-	if self.parent then
-		return self.view:to_other(self.parent.view, x, y)
-	else
-		return x, y
-	end
-end
-
-function window:from_parent(x, y)
-	if self.parent then
-		return self.view:from_other(self.parent.view, x, y)
-	else
-		return x, y
-	end
-end
-
-function window:from_window(x, y)
-	return x, y
-end
-
-function window:to_window(x, y)
-	return x, y
-end
-
---geometry
+--window geometry ------------------------------------------------------------
 
 function window:frame_rect(x, y, w, h)
 	if self:isinstance() then
@@ -1631,6 +1599,10 @@ function window:client_rect(cx, cy, cw, ch)
 	end
 end
 
+function window:client_size()
+	return self._cw, self._ch
+end
+
 function window:get_x() return (select(1, self:frame_rect())) end
 function window:get_y() return (select(2, self:frame_rect())) end
 function window:get_w() return (select(3, self:frame_rect())) end
@@ -1642,14 +1614,64 @@ function window:set_h(h) self:frame_rect(nil, nil, nil, h) end
 
 function window:get_cx() return (select(1, self:client_rect())) end
 function window:get_cy() return (select(2, self:client_rect())) end
-function window:get_cw() return (select(3, self:client_rect())) end
-function window:get_ch() return (select(4, self:client_rect())) end
+function window:get_cw() return self._cw end
+function window:get_ch() return self._ch end
 function window:set_cx(cx) self:client_rect(cx, nil, nil, nil) end
 function window:set_cy(cy) self:client_rect(nil, cy, nil, nil) end
 function window:set_cw(cw) self:client_rect(nil, nil, cw, nil) end
 function window:set_ch(ch) self:client_rect(nil, nil, nil, ch) end
 
---layer interface
+function window:get_min_cw() return (select(1, self.native_window:minsize())) end
+function window:get_min_ch() return (select(2, self.native_window:minsize())) end
+function window:get_max_cw() return (select(1, self.native_window:maxsize())) end
+function window:get_max_ch() return (select(2, self.native_window:maxsize())) end
+function window:set_min_cw(cw) self.native_window:minsize(cw, nil) end
+function window:set_min_ch(ch) self.native_window:minsize(nil, ch) end
+function window:set_max_cw(cw) self.native_window:maxsize(cw, nil) end
+function window:set_max_ch(ch) self.native_window:maxsize(nil, ch) end
+
+window:instance_only'min_cw'
+window:instance_only'min_ch'
+window:instance_only'max_cw'
+window:instance_only'max_ch'
+
+--window as a layer's parent -------------------------------------------------
+
+function window:get_parent()
+	return self._parent
+end
+
+function window:set_parent(parent)
+	assert(not self._parent, 'changing the parent is NYI')
+	if parent and parent.iswindow then
+		parent = parent.view
+	end
+	self._parent = parent
+end
+
+function window:to_parent(x, y)
+	if self.parent then
+		return self.view:to_other(self.parent.view, x, y)
+	else
+		return x, y
+	end
+end
+
+function window:from_parent(x, y)
+	if self.parent then
+		return self.view:from_other(self.parent.view, x, y)
+	else
+		return x, y
+	end
+end
+
+function window:from_window(x, y)
+	return x, y
+end
+
+function window:to_window(x, y)
+	return x, y
+end
 
 function window:add_layer(layer, index)
 	if layer.iswindow_view then
@@ -1670,7 +1692,7 @@ function window:abs_matrix()
 	return mt:reset()
 end
 
---native window API forwarding
+--native window API forwarding -----------------------------------------------
 
 --r/w and r/o properties which map uniformly to the native API
 local props = {
@@ -1735,25 +1757,23 @@ function window:get_dead()
 	return not self.native_window or self.native_window:dead()
 end
 
-function window:get_min_cw() return (select(1, self.native_window:minsize())) end
-function window:get_min_ch() return (select(2, self.native_window:minsize())) end
-function window:get_max_cw() return (select(1, self.native_window:maxsize())) end
-function window:get_max_ch() return (select(2, self.native_window:maxsize())) end
-function window:set_min_cw(cw) self.native_window:minsize(cw, nil) end
-function window:set_min_ch(ch) self.native_window:minsize(nil, ch) end
-function window:set_max_cw(cw) self.native_window:maxsize(cw, nil) end
-function window:set_max_ch(ch) self.native_window:maxsize(nil, ch) end
-
-window:instance_only'min_cw'
-window:instance_only'min_ch'
-window:instance_only'max_cw'
-window:instance_only'max_ch'
-
 function window:_settooltip(text)
 	return self.native_window:tooltip(text)
 end
 
---element query interface
+function window:get_cursor()
+	return (self.native_window:cursor())
+end
+
+function window:set_cursor(cursor)
+	self.native_window:cursor(cursor or 'arrow')
+end
+
+function window:mouse_pos() --window interface
+	return self.mouse_x, self.mouse_y
+end
+
+--element query interface ----------------------------------------------------
 
 function window:find(sel)
 	local sel = ui:selector(sel):filter(function(elem)
@@ -1766,11 +1786,7 @@ function window:each(sel, f)
 	return self:find(sel):each(f)
 end
 
-function window:mouse_pos() --window interface
-	return self.mouse_x, self.mouse_y
-end
-
---window mouse events routing with hot, active and drag & drop logic.
+--window mouse events routing ------------------------------------------------
 
 function ui:_reset_drag_state()
 	self.drag_start_widget = false --widget initiating the drag
@@ -1795,14 +1811,6 @@ end
 
 function window:hit_test(x, y, reason)
 	return self.view:hit_test(x, y, reason)
-end
-
-function window:get_cursor()
-	return (self.native_window:cursor())
-end
-
-function window:set_cursor(cursor)
-	self.native_window:cursor(cursor or 'arrow')
 end
 
 function ui:_set_hot_widget(window, widget, mx, my, area)
@@ -1987,7 +1995,7 @@ function ui:_window_mousewheel(window, delta, mx, my, pdelta)
 	end
 end
 
---keyboard events routing with focus logic
+--window keyboard events routing ---------------------------------------------
 
 function window:first_focusable_widget()
 	return self.view:first_focusable_widget()
@@ -2014,7 +2022,7 @@ function window:_key_event(event_name, key)
 	until not widget
 end
 
---rendering
+--window rendering -----------------------------------------------------------
 
 function window:draw(cr)
 	local exp = self._frame_expire_clock
@@ -2060,7 +2068,7 @@ function window:invalidate(clock) --element interface; window intf.
 	end
 end
 
---drawing helpers ------------------------------------------------------------
+--ui colors, gradients, images -----------------------------------------------
 
 function ui:_rgba(s)
 	local r, g, b, a = color.parse(s, 'rgb')
@@ -2133,7 +2141,7 @@ function ui:image_pattern(file)
 end
 ui:memoize'image_pattern'
 
---fonts & text ---------------------------------------------------------------
+--ui fonts & text ------------------------------------------------------------
 
 function ui:add_font_file(...) return self.tr:add_font_file(...) end
 function ui:add_mem_font(...) return self.tr:add_mem_font(...) end
@@ -2222,15 +2230,12 @@ function layer:after_init(ui, t)
 	self.parent = t.parent
 
 	--create and/or attach layers
-	if t.layers then
-		self.layers = {}
-		for i,layer in ipairs(t.layers) do
-			if not layer.islayer then
-				layer = layer.class(self.ui, self[layer.class], layer)
-			end
-			assert(layer.islayer)
-			layer.parent = self
+	for i,layer in ipairs(t) do
+		if not layer.islayer then
+			layer = layer.class(self.ui, self[layer.class], layer)
 		end
+		assert(layer.islayer)
+		layer.parent = self
 	end
 end
 
@@ -2243,13 +2248,13 @@ function layer:before_free()
 	if self.active then
 		self.ui.active_widget = false
 	end
-	self:_free_layers()
+	self:_free_children()
 	if self.parent then
 		self.parent:remove_layer(self, true)
 	end
 end
 
---layer relative geometry & matrix
+--layer relative geometry & matrix -------------------------------------------
 
 layer.x = 0
 layer.y = 0
@@ -2357,19 +2362,7 @@ function layer:from_other(widget, x, y)
 	return widget:to_other(self, x, y)
 end
 
-function layer:mouse_pos()
-	if not self.window.mouse_x then
-		return false, false
-	end
-	return self:from_window(self.window:mouse_pos())
-end
-
-function layer:get_mouse_x() return (select(1, self:mouse_pos())) end
-function layer:get_mouse_y() return (select(2, self:mouse_pos())) end
-
-function layer:get_mouse()
-	return self.window.mouse
-end
+--layer parent property & child list -----------------------------------------
 
 function layer:get_parent() --child interface
 	return self._parent
@@ -2407,18 +2400,18 @@ end
 
 function layer:get_layer_index()
 	if self.parent then
-		return indexof(self, self.parent.layers)
+		return indexof(self, self.parent)
 	else
 		return self._layer_index
 	end
 end
 
 function layer:move_layer(layer, index)
-	local new_index = clamp(index, 1, #self.layers)
-	local old_index = indexof(layer, self.layers)
+	local new_index = clamp(index, 1, #self)
+	local old_index = indexof(layer, self)
 	if old_index == new_index then return end
-	table.remove(self.layers, old_index)
-	table.insert(self.layers, new_index, layer)
+	table.remove(self, old_index)
+	table.insert(self, new_index, layer)
 	self:invalidate()
 end
 
@@ -2431,8 +2424,7 @@ function layer:set_layer_index(index)
 end
 
 function layer:each_child(func)
-	if not self.layers then return end
-	for _,layer in ipairs(self.layers) do
+	for _,layer in ipairs(self) do
 		local ret = layer:each_child(func)
 		if ret ~= nil then return ret end
 		local ret = func(layer)
@@ -2451,9 +2443,8 @@ function layer:add_layer(layer, index) --parent interface
 	if layer._parent then
 		layer._parent:remove_layer(layer)
 	end
-	self.layers = self.layers or {}
-	index = clamp(index or 1/0, 1, #self.layers + 1)
-	push(self.layers, index, layer)
+	index = clamp(index or 1/0, 1, #self + 1)
+	push(self, index, layer)
 	layer._parent = self
 	layer.window = self.window
 	self:fire('layer_added', layer, index)
@@ -2463,7 +2454,7 @@ end
 function layer:remove_layer(layer, freeing) --parent interface
 	assert(layer._parent == self)
 	self:off({nil, layer})
-	popval(self.layers, layer)
+	popval(self, layer)
 	if not freeing then
 		self:fire('layer_removed', layer)
 	end
@@ -2472,14 +2463,27 @@ function layer:remove_layer(layer, freeing) --parent interface
 	layer:_update_enabled(layer.enabled)
 end
 
-function layer:_free_layers()
-	if not self.layers then return end
-	while #self.layers > 0 do
-		self.layers[#self.layers]:free()
+function layer:_free_children()
+	while #self > 0 do
+		self[#self]:free()
 	end
 end
 
---mouse event handling
+--mouse event handling -------------------------------------------------------
+
+function layer:mouse_pos()
+	if not self.window.mouse_x then
+		return false, false
+	end
+	return self:from_window(self.window:mouse_pos())
+end
+
+function layer:get_mouse_x() return (select(1, self:mouse_pos())) end
+function layer:get_mouse_y() return (select(2, self:mouse_pos())) end
+
+function layer:get_mouse()
+	return self.window.mouse
+end
 
 function layer:getcursor(area)
 	return self['cursor_'..area] or self.cursor
@@ -2646,7 +2650,7 @@ function layer:drag(dx, dy)
 	self:invalidate()
 end
 
---window property
+--layer.window property ------------------------------------------------------
 
 function layer:get_window()
 	return self._window
@@ -2657,14 +2661,12 @@ function layer:set_window(window)
 		self._window:off({nil, self})
 	end
 	self._window = window
-	if self.layers then
-		for i,layer in ipairs(self.layers) do
-			layer.window = window
-		end
+	for i,layer in ipairs(self) do
+		layer.window = window
 	end
 end
 
---enabled property/tag
+--layer.enabled property/tag -------------------------------------------------
 
 function layer:get_enabled()
 	return self._enabled and (not self.parent or self.parent.enabled)
@@ -2672,10 +2674,8 @@ end
 
 function layer:_update_enabled(enabled)
 	self:settag(':disabled', not enabled)
-	if self.layers then
-		for _,layer in ipairs(self.layers) do
-			layer:_update_enabled(enabled)
-		end
+	for _,layer in ipairs(self) do
+		layer:_update_enabled(enabled)
 	end
 end
 
@@ -2688,7 +2688,7 @@ function layer:set_enabled(enabled)
 	end
 end
 
---tooltip property
+--layer.tooltip property -----------------------------------------------------
 
 layer._tooltip = false --false or text
 
@@ -2703,7 +2703,7 @@ function layer:set_tooltip(text)
 	end
 end
 
---focusing and keyboard event handling
+--layer focusing and keyboard event handling ---------------------------------
 
 function layer:canfocus()
 	return self.visible and self.focusable and self.enabled
@@ -2764,12 +2764,10 @@ function layer:get_focused_widget()
 	if self.focused then
 		return self
 	end
-	if self.layers then
-		for _,layer in ipairs(self.layers) do
-			local focused_widget = layer.focused_widget
-			if focused_widget then
-				return focused_widget
-			end
+	for _,layer in ipairs(self) do
+		local focused_widget = layer.focused_widget
+		if focused_widget then
+			return focused_widget
 		end
 	end
 end
@@ -2787,14 +2785,12 @@ function layer:focusable_widgets(t, depth)
 	t = t or {}
 	depth = depth or 1
 	self._depth = depth
-	if self.layers then
-		for i,layer in ipairs(self.layers) do
-			if layer:canfocus() then
-				layer._depth = depth + 1
-				push(t, layer)
-			else --add layers' focusable children recursively, depth-first.
-				layer:focusable_widgets(t, depth + 1)
-			end
+	for i,layer in ipairs(self) do
+		if layer:canfocus() then
+			layer._depth = depth + 1
+			push(t, layer)
+		else --add layers' focusable children recursively, depth-first.
+			layer:focusable_widgets(t, depth + 1)
 		end
 	end
 	table.sort(t, function(t1, t2)
@@ -2827,7 +2823,6 @@ function layer:focusable_widgets(t, depth)
 end
 
 function layer:first_focusable_widget()
-	if not self.layers then return end
 	return self:focusable_widgets()[1]
 end
 
@@ -2847,35 +2842,31 @@ end
 
 --layers geometry, drawing and hit testing
 
-function layer:layers_bounding_box(strict)
+function layer:children_bounding_box(strict)
 	local x, y, w, h = 0, 0, 0, 0
-	if self.layers then
-		for _,layer in ipairs(self.layers) do
-			x, y, w, h = box2d.bounding_box(x, y, w, h,
-				layer:bounding_box(strict))
-		end
+	for _,layer in ipairs(self) do
+		x, y, w, h = box2d.bounding_box(x, y, w, h,
+			layer:bounding_box(strict))
 	end
 	return x, y, w, h
 end
 
-function layer:draw_layers(cr) --called in content space
-	if not self.layers then return end
-	for i = 1, #self.layers do
-		self.layers[i]:draw(cr)
+function layer:draw_children(cr) --called in content space
+	for i = 1, #self do
+		self[i]:draw(cr)
 	end
 end
 
-function layer:hit_test_layers(x, y, reason) --called in content space
-	if not self.layers then return end
-	for i = #self.layers, 1, -1 do
-		local widget, area = self.layers[i]:hit_test(x, y, reason)
+function layer:hit_test_children(x, y, reason) --called in content space
+	for i = #self, 1, -1 do
+		local widget, area = self[i]:hit_test(x, y, reason)
 		if widget then
 			return widget, area
 		end
 	end
 end
 
---border geometry and drawing
+--border geometry and drawing ------------------------------------------------
 
 layer.border_width = 0 --no border
 layer.corner_radius = 0 --square
@@ -3178,7 +3169,7 @@ function layer:draw_border(cr)
 	end
 end
 
---background geometry and drawing
+--background geometry and drawing --------------------------------------------
 
 layer.background_type = 'color'
 	--^ false, 'color', 'gradient', 'radial_gradient', 'image'
@@ -3311,7 +3302,7 @@ function layer:paint_background(cr)
 	cr:rgb(0, 0, 0) --release source
 end
 
---box-shadow geometry and drawing
+--box-shadow geometry and drawing --------------------------------------------
 
 layer.shadow_x = 0
 layer.shadow_y = 0
@@ -3429,26 +3420,26 @@ function layer:draw_shadow(cr)
 	cr:translate(-sx, -sy)
 end
 
---parsing of '<halign> <valign>' property strings
+--parsing of '<align_x> <align_y>' property strings
 
-local haligns = {
-	left = 'left', center = 'center', right = 'right', stretch = 'stretch',
-	l = 'left', c = 'center', r = 'right',  s = 'stretch',
+local aligns_x = {
+	left = 'left', center = 'center', right = 'right',
+	l = 'left', c = 'center', r = 'right',
 }
-local valigns = {
-	top = 'top', middle = 'middle', bottom = 'bottom', stretch = 'stretch',
-	t = 'top', m = 'middle', b = 'bottom', s = 'stretch',
+local aligns_y = {
+	top = 'top', center = 'center', bottom = 'bottom',
+	t = 'top', c = 'center', b = 'bottom',
 }
-local default = {'center', 'middle'}
+local default = {'center', 'center'}
 function ui:_align(s)
 	local a1, a2 = s:match'([^%s]+)%s*([^%s]*)'
-	local h = haligns[a1] or haligns[a2]
-	local v = valigns[a1] or valigns[a2]
-	return self:check(h and v, 'invalid align: "%s"', s) and {h, v} or default
+	local ax = aligns_x[a1] or aligns_x[a2]
+	local ay = aligns_y[a1] or aligns_y[a2]
+	return self:check(ax and ay, 'invalid align: "%s"', s) and {ax, ay} or default
 end
 ui:memoize'_align'
 
---text geometry and drawing
+--text geometry and drawing --------------------------------------------------
 
 layer.text = nil
 layer.font = 'Open Sans,14'
@@ -3472,58 +3463,43 @@ layer:nochange_barrier'text_align'
 
 function layer:after_set_text_align(s)
 	local t = self.ui:_align(s)
-	self._text_align_h = t[1]
-	self._text_align_v = t[2]
+	self._text_align_x0 = t[1]
+	self._text_align_y0 = t[2]
 end
 
-layer.text_align = 'center middle'
+layer.text_align = 'center center'
 
-layer:stored_property'text_halign'
-function layer:set_text_halign(h)
-	self._text_halign = h and self.ui:check(haligns[h], 'invalid halign: "%s"', h)
+layer:stored_property'text_align_x'
+function layer:set_text_align_x(ax)
+	self._text_align_x =
+		ax and self.ui:check(aligns_x[ax], 'invalid align_x: "%s"', ax)
 end
-layer:instance_only'text_halign'
+layer:instance_only'text_align_x'
 
-layer:stored_property'text_valign'
-function layer:set_text_valign(v)
-	self._text_valign = v and self.ui:check(valigns[v], 'invalid valign: "%s"', v)
+layer:stored_property'text_align_y'
+function layer:set_text_align_y(ay)
+	self._text_align_y =
+		ay and self.ui:check(aligns_y[ay], 'invalid align_y: "%s"', ay)
 end
-layer:instance_only'text_valign'
+layer:instance_only'text_align_y'
 
 function layer:text_aligns()
 	return
-		self._text_halign or self._text_align_h,
-		self._text_valign or self._text_align_v
+		self._text_align_x or self._text_align_x0,
+		self._text_align_y or self._text_align_y0
 end
 
-function layer:textbox_size()
-	if self.layout == 'minmax' then
-		local maxw = math.min(math.max(self.maxw, self.minw), 1e6)
-		local maxh = math.min(math.max(self.maxh, self.minh), 1e6)
+function layer:sync_text_shape()
+	if not self:text_visible() then
 		return
-			maxw - self.pw,
-			maxh - self.ph
-	else
-		return self:client_size()
 	end
-end
-
-function layer:get_baseline()
-	local segs = self._text_segments
-	if not segs then return 0 end
-	local lines = segs.lines
-	return lines.y + lines.baseline
-end
-
-function layer:sync_text()
-	if not self:text_visible() then return end
 	if not self._text_tree
 		or (not self.text_editabe and self.text ~= self._text_tree[1])
 		or self.font        ~= self._text_tree.font
 		or self.font_name   ~= self._text_tree.font_name
 		or self.font_weight ~= self._text_tree.font_weight
 		or self.font_slant  ~= self._text_tree.font_slant
-		or self.text_size   ~= self._text_tree.font_size
+		or self.font_size   ~= self._text_tree.font_size
 		or self.nowrap      ~= self._text_tree.nowrap
 		or self.text_dir    ~= self._text_tree.text_dir
 	then
@@ -3533,33 +3509,58 @@ function layer:sync_text()
 		self._text_tree.font_name   = self.font_name
 		self._text_tree.font_weight = self.font_weight
 		self._text_tree.font_slant  = self.font_slant
-		self._text_tree.font_size   = self.text_size
+		self._text_tree.font_size   = self.font_size
 		self._text_tree.nowrap      = self.nowrap
 		self._text_tree.text_dir    = self.text_dir
 		self._text_segments = self.ui.tr:shape(self._text_tree)
-		self._text_w = false --force layout
+		self._text_w = false --invalidate wrap
+		self._text_h = false --invalidate align
 	end
-	local cw, ch = self:textbox_size()
-	local ha, va = self:text_aligns()
+	return self._text_segments
+end
+
+function layer:sync_text_wrap()
+	local segs = self._text_segments
+	if not segs then return nil end
+	local cw = self:client_size()
 	local ls = self.line_spacing
 	local ps = self.paragraph_spacing
 	if    cw ~= self._text_w
-		or ch ~= self._text_h
-		or ha ~= self._text_ha
-		or va ~= self._text_va
 		or ls ~= self._text_tree.line_spacing
 		or ps ~= self._text_tree.paragraph_spacing
+	then
+		self._text_w = cw
+		self._text_tree.line_spacing = ls
+		self._text_tree.paragraph_spacing = ps
+		segs:wrap(cw)
+		self._text_h = false --invalidate align
+	end
+	return segs
+end
+
+function layer:sync_text_align()
+	local segs = self._text_segments
+	if not segs then return nil end
+	local cw, ch = self:client_size()
+	local ha, va = self:text_aligns()
+	if    ch ~= self._text_h
+		or ha ~= self._text_ha
+		or va ~= self._text_va
 	then
 		self._text_w  = cw
 		self._text_h  = ch
 		self._text_ha = ha
 		self._text_va = va
-		self._text_ls = ls
-		self._text_tree.line_spacing = ls
-		self._text_tree.paragraph_spacing = ps
-		self._text_segments:layout(0, 0, cw, ch, ha, va)
+		segs:align(0, 0, cw, ch, ha, va)
 	end
-	return self._text_segments
+	return segs
+end
+
+function layer:get_baseline()
+	local segs = self._text_segments
+	if not segs then return 0 end
+	local lines = segs.lines
+	return lines.y + lines.baseline
 end
 
 function layer:draw_text(cr)
@@ -3576,7 +3577,7 @@ function layer:text_bounding_box()
 	return self._text_segments:bounding_box()
 end
 
---content-box geometry, drawing and hit testing
+--content-box geometry, drawing and hit testing ------------------------------
 
 layer.padding = 0
 
@@ -3660,22 +3661,22 @@ function layer:from_content(x, y)
 	return px + x, py + y
 end
 
---layer drawing & hit testing
+--layer drawing & hit testing ------------------------------------------------
 
 layer.opacity = 1
 layer.clip_content = false --'padding'/true, 'background', false
 
 function layer:draw_content(cr) --called in own content space
-	self:draw_layers(cr)
+	self:draw_children(cr)
 	self:draw_text(cr)
 end
 
 function layer:hit_test_content(x, y, reason) --called in own content space
-	return self:hit_test_layers(x, y, reason)
+	return self:hit_test_children(x, y, reason)
 end
 
 function layer:content_bounding_box(strict)
-	local x, y, w, h = self:layers_bounding_box(strict)
+	local x, y, w, h = self:children_bounding_box(strict)
 	return box2d.bounding_box(x, y, w, h, self:text_bounding_box())
 end
 
@@ -3868,13 +3869,13 @@ function layer:invalidate(delay)
 	end
 end
 
---the `hot` property which is managed by the window
+--layer.hot property which is managed by the window
 
 function layer:get_hot()
 	return self.ui.hot_widget == self
 end
 
---the `active` property and tag which the widget must set manually
+--layer.active property and tag which the widget must set manually
 
 function layer:get_active()
 	return self.ui.active_widget == self
@@ -3925,306 +3926,381 @@ function layer:set_y2(y2) self.h = y2 - self.y end
 function layer:size() return self.w, self.h end
 function layer:rect() return self.x, self.y, self.w, self.h end
 
---layouting
+--layouting ------------------------------------------------------------------
 
-layer.layout = false --false, 'minmax', 'flexbox', 'grid', ''
+layer.layout = false --false, 'textbox', 'flexbox'
 
---minmax layout
+layer.min_cw = 0
+layer.min_ch = 0
 
-layer.minw = 0
-layer.minh = 0
-layer.maxw = 1/0
-layer.maxh = 1/0
-
-layer.align = 'center middle'
-layer.halign = nil --horizontal override
-layer.valign = nil --vertical override
-
-layer:stored_property'align'
-layer:nochange_barrier'align'
-function layer:after_set_align(s)
-	local t = self.ui:_align(s)
-	self._align_h = t[1]
-	self._align_v = t[2]
-end
-layer:instance_only'align'
-
-layer:stored_property'halign'
-function layer:set_halign(h)
-	self._halign = h and self.ui:check(haligns[h], 'invalid halign: "%s"', h)
-end
-layer:instance_only'halign'
-
-layer:stored_property'valign'
-function layer:set_valign(v)
-	self._valign = v and self.ui:check(valigns[v], 'invalid valign: "%s"', v)
-end
-layer:instance_only'valign'
-
-function layer:aligns()
-	return
-		self._halign or self._align_h,
-		self._valign or self._align_v
-end
-
-function layer:layout_minmax()
-	local segs = self._text_segments
-	local cw, ch
-	if segs then
-		local _, _, w, h = segs:bounding_box()
-		cw = math.max(w, self.minw - self.pw)
-		ch = math.max(h, self.minh - self.ph)
-		local ha, va = self:text_aligns()
-		if ha == 'right' then
-			segs.lines.x = -segs.lines.w + cw
-		elseif ha == 'center' then
-			segs.lines.x = (-segs.lines.w + cw) / 2
-		end
-		if va == 'bottom' then
-			segs.lines.y = -segs.lines.h + ch
-		elseif va == 'middle' then
-			segs.lines.y = (-segs.lines.h + ch) / 2
-		end
-	else
-		cw, ch = 0, 0
-	end
-	self.cw, self.ch = cw, ch
-	local ha, va = self:aligns()
-	local va = va == 'middle' and 'center' or va
-	if self.parent then
-		self.x, self.y = box2d.align(self.w, self.h, ha, va,
-			self.parent:client_rect())
+--called first on the window's view layer.
+--called later on children of null-layout layers.
+--called after all layers are sync'ed (so styles and transitions updated).
+function layer:sync_layout()
+	if not self.visible then return end
+	if not self.layout then
+		self:sync_layout_null()
+	elseif self.layout == 'textbox' then
+		self:sync_layout_textbox()
+	elseif self.layout == 'flexbox' then
+		self:sync_layout_flexbox()
 	end
 end
 
---flexbox layout
+--compute the minimum client width of a layer and of all its children.
+--called first on the top layer of width-in-height-out layouts.
+function layer:sync_min_cw()
+	if not self.visible then return end
+	--need to sync all children recursively before sync'ing self!
+	for _,layer in ipairs(self) do
+		layer:sync_min_cw()
+	end
+	local min_cw = 0
+	if self.layout == 'textbox' then
+		min_cw = self:sync_min_cw_textbox()
+	elseif self.layout == 'flexbox' then
+		min_cw = self:sync_min_cw_flexbox()
+	end
+	min_cw = math.max(min_cw, self.min_cw)
+	self._layout_min_cw = min_cw
+	return min_cw
+end
+
+--compute the minimum client height of a layer and of all its children.
+--called first on the top layer of width-in-height-out layouts.
+--called after w and x are sync'ed on the layer and its children.
+function layer:sync_min_ch()
+	if not self.visible then return end
+	--need to sync all children recursively before sync'ing self!
+	for _,layer in ipairs(self) do
+		layer:sync_min_ch()
+	end
+	local min_ch = 0
+	if self.layout == 'textbox' then
+		min_ch = self:sync_min_ch_textbox()
+	elseif self.layout == 'flexbox' then
+		min_ch = self:sync_min_ch_flexbox()
+	end
+	min_ch = math.max(min_ch, self.min_ch)
+	self._layout_min_ch = min_ch
+	return min_ch
+end
+
+--sync w and x. called on the top layer of width-in-height-out layouts.
+--called after _layout_min_cw is sync'ed on the layer and its children.
+function layer:sync_layout_wx()
+	if self.layout == 'flexbox' then
+		self:sync_layout_wx_flexbox()
+		for _,layer in ipairs(self) do
+			layer:sync_layout_wx()
+		end
+	end
+end
+
+--sync h and y. called on the top layer of width-in-height-out layouts.
+--called after w, x, _layout_min_ch are sync'ed on the layer and its children.
+function layer:sync_layout_hy()
+	if self.layout == 'flexbox' then
+		self:sync_layout_hy_flexbox()
+		for _,layer in ipairs(self) do
+			layer:sync_layout_hy()
+		end
+	elseif self.layout == 'textbox' then
+		self:sync_layout_hy_textbox()
+	elseif not self.layout then
+		self:sync_layout_null()
+	end
+end
+
+--null layout ----------------------------------------------------------------
+
+--called when top layer or child of null-layout or child of flexbox layer.
+function layer:sync_layout_null()
+	self:sync_text_shape()
+	self:sync_text_wrap()
+	self:sync_text_align()
+	for _,layer in ipairs(self) do
+		layer:sync_layout()
+	end
+end
+
+--textbox layout -------------------------------------------------------------
+
+layer.wrap_w = 0
+
+--called when top layer or child of null-layout layer.
+function layer:sync_layout_textbox()
+	local segs = self:sync_text_shape()
+	if not segs then
+		self.cw = 0
+		self.ch = 0
+		return
+	end
+	if self == self.window.view then
+		self.wrap_w = self.cw
+	end
+	self.cw = math.max(segs:min_w(), self.min_cw, self.wrap_w)
+	self:sync_text_wrap()
+	self.cw = segs.lines.max_ax
+	self.ch = math.max(self.min_ch, segs.lines.spacing_h)
+	self:sync_text_align()
+end
+
+function layer:sync_min_cw_textbox() --child of flexbox layer
+	local segs = self:sync_text_shape()
+	return segs and segs:min_w() or 0
+end
+
+function layer:sync_min_ch_textbox() --child of flexbox layer
+	local segs = self:sync_text_wrap()
+	return segs and segs.lines.spacing_h or 0
+end
+
+function layer:sync_layout_hy_textbox()
+	self:sync_text_align()
+end
+
+--flexbox layout -------------------------------------------------------------
 
 --container properties
-layer.flex_direction = 'row' --row | row-reverse | column | column-reverse
-layer.align_content = 'stretch' --flex-start | flex-end | center | space-between | space-around | stretch
-layer.align_items = 'stretch' --flex-start | flex-end | center | baseline | stretch
-layer.justify_content = 'flex_start' --flex-start | flex-end | center | space-between | space-around
-layer.flex_wrap = false -- true | false
+layer.flex_w = 0
+layer.flex_h = 0
+layer.flex_axis = 'x' --'x', 'y'
+layer.flex_wrap = false -- true, false
+layer.align_lines = 'stretch' --stretch, space_between, space_around
+layer.align_cross = 'stretch' --stretch, baseline
+layer.align_main  = 'stretch' --stretch, space_between, space_around
+	--^all three: start/top/left, end/bottom/right, center
 
 --item properties
-layer.flex_align = nil --overrides parent.align_items
---layer.flex = '0 1 auto' --none | [ <‘flex-grow’> <‘flex-shrink’>? || <‘flex-basis’> ]
---layer.flex_basis = 'auto' --content | <‘width’>
---layer.flex_flow = nil --<flex-direction> || <flex-wrap>
---layer.flex_grow = 0 --<number>
---layer.flex_shrink = 1 --<number>
---layer.order = 0 --<number>
+layer.align_cross_self = nil --overrides parent.align_cross
+layer.flex_fr = 1
+layer.flex_order = 0
 
-function layer:flexbox_next_line(i)
-	local layers = self.layers
-	local n = #layers
-	local line_w = 0
-	while true do
-		if i > n then break end
-		local layer = layers[i]
-		if layer.visible then
-
-		end
-		i = i + 1
-	end
-end
-
-function layer:flexbox_lines()
-	return self.flexbox_next_line, self, 1
-end
-
-function layer:layout_flexbox()
-
-	local layers = self.layers
-	if not layers then
-		return
-	end
-
-	local n = #layers
-	local horizontal = self.flex_direction == 'row'
-	local justify = self.justify_content
-	local align_items = self.align_items
-	local align_lines = self.align_content
-
-	--the algorithm assumes horizontal main-axis so we use these indirections
-	--to make it work for vertical main-axis without duplicating code.
-	local X, Y, W, H, CW, CH
-	local LEFT, RIGHT, CENTER
-	local TOP, BOTTOM, MIDDLE
-	if horizontal then
-		X, Y, W, H, CW, CH = 'x', 'y', 'w', 'h', 'cw', 'ch'
-		LEFT, RIGHT, CENTER = 'left', 'right', 'center'
-		TOP, BOTTOM, MIDDLE = 'top', 'bottom', 'middle'
-	else
-		X, Y, W, H, CW, CH = 'y', 'x', 'h', 'w', 'ch', 'cw'
-		LEFT, RIGHT, CENTER = 'top', 'bottom', 'middle'
-		TOP, BOTTOM, MIDDLE = 'left', 'right', 'center'
-	end
-
-	local container_w = self[CW]
-	local container_h = self[CH]
-
-	--first pass thorugh all items: widen the container if necessary before
-	--performing line-wrapping. also exit if there's no visible layers.
-	local any_visible_layers
-	for i = 1, n do
-		local layer = layers[i]
-		if layer.visible then
-			container_w = math.max(container_w, layer[W])
-			any_visible_layers = true
-		end
-	end
-	if not any_visible_layers then
-		return
-	end
-
-	--second pass thorugh all items: perform line wrapping but only for
-	--computing vertical content metrics so we can align the lines.
-	local line_count = 0
-	local content_h = 0
-	local line1_baseline = 0
-	do
-		local max_line_w = self.flex_wrap and container_w or 1/0
-		local line_w = 0
-		local line_h = 0
-		for i = 1, n do
-			local layer = layers[i]
+--compute the minimum width (or height) of a flexbox layer.
+local function sync_min_flexbox_func(INLINE_AXIS, W, CW, PW, MIN_CW)
+	return function(self)
+		local min_cw = 0
+		local wrap = self.flex_wrap
+		local main_axis = self.flex_axis == INLINE_AXIS
+		local cross_stretched =
+			self.align_lines == 'stretch'
+			and self.align_cross == 'stretch'
+		for _,layer in ipairs(self) do
 			if layer.visible then
-				local item_w = layer[W]
-				local item_h = layer[H]
-				if line_w + item_w > max_line_w then
-					line_count = line_count + 1
-					content_h = content_h + line_h
-					line_w = 0
-					line_h = 0
-				end
-				line_w = line_w + item_w
-				line_h = math.max(line_h, item_h)
-				if line_count == 0 then
-					line1_baseline = math.max(line1_baseline, layer.baseline)
-				end
-			end
-		end
-		line_count = line_count + 1
-		content_h = content_h + line_h
-	end
-
-	--enlarge the container if necessary to contain all the lines.
-	container_h = math.max(container_h, content_h)
-
-	--compute vertical alignment metrics.
-	local content_y = 0
-	local line_spacing = 0
-	do
-		if align_lines == 'flex_end' or align_lines == BOTTOM then
-			content_y = container_h - content_h
-		elseif align_lines == 'center' or align_lines == MIDDLE then
-			content_y = (container_h - content_h) / 2
-		elseif align_lines == 'space_between' then
-			line_spacing = (container_h - content_h) / (line_count - 1)
-		elseif align_lines == 'space_around' then
-			line_spacing = (container_h - content_h) / (line_count + 1)
-			content_y = line_spacing
-		end
-	end
-
-	--third pass through all items: perform line wrapping once again, this
-	--time laying out all the items. for each line, we do two passes,
-	--one for computing line horizontal metrics, one for actual positioning.
-	local line_i = 1
-	local line_w = 0
-	local line_h = 0
-	local line_y = content_y
-	for i = 1, n + 1 do
-		local wrap, next_line_w0, next_line_h0
-		if i <= n then
-			local layer = layers[i]
-			if layer.visible then
-				local item_w = layer[W]
-				local item_h = layer[H]
-				if line_w + item_w > container_w then
-					next_line_w0 = item_w
-					next_line_h0 = item_h
-					wrap = true
-				else
-					line_w = line_w + item_w
-					line_h = math.max(line_h, item_h)
-				end
-			end
-		else
-			wrap = true
-		end
-		if wrap then
-			local item_count = i - line_i
-			local line_x = 0
-			local item_spacing = 0
-			if justify == 'flex_end' or justify == RIGHT then
-				line_x = container_w - line_w
-			elseif justify == 'center' or justify == MIDDLE then
-				line_x = (container_w - line_w) / 2
-			elseif justify == 'space_between' then
-				item_spacing = (container_w - line_w) / (item_count - 1)
-			elseif justify == 'space_around' then
-				item_spacing = (container_w - line_w) / (item_count + 1)
-				line_x = item_spacing
-			elseif justify == 'stretch' then
-				--
-			end
-			for i = line_i, i-1 do
-				local layer = layers[i]
-				if layer.visible then
-					local align = layer.flex_align or align_items
-					if align == 'stretch' then
-						layer[Y] = line_y
-						layer[H] = line_h
-					elseif align == 'flex_start' or align == TOP then
-						layer[Y] = line_y
-					elseif align == 'flex_end' or align == BOTTOM then
-						layer[Y] = line_y + line_h - layer[H]
-					elseif align == 'center' or align == MIDDLE then
-						layer[Y] = line_y + round(line_h - layer[H]) / 2
-					elseif horizontal and align == 'baseline' then
-						layer.y = line_y + line1_baseline - layer.baseline
+				if main_axis and not wrap then
+					min_cw = min_cw + layer[MIN_CW] + layer[PW]
+				elseif main_axis or not wrap then
+					min_cw = math.max(min_cw, layer[MIN_CW] + layer[PW])
+					if not main_axis and not cross_stretched then
+						min_cw = math.max(min_cw, layer[W])
 					end
-					layer[X] = line_x
-					line_x = line_x + layer[W] + item_spacing
 				end
 			end
-			line_i = i
-			line_y = line_y + line_h + line_spacing
-			line_w = next_line_w0
-			line_h = next_line_h0
+		end
+		return min_cw
+	end
+end
+layer.sync_min_cw_flexbox =
+	sync_min_flexbox_func('x', 'w', 'cw', 'pw', '_layout_min_cw')
+layer.sync_min_ch_flexbox =
+	sync_min_flexbox_func('y', 'h', 'ch', 'ph', '_layout_min_ch')
+
+--distribute main-axis size between children on non-wrapping stretch flexboxes.
+local function sync_layout_flexbox_distribute_func(CW, PW, X, W, MIN_CW)
+	return function(self)
+
+		local total_fr = 0
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				total_fr = total_fr + math.max(0, layer.flex_fr)
+			end
+		end
+
+		local total_w = self[CW]
+		local total_overflow_w = 0
+		local total_free_w = 0
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				local min_w = layer[MIN_CW] + layer[PW]
+				local flex_w = total_w * math.max(0, layer.flex_fr) / total_fr
+				local overflow_w = math.max(0, min_w - flex_w)
+				local free_w = math.max(0, flex_w - min_w)
+				total_overflow_w = total_overflow_w + overflow_w
+				total_free_w = total_free_w + free_w
+			end
+		end
+
+		--distribute the overflow to children which have free space to take it.
+		--each child shrinks to take in a part of the overflow proportional to
+		--its percent of free space.
+		local last_layer
+		local x = 0
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				local min_w = layer[MIN_CW] + layer[PW]
+				local flex_w = total_w * layer.flex_fr / total_fr
+				local w
+				if min_w > flex_w then --overflow
+					w = min_w
+				else
+					local free_w = flex_w - min_w
+					local free_p = free_w / total_free_w
+					local shrink_w = total_overflow_w * free_p
+					if shrink_w ~= shrink_w then --total_free_w == 0
+						shrink_w = 0
+					end
+					w = flex_w - shrink_w
+				end
+				layer[X] = x
+				layer[W] = w
+				x = x + w
+				last_layer = layer
+			end
+		end
+		--adjust last layer's width for any rounding errors.
+		if last_layer then
+			--assert(math.abs(last_layer[W] - (self[CW] - last_layer[X])) < 1e-6)
+			last_layer[W] = self[CW] - last_layer[X]
+		end
+
+	end
+end
+
+--distribute width between children on non-wrapping horiz. stretch flexboxes.
+layer.sync_layout_wx_flexbox_distribute =
+	sync_layout_flexbox_distribute_func('cw', 'pw', 'x', 'w', '_layout_min_cw')
+
+--distribute height between children on non-wrapping vert. stretch flexboxes.
+layer.sync_layout_hy_flexbox_distribute =
+	sync_layout_flexbox_distribute_func('ch', 'ph', 'y', 'h', '_layout_min_ch')
+
+--align flexbox items on the main-axis for non-wrapping flexboxes.
+local function sync_layout_flexbox_align_main_axis_func(W, X)
+	return function(self)
+		--
+	end
+end
+
+--align flexbox items horizontally for non-wrapping horizontal flexboxes.
+layer.sync_layout_wx_flexbox_align_main_axis =
+	sync_layout_flexbox_align_main_axis_func('w', 'x')
+
+--align flexbox items vertically for non-wrapping vertical flexboxes.
+layer.sync_layout_hy_flexbox_align_main_axis =
+	sync_layout_flexbox_align_main_axis_func('h', 'y')
+
+--align flexbox items on the cross-axis for non-wrapping flexboxes.
+local function sync_layout_flexbox_align_cross_axis_func(
+	H, Y, CH, TOP, BOTTOM
+)
+	return function(self)
+		local lines_y = 0
+		local lines_h = 0
+		if self.align_lines == 'stretch' then
+			lines_h = self[CH]
+		else
+			for _,layer in ipairs(self) do
+				if layer.visible then
+					lines_h = math.max(lines_h, layer[H])
+				end
+			end
+			if self.align_lines == BOTTOM or self.align_lines == 'end' then
+				lines_y = self[CH] - lines_h
+			else --center, space_between, space_around
+				lines_y = (self[CH] - lines_h) / 2
+			end
+		end
+		local align = self.align_cross
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				local align = layer.align_cross_self or align
+				if align == TOP or align == 'start' then
+					layer[Y] = lines_y
+				elseif align == BOTTOM or align == 'end' then
+					layer[Y] = lines_y + lines_h - layer[H]
+				elseif align == 'center' then
+					layer[Y] = lines_y + (lines_h - layer[H]) / 2
+				elseif align == 'stretch' then
+					layer[Y] = lines_y
+					layer[H] = lines_h
+				elseif align == 'baseline' and Y == 'y' then
+					local baseline = 0
+					for _,layer in ipairs(self) do
+						if layer.visible then
+							local segs = layer._text_segments
+							if segs then
+								baseline = math.max(baseline, segs.lines.baseline or 0)
+							end
+						end
+					end
+					layer.y = lines_y + baseline
+				end
+			end
 		end
 	end
-
-	self[CW] = container_w
-	self[CH] = container_h
 end
 
-function layer:sync_layout()
-	self:sync_text()
-	if self.layout == 'minmax' then
-		self:layout_minmax()
-	elseif self.layout == 'flexbox' then
-		self:layout_flexbox()
-	end
-end
+--align flexbox items horizontally for non-wrapping vertical flexboxes.
+layer.sync_layout_wx_flexbox_align_cross_axis =
+	sync_layout_flexbox_align_cross_axis_func('w', 'x', 'cw', 'left', 'center', 'right')
 
---sync layer's children depth-first.
-function layer:sync_layers()
-	if self.layers then
-		for _,layer in ipairs(self.layers) do
-			layer:sync()
+--align flexbox items vertically for non-wrapping horizontal flexboxes.
+layer.sync_layout_hy_flexbox_align_cross_axis =
+	sync_layout_flexbox_align_cross_axis_func('h', 'y', 'ch', 'top', 'center', 'bottom')
+
+function layer:sync_layout_wx_flexbox()
+	if not self.flex_wrap then
+		if self.flex_axis == 'x' then
+			if self.align_main == 'stretch' then
+				self:sync_layout_wx_flexbox_distribute()
+			else
+				self:sync_layout_wx_flexbox_align_main_axis()
+			end
+		elseif self.flex_axis == 'y' then
+			self:sync_layout_wx_flexbox_align_cross_axis()
 		end
+	else
+		--
 	end
 end
 
-function layer:after_sync()
-	self:sync_layers()
-	self:sync_layout()
+function layer:sync_layout_hy_flexbox()
+	if not self.flex_wrap then
+		if self.flex_axis == 'y' then
+			if self.align_main == 'stretch' then
+				self:sync_layout_hy_flexbox_distribute()
+			else
+				self:sync_layout_hy_flexbox_align_main_axis()
+			end
+		elseif self.flex_axis == 'x' then
+			self:sync_layout_hy_flexbox_align_cross_axis()
+		end
+	else
+		--
+	end
 end
 
---top layer ------------------------------------------------------------------
+--called when top layer or child of null-layout layer.
+function layer:sync_layout_flexbox()
+
+	if self == self.window.view then
+		self.flex_w = self.w
+		self.flex_h = self.h
+	end
+
+	--sync the horizontal
+	local min_cw = self:sync_min_cw()
+	self.w = math.max(self.flex_w, min_cw + self.pw)
+	self:sync_layout_wx()
+
+	--sync the vertical
+	local min_ch = self:sync_min_ch()
+	self.h = math.max(self.flex_h, min_ch + self.ph)
+	self:sync_layout_hy()
+end
+
+--top layer (window.view) ----------------------------------------------------
 
 local view = layer:subclass'window_view'
 window.view_class = view
@@ -4237,6 +4313,12 @@ view.background_operator = 'source'
 
 view.to_window = view.to_parent
 view.from_window = view.from_parent
+
+--sync the layout recursively in a second pass, after all sync'ing is done.
+function view:after_sync()
+	self.w, self.h = self.window:client_size()
+	self:sync_layout()
+end
 
 --widgets autoload -----------------------------------------------------------
 

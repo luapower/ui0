@@ -344,7 +344,7 @@ function clabel:after_sync()
 	self.w = self.checkbox.cw - self.checkbox.button.w
 	local align = self.checkbox.align
 	self.x = align == 'left' and self.checkbox.cw - self.w or 0
-	self.text_halign = align
+	self.text_align_x = align
 	self.padding_left = align == 'left' and self.h / 2 or 0
 	self.padding_right = align == 'right' and self.h / 2 or 0
 end
@@ -491,11 +491,9 @@ ui:style('button :selected', {
 })
 
 function choicebutton:find_button(selects)
-	if self.layers then
-		for i,btn in ipairs(self.layers) do
-			if btn.choicebutton == self and selects(btn) then
-				return btn
-			end
+	for i,btn in ipairs(self) do
+		if btn.choicebutton == self and selects(btn) then
+			return btn
 		end
 	end
 end
@@ -555,11 +553,9 @@ function choicebutton:sync_button(b)
 end
 
 function choicebutton:before_draw_content(cr)
-	if self.layers then
-		for _, layer in ipairs(self.layers) do
-			if layer.choicebutton == self then
-				self:sync_button(layer)
-			end
+	for _, layer in ipairs(self) do
+		if layer.choicebutton == self then
+			self:sync_button(layer)
 		end
 	end
 end
@@ -630,7 +626,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		x = 100, y = 150, w = 100,
 		text = 'Disabled',
 		enabled = false,
-		text_halign = 'right',
+		text_align_x = 'right',
 	})
 
 	local b3 = btn(ui, {
@@ -639,7 +635,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		x = 100, y = 200, w = 100,
 		text = '&Cancel',
 		cancel = true,
-		text_halign = 'left',
+		text_align_x = 'left',
 	})
 
 	function b1:gotfocus() print'b1 got focus' end
@@ -699,7 +695,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		},
 		selected = 'val3',
 	}
-	for i,b in ipairs(cb1.layers) do
+	for i,b in ipairs(cb1) do
 		if b.isbutton then
 			b.id = 'CHOICE'..i
 		end

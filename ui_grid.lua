@@ -418,7 +418,7 @@ end
 local col = ui.layer:subclass'grid_col'
 grid.col_class = col
 
-col.text_align = 'left middle'
+col.text_align = 'left center'
 col.nowrap = true
 col._w = 200
 col.auto_w = true --distribute pane's width among all columns
@@ -704,7 +704,7 @@ ui:style('grid_col !last_col !:moving', {
 local cell = ui.layer:subclass'grid_cell'
 grid.cell_class = cell
 
-cell.text_align = 'left middle'
+cell.text_align = 'left center'
 cell.nowrap = true
 cell.padding_left = 4
 cell.padding_right = 4
@@ -985,15 +985,13 @@ function grid:draw_rows(cr, rows_pane)
 	end
 	self._cell = false
 	local header = rows_pane.split_pane.header_pane.content
-	if header.layers then
-		for _,col in ipairs(header.layers) do
-			if col.isgrid_col and not col.clipped then
-				local cell = self:cell_at(i1, col)
-				if cell == self._cell then
-					self:sync_cell_to_col(cell, col)
-				end
-				self:draw_rows_col(cr, i1, i2, col, hot_i, hot_col)
+	for _,col in ipairs(header) do
+		if col.isgrid_col and not col.clipped then
+			local cell = self:cell_at(i1, col)
+			if cell == self._cell then
+				self:sync_cell_to_col(cell, col)
 			end
+			self:draw_rows_col(cr, i1, i2, col, hot_i, hot_col)
 		end
 	end
 end

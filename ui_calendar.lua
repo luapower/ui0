@@ -81,7 +81,7 @@ function calendar:before_init()
 	for i = 1, 7 do
 		push(self.cols, {
 			text = ui.weekdays_short[i],
-			text_halign = 'center',
+			text_align_x = 'center',
 		})
 	end
 end

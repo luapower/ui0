@@ -111,7 +111,7 @@ tip.format = '%g'
 tip.border_width = 0
 tip.border_color = '#fff'
 tip.border_offset = 1
-tip.text_size = 11
+tip.font_size = 11
 
 tip.opacity = 0
 
@@ -134,7 +134,7 @@ ui:style('slider_tip :visible', {
 	transition_blend_opacity = 'replace',
 })
 
-step_label.text_size = 10
+step_label.font_size = 10
 
 --pin position
 
@@ -278,7 +278,7 @@ function slider:after_sync()
 
 	if self.step_labels then
 		local h = math.floor(self.h - (self:step_lines_visible() and 0 or 10))
-		for _,l in ipairs(self.layers) do
+		for _,l in ipairs(self) do
 			if l.tags.slider_step_label then
 				if l.progress then
 					l.x = self.pin:cx_at_progress(l.progress)

@@ -809,7 +809,7 @@ function picker:create_mode_button()
 		value_selected = function(_, mode)
 			self.mode = mode
 		end,
-		button = {h = 17, text_size = 11},
+		button = {h = 17, font_size = 11},
 		button_corner_radius = 5,
 		w = 70,
 	}, self.mode_button)

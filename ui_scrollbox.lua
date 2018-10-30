@@ -391,12 +391,12 @@ function scrollbox:after_sync()
 	local sw = vs.h + vs_margin
 	local sh = hs.h + hs_margin
 
-	--for `auto_w`, set up `maxw` on content, lay-out the content and then get
-	--its size, assuming that the content lays itself out after `maxw`.
+	--for `auto_w`, set up `max_w` on content, lay-out the content and then
+	--get its size, assuming that the content lays itself out after `max_w`.
 	--if the content overflows vertically, another layout pass is ncessary,
-	--this time with a smaller `maxw`, making room for the needed vertical
+	--this time with a smaller `max_w`, making room for the needed vertical
 	--scrollbar, under the assumption that the content will still overflow
-	--vertically under the smaller `maxw`. the same logic applies
+	--vertically under the smaller `max_w`. the same logic applies
 	--symmetrically for `auto_h`.
 	local cw0 = self.auto_w and w - ((vs_overlap or vs.autohide_empty) and 0 or sw)
 	local ch0 = self.auto_h and h - ((hs_overlap or hs.autohide_empty) and 0 or sh)
@@ -410,9 +410,8 @@ function scrollbox:after_sync()
 	::reflow::
 
 	if cw0 or ch0 then
-		content.layout = 'minmax'
-		if cw0 then content.maxw = cw0 end
-		if ch0 then content.maxh = ch0 end
+		if cw0 then content.max_w = cw0; content.max_h = 0; end
+		if ch0 then content.max_h = ch0; content.max_w = 0; end
 		content:sync_layout()
 	end
 
