@@ -454,15 +454,16 @@ local function test_flexbox()
 		layout = 'flexbox',
 		--flex_wrap = true,
 		flex_axis = 'x',
+		align_main = 'center',
 		align_cross = 'stretch',
-		align_lines = 'stretch',
-		border_width = 10,
+		align_lines = 'center',
+		border_width = 20,
 		border_offset = 1,
 		--padding = 10,
 		border_color = '#333',
-		x = 10, y = 10,
-		flex_w = win.cw - 20,
-		flex_h = win.ch - 20,
+		x = 20, y = 20,
+		flex_w = win.cw - 40,
+		flex_h = win.ch - 40,
 	}
 
 	for i = 1, 4 do
@@ -472,7 +473,7 @@ local function test_flexbox()
 			layout = 'textbox',
 			--layout = 'flexbox',
 			border_width = 1,
-			w = 100 + r * 10,
+			w = r * 10,
 			h = 100 + r * 10,
 			--padding = 10,
 			--flex_align = i == 3 and 'stretch' or i == 1 and 'bottom' or 'baseline',
@@ -490,8 +491,8 @@ local function test_flexbox()
 	end
 
 	function win:client_resized()
-		flex.flex_w = win.cw - 20
-		flex.flex_h = win.ch - 20
+		flex.flex_w = win.cw - 40
+		flex.flex_h = win.ch - 40
 		self:invalidate()
 	end
 
