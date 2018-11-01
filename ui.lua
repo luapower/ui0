@@ -4127,7 +4127,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		local wrap_w = self[CW]
 		local line_w = 0
 		for j = i, #self do
-			local layer = self[i]
+			local layer = self[j]
 			if layer.visible then
 				local item_w = layer[MIN_CW] + layer[PW]
 				if line_w + item_w > wrap_w then
@@ -4275,7 +4275,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 			if self.align_main == 'stretch' then
 				stretch_items_x(self, i, j)
 			else
-				local items_w, items_count = items_min_w(self)
+				local items_w, items_count = items_min_w(self, i, j)
 				align_items_x(self, i, j, items_w, items_count)
 			end
 		end
@@ -4323,10 +4323,16 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 
 	--stretch or align a flexbox's items on the cross-axis.
 	local function align_y(self)
-		local lines_y, line_spacing
+		local lines_y, line_spacing, line_h
 		if self.align_lines == 'stretch' then
+			local lines_h = self[CH]
+			local line_count = 0
+			for _ in line_ranges(self) do
+				line_count = line_count + 1
+			end
+			line_h = lines_h / line_count
 			lines_y = 0
-			lines_h = self[CH]
+			line_spacing = 0
 		else
 			local lines_h = 0
 			local line_count = 0
@@ -4340,7 +4346,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		end
 		local y = lines_y
 		for j, i in line_ranges(self) do
-			local line_h = items_min_h(self, i, j)
+			local line_h = line_h or items_min_h(self, i, j)
 			align_items_y(self, i, j, y, line_h)
 			y = y + line_h + line_spacing
 		end
