@@ -3928,145 +3928,142 @@ function layer:rect() return self.x, self.y, self.w, self.h end
 
 --layouting ------------------------------------------------------------------
 
-layer.layout = false --false, 'textbox', 'flexbox'
+layer.layout = false --false/'null', 'textbox', 'flexbox'
 
 layer.min_cw = 0
 layer.min_ch = 0
 
---called first on the window's view layer.
---called later on children of null-layout layers.
---called after all layers are sync'ed (so styles and transitions updated).
-function layer:sync_layout()
+local layouts = {} --{layout_name -> layout_class}
+layer.layouts = layouts
+
+--layouting system entry point: called on the window's view layer after
+--all layers are sync'ed (so after styles and transitions are updated).
+function layer:sync_layout_window_view(w, h)
 	if not self.visible then return end
-	if not self.layout then
-		self:sync_layout_null()
-	elseif self.layout == 'textbox' then
-		self:sync_layout_textbox()
-	elseif self.layout == 'flexbox' then
-		self:sync_layout_flexbox()
-	end
+	self.layouts[self.layout or 'null'].sync_window_view(self, w, h)
+	self:sync_layout()
 end
 
---compute the minimum client width of a layer and of all its children.
---called first on the top layer of width-in-height-out layouts.
-function layer:sync_min_cw()
+--called on children of null-layout layers to layout themselves.
+function layer:sync_layout()
 	if not self.visible then return end
-	local min_cw = 0
-	if not self.layout then
-		min_cw = 0
-	elseif self.layout == 'textbox' then
-		min_cw = self:sync_min_cw_textbox()
-	elseif self.layout == 'flexbox' then
-		min_cw = self:sync_min_cw_flexbox()
-	end
-	min_cw = math.max(min_cw, self.min_cw)
+	self.layouts[self.layout or 'null'].sync(self)
+end
+
+--used by layers with width-in-height-out-type layouts to layout themselves.
+function layer:sync_layout_xy()
+
+	--sync the x-axis.
+	local min_cw = self:sync_min_cw()
+	self.w = min_cw + self.pw
+	self:sync_layout_x()
+
+	--sync the y-axis.
+	local min_ch = self:sync_min_ch()
+	self.h = min_ch + self.ph
+	self:sync_layout_y()
+end
+
+--compute the minimum client width of a layer.
+--called before h and y are sync'ed on width-in-height-out layouts.
+function layer:sync_min_cw()
+	local min_cw = self.layouts[self.layout or 'null'].sync_min_cw(self)
+	local min_cw = math.max(min_cw, self.min_cw)
 	self._layout_min_cw = min_cw
 	return min_cw
 end
 
---compute the minimum client height of a layer and of all its children.
---called first on the top layer of width-in-height-out layouts.
---called after w and x are sync'ed on the layer and its children.
+--compute the minimum client height of a layer.
+--called only after w and x are sync'ed on width-in-height-out layouts.
 function layer:sync_min_ch()
-	if not self.visible then return end
-	local min_ch = 0
-	if not self.layout then
-		min_ch = 0
-	elseif self.layout == 'textbox' then
-		min_ch = self:sync_min_ch_textbox()
-	elseif self.layout == 'flexbox' then
-		min_ch = self:sync_min_ch_flexbox()
-	end
-	min_ch = math.max(min_ch, self.min_ch)
+	local min_ch = self.layouts[self.layout or 'null'].sync_min_ch(self)
+	local min_ch = math.max(min_ch, self.min_ch)
 	self._layout_min_ch = min_ch
 	return min_ch
 end
 
---sync a layer's layout on the x-axis.
---called first on the top layer of width-in-height-out layouts.
---called after _layout_min_cw is sync'ed on the layer and its children.
+--sync a layer's layout on the x-axis after its width has been set.
+--called only after _layout_min_cw is sync'ed on the layer and its children.
 function layer:sync_layout_x()
-	if not self.layout then
-		--self:sync_layout_x_null()
-	elseif self.layout == 'textbox' then
-		--self:sync_layout_x_textbox()
-	elseif self.layout == 'flexbox' then
-		self:sync_layout_x_flexbox()
-	end
+	self.layouts[self.layout or 'null'].sync_x(self)
 end
 
---sync a layer's layout on the y-axis.
---called on the top layer of width-in-height-out layouts.
+--sync a layer's layout on the y-axis after its height has been set.
 --called after w, x, _layout_min_ch are sync'ed on the layer and its children.
 function layer:sync_layout_y()
-	if not self.layout then
-		--self:sync_layout_null()
-	elseif self.layout == 'textbox' then
-		self:sync_layout_y_textbox()
-	elseif self.layout == 'flexbox' then
-		self:sync_layout_y_flexbox()
-	end
+	self.layouts[self.layout or 'null'].sync_y(self)
 end
 
 --null layout ----------------------------------------------------------------
 
---called when top layer or child of null-layout or child of flexbox layer.
-function layer:sync_layout_null()
+layouts.null = object:subclass'null_layout'
+
+function layouts.null:sync()
 	self:sync_text_shape()
 	self:sync_text_wrap()
 	self:sync_text_align()
 	for _,layer in ipairs(self) do
-		layer:sync_layout()
+		layer:sync_layout() --recurse
 	end
+end
+
+function layouts.null:sync_min_cw() return 0 end
+function layouts.null:sync_min_ch() return 0 end
+function layouts.null:sync_x() end
+layouts.null.sync_y = layouts.null.sync
+
+function layouts.null:sync_window_view(w, h)
+	self.w = w
+	self.h = h
 end
 
 --textbox layout -------------------------------------------------------------
 
-layer.wrap_w = 0
+layouts.textbox = object:subclass'textbox_layout'
 
---called when top layer or child of null-layout layer.
-function layer:sync_layout_textbox()
+function layouts.textbox:sync()
 	local segs = self:sync_text_shape()
 	if not segs then
 		self.cw = 0
 		self.ch = 0
 		return
 	end
-	if self == self.window.view then
-		self.wrap_w = self.cw
-	end
-	self.cw = math.max(segs:min_w(), self.min_cw, self.wrap_w)
+	self.cw = math.max(segs:min_w(), self.min_cw)
 	self:sync_text_wrap()
 	self.cw = segs.lines.max_ax
 	self.ch = math.max(self.min_ch, segs.lines.spacing_h)
 	self:sync_text_align()
 end
 
-function layer:sync_min_cw_textbox() --child of flexbox layer
+function layouts.textbox:sync_min_cw()
 	local segs = self:sync_text_shape()
 	return segs and segs:min_w() or 0
 end
 
-function layer:sync_min_ch_textbox() --child of flexbox layer
-	local segs = self:sync_text_wrap()
+function layouts.textbox:sync_min_ch()
+	local segs = self._text_segments
 	return segs and segs.lines.spacing_h or 0
 end
 
-function layer:sync_layout_y_textbox()
-	self:sync_text_align()
+layouts.textbox.sync_x = layer.sync_text_wrap
+layouts.textbox.sync_y = layer.sync_text_align
+
+function layouts.textbox:sync_window_view(w, h)
+	self.min_cw = w
+	self.min_ch = h
 end
 
 --flexbox layout -------------------------------------------------------------
 
+layouts.flexbox = object:subclass'flexbox_layout'
+
 --container properties
-layer.flex_w = 0
-layer.flex_h = 0
 layer.flex_axis = 'x' --'x', 'y'
 layer.flex_wrap = false -- true, false
-layer.align_lines = 'stretch' --stretch, space_between, space_around
-layer.align_cross = 'stretch' --stretch, baseline
-layer.align_main  = 'stretch' --stretch, space_between, space_around
-	--^all three: start/top/left, end/bottom/right, center
+layer.align_lines = 'stretch' --space_between, space_around
+layer.align_cross = 'stretch' --baseline
+layer.align_main  = 'stretch' --space_between, space_around
+	--^align_*: stretch, start/top/left, end/bottom/right, center
 
 --item properties
 layer.align_cross_self = nil --overrides parent.align_cross
@@ -4082,71 +4079,94 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 	local MIN_CW = '_layout_min_'..CW
 	local MIN_CH = '_layout_min_'..CH
 
-	--compute height and number of lines of a wrapping flexbox layer.
-	local function wrap_h(self, CW, W, H)
-		local wrap_w = self[CW]
-		local lines_h = 0
-		local line_count = 1
-		local line_w = 0
-		local line_h = 0
-		for _,layer in ipairs(self) do
+	local function items_sum(self, i, j, PW, MIN_CW)
+		local sum = 0
+		local item_count = 0
+		for i = i, j do
+			local layer = self[i]
 			if layer.visible then
-				local item_w = layer[W]
-				local item_h = layer[H]
+				sum = sum + layer[MIN_CW] + layer[PW]
+				item_count = item_count + 1
+			end
+		end
+		return sum, item_count
+	end
+
+	local function items_max(self, i, j, PW, MIN_CW)
+		local max = 0
+		local item_count = 0
+		for i = i, j do
+			local layer = self[i]
+			if layer.visible then
+				max = math.max(max, layer[MIN_CW] + layer[PW])
+				item_count = item_count + 1
+			end
+		end
+		return max, item_count
+	end
+
+	local function items_min_w(self, i, j)
+		return items_sum(self, i or 1, j or #self, PW, MIN_CW)
+	end
+
+	local function items_min_h(self, i, j)
+		return items_max(self, i or 1, j or #self, PH, MIN_CH)
+	end
+
+	local function items_min_w_wrap(self)
+		return items_max(self, 1, #self, PW, MIN_CW)
+	end
+
+	local function next_line_i(self, i)
+		i = i + 1
+		if i > #self then
+			return
+		elseif not self.flex_wrap then
+			return #self, i
+		end
+		local wrap_w = self[CW]
+		local line_w = 0
+		for j = i, #self do
+			local layer = self[i]
+			if layer.visible then
+				local item_w = layer[MIN_CW] + layer[PW]
 				if line_w + item_w > wrap_w then
-					lines_h = lines_h + line_h
-					line_count = line_count + 1
-					line_w = 0
-					line_h = 0
+					return j-1, i
 				end
 				line_w = line_w + item_w
-				line_h = math.max(line_h, item_h)
 			end
 		end
-		lines_h = lines_h + line_h
-		return lines_h, line_count
+		return #self, i
 	end
 
-	--compute the minimum width of a flexbox layer.
-	local SYNC_MIN_CW = 'sync_min_'..CW
-	local SYNC_LAYOUT_X = 'sync_layout_'..X
-	local function sync_min_cw_flexbox(self)
-		local min_cw = 0
-		local wrap = self.flex_wrap
-		local main_axis = self.flex_axis == X
-		local main_stretched = main_axis and self.align_main == 'stretch'
-		local cross_stretched =
-			not main_axis
-			and self.align_lines == 'stretch'
-			and self.align_cross == 'stretch'
-		local stretched = not wrap and (main_stretched or cross_stretched)
-		for _,layer in ipairs(self) do
-			if layer.visible then
-				local min_cw1 = layer[SYNC_MIN_CW](layer) --recurse, depth-first
-				if main_axis and not wrap then
-					min_cw = min_cw + min_cw1 + layer[PW]
-				elseif main_axis or not wrap then
-					min_cw = math.max(min_cw, min_cw1 + layer[PW])
-				elseif self.flex_axis == 'x' then --wrap, cross-axis
-					local lines_h, line_count = wrap_h(self, CH, H, W)
-					self._layout_lines_h = lines_h
-					self._layout_line_count = line_count
-					min_cw = math.max(min_cw, lines_h)
-				end
-				if not stretched then
-					layer[SYNC_LAYOUT_X](layer)
-					min_cw = math.max(min_cw, layer[W])
-				end
-			end
+	local function line_ranges(self)
+		return next_line_i, self, 0
+	end
+
+	local function sync_min_cw(self)
+		if self.flex_wrap then
+			return items_min_w_wrap(self)
+		else
+			return items_min_w(self)
 		end
-		return min_cw
 	end
 
-	local function stretch_main_axis(self)
+	local function sync_min_ch(self)
+		local lines_h = 0
+		for j, i in line_ranges(self) do
+			local line_h = items_min_h(self, i, j)
+			lines_h = lines_h + line_h
+		end
+		return lines_h
+	end
+
+	--stretch a line of items on the main axis.
+	local function stretch_items_x(self, i, j)
 
 		--compute the fraction representing the total width.
 		local total_fr = 0
-		for _,layer in ipairs(self) do
+		for i = i, j do
+			local layer = self[i]
 			if layer.visible then
 				total_fr = total_fr + math.max(0, layer.flex_fr)
 			end
@@ -4156,7 +4176,8 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		local total_w = self[CW]
 		local total_overflow_w = 0
 		local total_free_w = 0
-		for _,layer in ipairs(self) do
+		for i = i, j do
+			local layer = self[i]
 			if layer.visible then
 				local min_w = layer[MIN_CW] + layer[PW]
 				local flex_w = total_w * math.max(0, layer.flex_fr) / total_fr
@@ -4172,7 +4193,8 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		--proportional to its percent of free space.
 		local last_layer
 		local x = 0
-		for _,layer in ipairs(self) do
+		for i = i, j do
+			local layer = self[i]
 			if layer.visible then
 				local min_w = layer[MIN_CW] + layer[PW]
 				local flex_w = total_w * layer.flex_fr / total_fr
@@ -4196,35 +4218,20 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		end
 		--adjust last layer's width for any rounding errors.
 		if last_layer then
-			local w = total_w - last_layer[X]
-			assert(math.abs(last_layer[W] - w) < 1e-6)
-			last_layer[W] = w
+			last_layer[W] = total_w - last_layer[X]
 		end
 
 	end
 
-	--compute items width and count.
-	local function count_items(self, i, j)
-		local items_w = 0
-		local item_count = 0
-		for i = i, j do
-			local layer = self[i]
-			if layer.visible then
-				items_w = items_w + layer[W]
-				item_count = item_count + 1
-			end
-		end
-		return items_w, item_count
-	end
-
-	local function align_items_main_axis(self, i, j, items_w, item_count)
-
-		--compute the starting x-offset and the in-between spacing.
-		local x = 0
+	--starting x-offset and in-between spacing metrics for aligning.
+	local function align_metrics(self,
+		align, LEFT, RIGHT, container_w, items_w, item_count
+	)
+		local x
 		local spacing = 0
-		local container_w = self[CW]
-		local align = self.align_main
-		if align == 'end' or align == RIGHT then
+		if align == 'start' or align == LEFT then
+			x = 0
+		elseif align == 'end' or align == RIGHT then
 			x = container_w - items_w
 		elseif align == 'center' then
 			x = (container_w - items_w) / 2
@@ -4233,204 +4240,181 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 			x = spacing
 		elseif align == 'space_between' then
 			spacing = (container_w - items_w) / (item_count - 1)
+			x = 0
 		end
+		return x, spacing
+	end
 
+	local function align_metrics_x(self, align, items_w, item_count)
+		return align_metrics(self, align, LEFT, RIGHT, self[CW], items_w, item_count)
+	end
+
+	local function align_metrics_y(self, align, items_w, item_count)
+		return align_metrics(self, align, TOP, BOTTOM, self[CH], items_w, item_count)
+	end
+
+	--align a line of items on the main axis.
+	local function align_items_x(self, i, j, items_w, item_count)
+		local x, spacing =
+			align_metrics_x(self, self.align_main, items_w, item_count)
 		--position the items.
 		for i = i, j do
 			local layer = self[i]
 			if layer.visible then
+				local w = layer[MIN_CW] + layer[PW]
 				layer[X] = x
-				x = x + layer[W] + spacing
+				layer[W] = w
+				x = x + w + spacing
 			end
-		end
-
-	end
-
-	--stretch or align items of a non-wrapping flexbox on the main-axis.
-	local function align_main_axis(self)
-		if self.align_main == 'stretch' then
-			stretch_main_axis(self)
-		else
-			local items_w, items_count = count_items(self, 1, #self)
-			align_items_main_axis(self, 1, #self, items_w, items_count)
 		end
 	end
 
-	--stretch or align items of a non-wrapping flexbox on the cross-axis.
-	local function align_cross_axis(self)
-		local lines_y = 0
-		local lines_h = 0
-		if self.align_lines == 'stretch' then
-			lines_h = self[CH]
-		else
-			for _,layer in ipairs(self) do
-				if layer.visible then
-					lines_h = math.max(lines_h, layer[H])
-				end
-			end
-			if self.align_lines == 'end' or self.align_lines == BOTTOM then
-				lines_y = self[CH] - lines_h
-			else --center, space_between, space_around
-				lines_y = (self[CH] - lines_h) / 2
+	--stretch or align a flexbox's items on the main-axis.
+	local function align_x(self)
+		for j, i in line_ranges(self) do
+			if self.align_main == 'stretch' then
+				stretch_items_x(self, i, j)
+			else
+				local items_w, items_count = items_min_w(self)
+				align_items_x(self, i, j, items_w, items_count)
 			end
 		end
+	end
+
+	--align a line of items on the cross-axis.
+	local function align_items_y(self, i, j, line_y, line_h)
 		local align = self.align_cross
-		for _,layer in ipairs(self) do
+		for i = i, j do
+			local layer = self[i]
 			if layer.visible then
 				local align = layer.align_cross_self or align
-				if align == TOP or align == 'start' then
-					layer[Y] = lines_y
-				elseif align == BOTTOM or align == 'end' then
-					layer[Y] = lines_y + lines_h - layer[H]
-				elseif align == 'center' then
-					layer[Y] = lines_y + (lines_h - layer[H]) / 2
-				elseif align == 'stretch' then
-					layer[Y] = lines_y
-					layer[H] = lines_h
-				elseif align == 'baseline' and Y == 'y' then
-					local baseline = 0
-					for _,layer in ipairs(self) do
-						if layer.visible then
-							local segs = layer._text_segments
-							if segs then
-								baseline = math.max(baseline, segs.lines.baseline or 0)
+				if align == 'stretch' then
+					layer[Y] = line_y
+					layer[H] = line_h
+				else
+					local item_h = layer[MIN_CH]
+					layer[H] = item_h
+					if align == TOP or align == 'start' then
+						layer[Y] = line_y
+					elseif align == BOTTOM or align == 'end' then
+						layer[Y] = line_y + line_h - item_h
+					elseif align == 'center' then
+						layer[Y] = line_y + (line_h - item_h) / 2
+					end
+					--[[
+					--TODO: baseline
+					elseif align == 'baseline' and Y == 'y' then
+						local baseline = 0
+						for _,layer in ipairs(self) do
+							if layer.visible then
+								local segs = layer._text_segments
+								if segs then
+									baseline = math.max(baseline, segs.lines.baseline or 0)
+								end
 							end
 						end
+						layer.y = lines_y + baseline
 					end
-					layer.y = lines_y + baseline
+					]]
 				end
 			end
 		end
 	end
 
-	local function wrap(self)
-		local container_w = self[CW]
-		local lines_h = self._layout_lines_h
-		local line_count = self._layout_line_count
-		local line_i = 1
-		local line_w = 0
-		local line_h = 0
-		local line_y = 0
-		local item_count = 0
-		for i = 1, #self + 1 do
-			local wrap, next_line_w0, next_line_h0
-			if i <= #self then
-				local layer = self[i]
-				if layer.visible then
-					item_count = item_count + 1
-					local item_w = layer[W]
-					local item_h = layer[H]
-					if line_w + item_w > container_w then
-						next_line_w0 = item_w
-						next_line_h0 = item_h
-						wrap = true
-					else
-						line_w = line_w + item_w
-						line_h = math.max(line_h, item_h)
-					end
-				end
-			else
-				wrap = true
+	--stretch or align a flexbox's items on the cross-axis.
+	local function align_y(self)
+		local lines_y, line_spacing
+		if self.align_lines == 'stretch' then
+			lines_y = 0
+			lines_h = self[CH]
+		else
+			local lines_h = 0
+			local line_count = 0
+			for j, i in line_ranges(self) do
+				local line_h = items_min_h(self, i, j)
+				lines_h = lines_h + line_h
+				line_count = line_count + 1
 			end
-			if wrap then
-				local line_x = 0
-				local item_spacing = 0
-				local align = self.align_main
-				if align == 'flex_end' or align == RIGHT then
-					line_x = container_w - line_w
-				elseif align == 'center' then
-					line_x = (container_w - line_w) / 2
-				elseif align == 'space_between' then
-					item_spacing = (container_w - line_w) / (item_count - 1)
-				elseif align == 'space_around' then
-					item_spacing = (container_w - line_w) / (item_count + 1)
-					line_x = item_spacing
-				end
-				for i = line_i, i-1 do
-					local layer = self[i]
-					if layer.visible then
-						local align = layer.align_cross_self or align_cross
-						if align == 'stretch' then
-							layer[Y] = line_y
-							layer[H] = line_h
-						elseif align == 'flex_start' or align == TOP then
-							layer[Y] = line_y
-						elseif align == 'flex_end' or align == BOTTOM then
-							layer[Y] = line_y + line_h - layer[H]
-						elseif align == 'center' or align == MIDDLE then
-							layer[Y] = line_y + round(line_h - layer[H]) / 2
-						elseif horizontal and align == 'baseline' then
-							layer.y = line_y + line1_baseline - layer.baseline
-						end
-						layer[X] = line_x
-						line_x = line_x + layer[W] + item_spacing
-					end
-				end
-				line_i = i
-				line_y = line_y + line_h + line_spacing
-				line_w = next_line_w0
-				line_h = next_line_h0
-				item_count = 0
-			end
+			lines_y, line_spacing =
+				align_metrics_y(self, self.align_lines, lines_h, line_count)
+		end
+		local y = lines_y
+		for j, i in line_ranges(self) do
+			local line_h = items_min_h(self, i, j)
+			align_items_y(self, i, j, y, line_h)
+			y = y + line_h + line_spacing
 		end
 	end
 
-	layer['sync_min_'..CW..'_flexbox'] = sync_min_cw_flexbox
-	layer['sync_layout_flexbox_'..X..'_main_axis'] = align_main_axis
-	layer['sync_layout_flexbox_'..X..'_cross_axis'] = align_cross_axis
-	layer['sync_layout_flexbox_'..X..'_wrap'] = wrap
-
+	layer['sync_min_cw_flexbox_'..X..'_axis'] = sync_min_cw
+	layer['sync_min_ch_flexbox_'..X..'_axis'] = sync_min_ch
+	layer['sync_layout_flexbox_'..X..'_axis'..'_x'] = align_x
+	layer['sync_layout_flexbox_'..X..'_axis'..'_y'] = align_y
 end
 gen_funcs('x', 'y', 'w', 'h', 'left', 'right', 'top', 'bottom')
 gen_funcs('y', 'x', 'h', 'w', 'top', 'bottom', 'left', 'right')
 
-function layer:sync_layout_x_flexbox()
-	if not self.flex_wrap then
-		if self.flex_axis == 'x' then
-			self:sync_layout_flexbox_x_main_axis()
-		elseif self.flex_axis == 'y' then
-			self:sync_layout_flexbox_y_cross_axis()
+function layouts.flexbox:sync_min_cw()
+	--sync all children first (bottom-up sync).
+	for _,layer in ipairs(self) do
+		if layer.visible then
+			layer:sync_min_cw() --recurse
 		end
 	end
-	for _,layer in ipairs(self) do
-		layer:sync_layout_x() --recurse
+	if self.flex_axis == 'x' then
+		return self:sync_min_cw_flexbox_x_axis()
+	else
+		return self:sync_min_cw_flexbox_y_axis()
 	end
 end
 
-function layer:sync_layout_y_flexbox()
-	if not self.flex_wrap then
-		if self.flex_axis == 'y' then
-			self:sync_layout_flexbox_y_main_axis()
-		elseif self.flex_axis == 'x' then
-			self:sync_layout_flexbox_x_cross_axis()
+function layouts.flexbox:sync_min_ch()
+	--sync all children first (bottom-up sync).
+	for _,layer in ipairs(self) do
+		if layer.visible then
+			layer:sync_min_ch() --recurse
 		end
-	elseif self.flex_axis == 'x' then
-		self:sync_layout_flexbox_x_wrap()
+	end
+	if self.flex_axis == 'x' then
+		return self:sync_min_ch_flexbox_x_axis()
+	else
+		return self:sync_min_ch_flexbox_y_axis()
+	end
+end
+
+function layouts.flexbox:sync_x()
+	if self.flex_axis == 'x' then
+		self:sync_layout_flexbox_x_axis_x()
 	elseif self.flex_axis == 'y' then
-		self:sync_layout_flexbox_y_wrap()
+		self:sync_layout_flexbox_y_axis_y()
 	end
+	--sync all children last (top-down sync).
 	for _,layer in ipairs(self) do
-		layer:sync_layout_y() --recurse
+		if layer.visible then
+			layer:sync_layout_x() --recurse
+		end
 	end
 end
 
---called when top layer or child of null-layout layer.
-function layer:sync_layout_flexbox()
-
-	if self == self.window.view then
-		self.flex_w = self.w
-		self.flex_h = self.h
+function layouts.flexbox:sync_y()
+	if self.flex_axis == 'y' then
+		self:sync_layout_flexbox_y_axis_x()
+	elseif self.flex_axis == 'x' then
+		self:sync_layout_flexbox_x_axis_y()
 	end
+	--sync all children last (top-down sync).
+	for _,layer in ipairs(self) do
+		if layer.visible then
+			layer:sync_layout_y() --recurse
+		end
+	end
+end
 
-	--sync the x-axis.
-	local min_cw = self:sync_min_cw()
-	self.w = math.max(self.flex_w, min_cw + self.pw)
-	self:sync_layout_x()
+layouts.flexbox.sync = layer.sync_layout_xy
 
-	--sync the y-axis.
-	local min_ch = self:sync_min_ch()
-	self.h = math.max(self.flex_h, min_ch + self.ph)
-	self:sync_layout_y()
+function layouts.flexbox:sync_window_view(w, h)
+	self.min_cw = w
+	self.min_ch = h
 end
 
 --top layer (window.view) ----------------------------------------------------
@@ -4449,8 +4433,7 @@ view.from_window = view.from_parent
 
 --sync the layout recursively in a second pass, after all sync'ing is done.
 function view:after_sync()
-	self.w, self.h = self.window:client_size()
-	self:sync_layout()
+	self:sync_layout_window_view(self.window:client_size())
 end
 
 --widgets autoload -----------------------------------------------------------

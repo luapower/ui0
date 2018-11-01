@@ -452,18 +452,18 @@ local function test_flexbox()
 	local flex = ui:layer{
 		parent = win,
 		layout = 'flexbox',
-		--flex_wrap = true,
+		flex_wrap = true,
 		flex_axis = 'x',
-		align_main = 'center',
-		align_cross = 'stretch',
-		align_lines = 'center',
+		align_main = 'left',
+		align_cross = 'top',
+		align_lines = 'top',
 		border_width = 20,
 		border_offset = 1,
 		--padding = 10,
 		border_color = '#333',
-		x = 20, y = 20,
-		flex_w = win.cw - 40,
-		flex_h = win.ch - 40,
+		x = 40, y = 40,
+		min_cw = win.cw - 80,
+		min_ch = win.ch - 80,
 	}
 
 	for i = 1, 4 do
@@ -473,8 +473,8 @@ local function test_flexbox()
 			layout = 'textbox',
 			--layout = 'flexbox',
 			border_width = 1,
-			w = r * 10,
-			h = 100 + r * 10,
+			min_cw = r * 12,
+			min_ch = r * 6,
 			--padding = 10,
 			--flex_align = i == 3 and 'stretch' or i == 1 and 'bottom' or 'baseline',
 			--layout = 'text_wrap',
@@ -491,8 +491,8 @@ local function test_flexbox()
 	end
 
 	function win:client_resized()
-		flex.flex_w = win.cw - 40
-		flex.flex_h = win.ch - 40
+		flex.min_cw = win.cw - 80
+		flex.min_ch = win.ch - 80
 		self:invalidate()
 	end
 
