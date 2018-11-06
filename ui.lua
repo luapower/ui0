@@ -30,18 +30,6 @@ local assert = glue.assert
 local collect = glue.collect
 local sortedpairs = glue.sortedpairs
 local memoize = glue.memoize
-local trim = glue.trim
-
-local function single_line(s, val)
-	return not val and s or nil
-end
-local function lines(s, multiline)
-	if multiline then
-		return glue.lines(s)
-	else
-		return single_line, s
-	end
-end
 
 local function popval(t, v)
 	local i = indexof(v, t)
@@ -109,8 +97,8 @@ function object:forward_events(object, event_names)
 end
 
 --create a r/w property which reads/writes to a "private var".
-function object:stored_property(prop)
-	local priv = '_'..prop
+function object:stored_property(prop, priv)
+	priv = priv or '_'..prop
 	self[priv] = self[prop] --transfer existing value to private var
 	self[prop] = nil
 	self['get_'..prop] = function(self)
@@ -124,21 +112,21 @@ end
 --change a property so that its setter is only called when the value changes.
 function object:nochange_barrier(prop)
 	local changed_event = prop..'_changed'
-	self['override_set_'..prop] = function(self, inherited, val)
+	self:override('set_'..prop, function(self, inherited, val)
 		val = val or false
 		local old_val = self[prop] or false
 		if val ~= old_val then
 			inherited(self, val, old_val)
 			return true --useful when overriding the setter further
 		end
-	end
+	end)
 end
 
 --change a property so that its setter is only called when the value changes
 --and also '<prop>_changed' event is fired.
 function object:track_changes(prop)
 	local changed_event = prop..'_changed'
-	self['override_set_'..prop] = function(self, inherited, val)
+	self:override('set_'..prop, function(self, inherited, val)
 		val = val or false
 		local old_val = self[prop] or false
 		if val ~= old_val then
@@ -149,7 +137,7 @@ function object:track_changes(prop)
 				return true --useful when overriding the setter further
 			end
 		end
-	end
+	end)
 end
 
 --inhibit a property's getter and setter when using the property on the class.
@@ -157,20 +145,48 @@ end
 --NOTE: use this only _after_ defining the getter and setter.
 function object:instance_only(prop)
 	local priv = '_'..prop
-	self['override_get_'..prop] = function(self, inherited)
+	self:override('get_'..prop, function(self, inherited)
 		if self:isinstance() then
 			return inherited(self)
 		else
 			return self[priv] --get the default value
 		end
-	end
-	self['override_set_'..prop] = function(self, inherited, val)
+	end)
+	self:override('set_'..prop, function(self, inherited, val)
 		if self:isinstance() then
 			return inherited(self, val)
 		else
 			self[priv] = val --set the default value
 		end
+	end)
+end
+
+function object:enum_property(prop, values)
+	if type(values) == 'string' then
+		local s = values
+		values = {}
+		for val in s:gmatch'[^%s]+' do
+			values[val] = true
+		end
 	end
+	self:override('set_'..prop, function(self, inherited, val)
+		if self:check(values[val], 'invalid value "%s" for %s', val, prop) then
+			inherited(self, val)
+		end
+	end)
+end
+
+--error reporting
+
+function object:warn(msg, ...)
+	msg = string.format(msg, ...)
+	io.stderr:write(msg)
+	io.stderr:write'\n'
+end
+
+function object:check(ret, ...)
+	if ret then return ret end
+	self:warn(...)
 end
 
 --module object --------------------------------------------------------------
@@ -198,17 +214,6 @@ end
 
 function ui:before_free()
 	self.app = false
-end
-
-function ui:warn(msg, ...)
-	msg = string.format(msg, ...)
-	io.stderr:write(msg)
-	io.stderr:write'\n'
-end
-
-function ui:check(ret, ...)
-	if ret then return ret end
-	self:warn(...)
 end
 
 --native app proxy methods ---------------------------------------------------
@@ -623,9 +628,9 @@ function tran:after_init(ui, t, ...)
 	--animation model
 	if self.from == nil then
 		self.from = self.elem[self.attr]
-		assert(self.from ~= nil)
+		assert(self.from ~= nil, 'transition from nil value for "%s"', self.attr)
 	end
-	assert(self.to ~= nil)
+	assert(self.to ~= nil, 'transition to nil value for "%s"', self.attr)
 	self.interpolate = self:interpolate_function(self.elem, self.attr)
 	self.end_value = self.to --store it for later
 
@@ -1141,7 +1146,7 @@ function element:transition(
 end
 
 function element:sync_transitions()
-	local tr = self.transitions
+	local tr = rawget(self, 'transitions')
 	if not tr or not next(tr) then return end
 	local clock = self.frame_clock
 	if not clock then return end --not inside repaint
@@ -1430,7 +1435,7 @@ function window:override_init(inherited, ui, t)
 
 	function win.closing(win, closing_win)
 		local reason = self._close_reason
-		self._close_reason = nil
+		self._close_reason = false
 		return self:closing(reason, closing_win.ui_window)
 	end
 
@@ -1477,7 +1482,7 @@ end
 
 function window:before_free()
 	self.native_window:off{nil, self}
-	self.native_window.ui_window = nil
+	self.native_window.ui_window = false
 	self.view:free()
 	self.view = false
 	if self.own_native_window then
@@ -1501,8 +1506,8 @@ function window:set_move_layer(layer)
 	if self._move_layer == layer then return end
 	if self._move_layer then
 		layer.mousedown_activate = false
-		layer.start_drag = nil --reset to default
-		layer.drag = nil --reset to default
+		layer.start_drag = false --reset to default
+		layer.drag = false --reset to default
 	end
 	self._move_layer = layer
 	if layer then
@@ -2264,6 +2269,8 @@ layer.rotation = 0
 layer.rotation_cx = 0
 layer.rotation_cy = 0
 layer.scale = 1
+layer.scale_x = false
+layer.scale_y = false
 layer.scale_cx = 0
 layer.scale_cy = 0
 
@@ -2376,6 +2383,8 @@ function layer:set_parent(parent)
 	end
 end
 
+layer._pos_parent = false
+
 function layer:get_pos_parent() --child interface
 	return self._pos_parent or self._parent
 end
@@ -2385,7 +2394,7 @@ function layer:set_pos_parent(parent)
 		parent = parent.view
 	end
 	if parent == self.parent then
-		parent = nil
+		parent = false
 	end
 	self._pos_parent = parent
 end
@@ -2869,8 +2878,20 @@ end
 --border geometry and drawing ------------------------------------------------
 
 layer.border_width = 0 --no border
+layer.border_width_left   = false
+layer.border_width_right  = false
+layer.border_width_top    = false
+layer.border_width_bottom = false
 layer.corner_radius = 0 --square
+layer.corner_radius_top_left    = false
+layer.corner_radius_top_right   = false
+layer.corner_radius_bottom_left = false
+layer.corner_radius_bottom_right = false
 layer.border_color = '#fff'
+layer.border_color_left   = false
+layer.border_color_right  = false
+layer.border_color_top    = false
+layer.border_color_bottom = false
 layer.border_dash = false
 -- border stroke positioning relative to box edge.
 -- -1..1 goes from inside to outside of box edge.
@@ -3430,18 +3451,23 @@ local aligns_y = {
 	top = 'top', center = 'center', bottom = 'bottom',
 	t = 'top', c = 'center', b = 'bottom',
 }
-local default = {'center', 'center'}
 function ui:_align(s)
 	local a1, a2 = s:match'([^%s]+)%s*([^%s]*)'
 	local ax = aligns_x[a1] or aligns_x[a2]
 	local ay = aligns_y[a1] or aligns_y[a2]
-	return self:check(ax and ay, 'invalid align: "%s"', s) and {ax, ay} or default
+	return self:check(ax and ay, 'invalid align: "%s"', s) and {ax, ay}
 end
 ui:memoize'_align'
 
+function ui:align(s)
+	local t = self:_align(s)
+	if not t then return end
+	return t[1], t[2]
+end
+
 --text geometry and drawing --------------------------------------------------
 
-layer.text = nil
+layer.text = false
 layer.font = 'Open Sans,14'
 layer.text_color = '#fff'
 layer.line_spacing = 1
@@ -3459,35 +3485,29 @@ end
 layer.text_editabe = false
 
 layer:stored_property'text_align'
-layer:nochange_barrier'text_align'
-
 function layer:after_set_text_align(s)
-	local t = self.ui:_align(s)
-	self._text_align_x0 = t[1]
-	self._text_align_y0 = t[2]
+	local ax, ay = self.ui:align(s)
+	if not ax then return end
+	self._text_align_x0 = ax
+	self._text_align_y0 = ay
 end
-
+layer:nochange_barrier'text_align'
 layer.text_align = 'center center'
 
 layer:stored_property'text_align_x'
-function layer:set_text_align_x(ax)
-	self._text_align_x =
-		ax and self.ui:check(aligns_x[ax], 'invalid align_x: "%s"', ax)
-end
-layer:instance_only'text_align_x'
+layer:enum_property('text_align_x', aligns_x)
 
 layer:stored_property'text_align_y'
-function layer:set_text_align_y(ay)
-	self._text_align_y =
-		ay and self.ui:check(aligns_y[ay], 'invalid align_y: "%s"', ay)
-end
-layer:instance_only'text_align_y'
+layer:enum_property('text_align_y', aligns_y)
 
 function layer:text_aligns()
 	return
 		self._text_align_x or self._text_align_x0,
 		self._text_align_y or self._text_align_y0
 end
+
+layer._text_tree = false
+layer._text_segments = false
 
 function layer:sync_text_shape()
 	if not self:text_visible() then
@@ -3580,6 +3600,10 @@ end
 --content-box geometry, drawing and hit testing ------------------------------
 
 layer.padding = 0
+layer.padding_left = false
+layer.padding_right = false
+layer.padding_top = false
+layer.padding_bottom = false
 
 function layer:get_pw()
 	local p = self.padding
@@ -3928,77 +3952,65 @@ function layer:rect() return self.x, self.y, self.w, self.h end
 
 --layouting ------------------------------------------------------------------
 
-layer.layout = false --false/'null', 'textbox', 'flexbox'
+layer.layout = false --false/'null', 'textbox', 'flexbox', 'grid'
 
+--common attributes respected by all layouts except the null layout.
 layer.min_cw = 0
 layer.min_ch = 0
 
-local layouts = {} --{layout_name -> layout_class}
-layer.layouts = layouts
+layer.layouts = {} --{layout_name -> layout_mixin}
 
---layouting system entry point: called on the window's view layer after
---all layers are sync'ed (so after styles and transitions are updated).
-function layer:sync_layout_window_view(w, h)
+layer:stored_property'layout'
+function layer:after_set_layout(layout)
+	local mixin = self.layouts[layout or 'null']
+	if not self.ui:check(mixin, 'invalid layout "%s"', layout) then return end
+	self:inherit(mixin, true)
+end
+layer:nochange_barrier'layout'
+
+--used by layers that need to solve their layout on one axis completely
+--before they can solve it on the other axis. any content-based layout with
+--wrapped content is like that: can't know the height until wrapping the
+--content which needs to know the width (and viceversa for vertical flow).
+function layer:sync_layout_separate_axes()
 	if not self.visible then return end
-	self.layouts[self.layout or 'null'].sync_window_view(self, w, h)
-	self:sync_layout()
-end
-
---called on children of null-layout layers to layout themselves.
-function layer:sync_layout()
-	if not self.visible then return end
-	self.layouts[self.layout or 'null'].sync(self)
-end
-
---used by layers with width-in-height-out-type layouts to layout themselves.
-function layer:sync_layout_xy()
-
-	--sync the x-axis.
-	local min_cw = self:sync_min_cw()
-	self.w = min_cw + self.pw
-	self:sync_layout_x()
-
-	--sync the y-axis.
-	local min_ch = self:sync_min_ch()
-	self.h = min_ch + self.ph
-	self:sync_layout_y()
-end
-
---compute the minimum client width of a layer.
---called before h and y are sync'ed on width-in-height-out layouts.
-function layer:sync_min_cw()
-	local min_cw = self.layouts[self.layout or 'null'].sync_min_cw(self)
-	local min_cw = math.max(min_cw, self.min_cw)
-	self._layout_min_cw = min_cw
-	return min_cw
-end
-
---compute the minimum client height of a layer.
---called only after w and x are sync'ed on width-in-height-out layouts.
-function layer:sync_min_ch()
-	local min_ch = self.layouts[self.layout or 'null'].sync_min_ch(self)
-	local min_ch = math.max(min_ch, self.min_ch)
-	self._layout_min_ch = min_ch
-	return min_ch
-end
-
---sync a layer's layout on the x-axis after its width has been set.
---called only after _layout_min_cw is sync'ed on the layer and its children.
-function layer:sync_layout_x()
-	self.layouts[self.layout or 'null'].sync_x(self)
-end
-
---sync a layer's layout on the y-axis after its height has been set.
---called after w, x, _layout_min_ch are sync'ed on the layer and its children.
-function layer:sync_layout_y()
-	self.layouts[self.layout or 'null'].sync_y(self)
+	local sync_x = self.layout_axis_order == 'xy'
+	local axis_synced, other_axis_synced
+	for phase = 1, 3 do
+		other_axis_synced = axis_synced
+		if sync_x then
+			--sync the x-axis.
+			self.w = self:sync_min_w(other_axis_synced)
+			axis_synced = self:sync_layout_x(other_axis_synced)
+		else
+			--sync the y-axis.
+			self.h = self:sync_min_h(other_axis_synced)
+			axis_synced = self:sync_layout_y(other_axis_synced)
+		end
+		if axis_synced and other_axis_synced then
+			break --both axes solved before last phase.
+		end
+		sync_x = not sync_x
+	end
+	assert(axis_synced and other_axis_synced)
 end
 
 --null layout ----------------------------------------------------------------
 
-layouts.null = object:subclass'null_layout'
+local null_layout = object:subclass'null_layout'
+layer.layouts.null = null_layout
 
-function layouts.null:sync()
+--layouting system entry point: called on the window's view layer after
+--all layers are sync'ed (so after styles and transitions are updated).
+function null_layout:sync_layout_window_view(w, h)
+	self.w = w
+	self.h = h
+	self:sync_layout()
+end
+
+--called on children of null-layout layers to layout themselves.
+function null_layout:sync_layout()
+	if not self.visible then return end
 	self:sync_text_shape()
 	self:sync_text_wrap()
 	self:sync_text_align()
@@ -4007,21 +4019,37 @@ function layouts.null:sync()
 	end
 end
 
-function layouts.null:sync_min_cw() return 0 end
-function layouts.null:sync_min_ch() return 0 end
-function layouts.null:sync_x() end
-layouts.null.sync_y = layouts.null.sync
-
-function layouts.null:sync_window_view(w, h)
-	self.w = w
-	self.h = h
+--compute the minimum client width of a layer.
+--called before h and y are sync'ed on width-in-height-out layouts.
+function null_layout:sync_min_w()
+	self._min_w = 0
+	return 0
 end
+
+--compute the minimum client height of a layer.
+--called only after w and x are sync'ed on width-in-height-out layouts.
+function null_layout:sync_min_h()
+	self._min_h = 0
+	return 0
+end
+
+function null_layout:sync_layout_x(other_axis_synced)
+	if other_axis_synced then
+		self:sync_layout()
+	end
+	return true
+end
+null_layout.sync_layout_y = null_layout.sync_layout_x
+
+layer:inherit(null_layout, true)
 
 --textbox layout -------------------------------------------------------------
 
-layouts.textbox = object:subclass'textbox_layout'
+local textbox = object:subclass'textbox_layout'
+layer.layouts.textbox = textbox
 
-function layouts.textbox:sync()
+function textbox:sync_layout()
+	if not self.visible then return end
 	local segs = self:sync_text_shape()
 	if not segs then
 		self.cw = 0
@@ -4035,27 +4063,128 @@ function layouts.textbox:sync()
 	self:sync_text_align()
 end
 
-function layouts.textbox:sync_min_cw()
-	local segs = self:sync_text_shape()
-	return segs and segs:min_w() or 0
+function textbox:sync_min_w(other_axis_synced)
+	local min_cw
+	if not other_axis_synced or self.nowrap then
+		local segs = self:sync_text_shape()
+		min_cw = segs and segs:min_w() or 0
+	else
+		--height-in-width-out parent layout with wrapping text not supported
+		min_cw = 0
+	end
+	min_cw = math.max(min_cw, self.min_cw)
+	local min_w = min_cw + self.pw
+	self._min_w = min_w
+	return min_w
 end
 
-function layouts.textbox:sync_min_ch()
-	local segs = self._text_segments
-	return segs and segs.lines.spacing_h or 0
+function textbox:sync_min_h(other_axis_synced)
+	local min_ch
+	if other_axis_synced or self.nowrap then
+		local segs = self._text_segments
+		min_ch = segs and segs.lines.spacing_h or 0
+	else
+		--height-in-width-out parent layout with wrapping text not supported
+		min_ch = 0
+	end
+	min_ch = math.max(min_ch, self.min_ch)
+	local min_h = min_ch + self.ph
+	self._min_h = min_h
+	return min_h
 end
 
-layouts.textbox.sync_x = layer.sync_text_wrap
-layouts.textbox.sync_y = layer.sync_text_align
+function textbox:sync_layout_x(other_axis_synced)
+	if not other_axis_synced then
+		self:sync_text_wrap()
+		return true
+	end
+end
 
-function layouts.textbox:sync_window_view(w, h)
+function textbox:sync_layout_y(other_axis_synced)
+	if other_axis_synced then
+		self:sync_text_align()
+		return true
+	end
+end
+
+function textbox:sync_layout_window_view(w, h)
 	self.min_cw = w
 	self.min_ch = h
+	self:sync_layout()
+end
+
+--flexbox & grid layout utils ------------------------------------------------
+
+--stretch a line of items on the main axis.
+local function stretch_items_x(items, i, j, X, W, MIN_W)
+
+	--compute the fraction representing the total width.
+	local total_fr = 0
+	for i = i, j do
+		local item = items[i]
+		if item.visible then
+			total_fr = total_fr + math.max(0, item.fr)
+		end
+	end
+
+	--compute the total overflow width and total free width.
+	local total_w = self[CW]
+	local total_overflow_w = 0
+	local total_free_w = 0
+	for i = i, j do
+		local item = items[i]
+		if item.visible then
+			local min_w = item[MIN_W]
+			local flex_w = total_w * math.max(0, item.fr) / total_fr
+			local overflow_w = math.max(0, min_w - flex_w)
+			local free_w = math.max(0, flex_w - min_w)
+			total_overflow_w = total_overflow_w + overflow_w
+			total_free_w = total_free_w + free_w
+		end
+	end
+
+	--distribute the overflow to children which have free space to
+	--take it. each child shrinks to take in a part of the overflow
+	--proportional to its percent of free space.
+	local last_item
+	local x = 0
+	for i = i, j do
+		local item = items[i]
+		if item.visible then
+			local min_w = item[MIN_W]
+			local flex_w = total_w * item.fr / total_fr
+			local w
+			if min_w > flex_w then --overflow
+				w = min_w
+			else
+				local free_w = flex_w - min_w
+				local free_p = free_w / total_free_w
+				local shrink_w = total_overflow_w * free_p
+				if shrink_w ~= shrink_w then --total_free_w == 0
+					shrink_w = 0
+				end
+				w = flex_w - shrink_w
+			end
+			item[X] = x
+			item[W] = w
+			x = x + w
+			last_item = item
+		end
+	end
+	--adjust last item's width for any rounding errors.
+	if last_item then
+		last_item[W] = total_w - last_item[X]
+	end
+
 end
 
 --flexbox layout -------------------------------------------------------------
 
-layouts.flexbox = object:subclass'flexbox_layout'
+local flexbox = object:subclass'flexbox_layout'
+layer.layouts.flexbox = flexbox
+
+flexbox.sync_layout = layer.sync_layout_separate_axes
+flexbox.layout_axis_order = 'xy'
 
 --container properties
 layer.flex_axis = 'x' --'x', 'y'
@@ -4066,58 +4195,58 @@ layer.align_main  = 'stretch' --space_between, space_around
 	--^align_*: stretch, start/top/left, end/bottom/right, center
 
 --item properties
-layer.align_cross_self = nil --overrides parent.align_cross
-layer.flex_fr = 1
-layer.flex_order = 0
+layer.align_cross_self = false --overrides parent.align_cross
+layer.fr = 1 --stretch fraction
+
+local function items_sum(self, i, j, step, MIN_W)
+	local sum = 0
+	local item_count = 0
+	for i = i, j, step do
+		local layer = self[i]
+		if layer.visible then
+			sum = sum + layer[MIN_W]
+			item_count = item_count + 1
+		end
+	end
+	return sum, item_count
+end
+
+local function items_max(self, i, j, step, MIN_W)
+	local max = 0
+	local item_count = 0
+	for i = i, j, step do
+		local layer = self[i]
+		if layer.visible then
+			max = math.max(max, layer[MIN_W])
+			item_count = item_count + 1
+		end
+	end
+	return max, item_count
+end
 
 --generate pairs of methods for vertical and horizontal flexbox layouts.
 local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
+
 	local CW = 'c'..W
 	local CH = 'c'..H
 	local PW = 'p'..W
 	local PH = 'p'..H
-	local MIN_CW = '_layout_min_'..CW
-	local MIN_CH = '_layout_min_'..CH
-
-	local function items_sum(self, i, j, PW, MIN_CW)
-		local sum = 0
-		local item_count = 0
-		for i = i, j do
-			local layer = self[i]
-			if layer.visible then
-				sum = sum + layer[MIN_CW] + layer[PW]
-				item_count = item_count + 1
-			end
-		end
-		return sum, item_count
-	end
-
-	local function items_max(self, i, j, PW, MIN_CW)
-		local max = 0
-		local item_count = 0
-		for i = i, j do
-			local layer = self[i]
-			if layer.visible then
-				max = math.max(max, layer[MIN_CW] + layer[PW])
-				item_count = item_count + 1
-			end
-		end
-		return max, item_count
-	end
+	local _MIN_W = '_min_'..W
+	local _MIN_H = '_min_'..H
 
 	local function items_min_w(self, i, j)
-		return items_sum(self, i or 1, j or #self, PW, MIN_CW)
+		return items_sum(self, i or 1, j or #self, 1, _MIN_W)
 	end
 
 	local function items_min_h(self, i, j)
-		return items_max(self, i or 1, j or #self, PH, MIN_CH)
+		return items_max(self, i or 1, j or #self, 1, _MIN_H)
 	end
 
 	local function items_min_w_wrap(self)
-		return items_max(self, 1, #self, PW, MIN_CW)
+		return items_max(self, 1, #self, 1, _MIN_W)
 	end
 
-	local function next_line_i(self, i)
+	local function linewrap_next(self, i)
 		i = i + 1
 		if i > #self then
 			return
@@ -4129,7 +4258,13 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		for j = i, #self do
 			local layer = self[j]
 			if layer.visible then
-				local item_w = layer[MIN_CW] + layer[PW]
+				if j > i and layer.break_before then
+					return j-1, i
+				end
+				if layer.break_after then
+					return j, i
+				end
+				local item_w = layer[_MIN_W]
 				if line_w + item_w > wrap_w then
 					return j-1, i
 				end
@@ -4139,21 +4274,26 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		return #self, i
 	end
 
-	local function line_ranges(self)
-		return next_line_i, self, 0
+	local function linewrap(self)
+		return linewrap_next, self, 0
 	end
 
-	local function sync_min_cw(self)
+	local function min_cw(self, other_axis_synced)
 		if self.flex_wrap then
-			return items_min_w_wrap(self)
+			return items_min_w_wrap(self, other_axis_synced)
 		else
-			return items_min_w(self)
+			return items_min_w(self, other_axis_synced)
 		end
 	end
 
-	local function sync_min_ch(self)
+	local function min_ch(self, other_axis_synced)
+		if not other_axis_synced and self.flex_wrap then
+			--width-in-height-out parent layout requesting min_w on a y-axis
+			--wrapping flexbox (which is a height-in-width-out layout).
+			return 0
+		end
 		local lines_h = 0
-		for j, i in line_ranges(self) do
+		for j, i in linewrap(self) do
 			local line_h = items_min_h(self, i, j)
 			lines_h = lines_h + line_h
 		end
@@ -4162,65 +4302,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 
 	--stretch a line of items on the main axis.
 	local function stretch_items_x(self, i, j)
-
-		--compute the fraction representing the total width.
-		local total_fr = 0
-		for i = i, j do
-			local layer = self[i]
-			if layer.visible then
-				total_fr = total_fr + math.max(0, layer.flex_fr)
-			end
-		end
-
-		--compute the total overflow width and total free width.
-		local total_w = self[CW]
-		local total_overflow_w = 0
-		local total_free_w = 0
-		for i = i, j do
-			local layer = self[i]
-			if layer.visible then
-				local min_w = layer[MIN_CW] + layer[PW]
-				local flex_w = total_w * math.max(0, layer.flex_fr) / total_fr
-				local overflow_w = math.max(0, min_w - flex_w)
-				local free_w = math.max(0, flex_w - min_w)
-				total_overflow_w = total_overflow_w + overflow_w
-				total_free_w = total_free_w + free_w
-			end
-		end
-
-		--distribute the overflow to children which have free space to
-		--take it. each child shrinks to take in a part of the overflow
-		--proportional to its percent of free space.
-		local last_layer
-		local x = 0
-		for i = i, j do
-			local layer = self[i]
-			if layer.visible then
-				local min_w = layer[MIN_CW] + layer[PW]
-				local flex_w = total_w * layer.flex_fr / total_fr
-				local w
-				if min_w > flex_w then --overflow
-					w = min_w
-				else
-					local free_w = flex_w - min_w
-					local free_p = free_w / total_free_w
-					local shrink_w = total_overflow_w * free_p
-					if shrink_w ~= shrink_w then --total_free_w == 0
-						shrink_w = 0
-					end
-					w = flex_w - shrink_w
-				end
-				layer[X] = x
-				layer[W] = w
-				x = x + w
-				last_layer = layer
-			end
-		end
-		--adjust last layer's width for any rounding errors.
-		if last_layer then
-			last_layer[W] = total_w - last_layer[X]
-		end
-
+		stretch_items_x(self, i, j, X, W, _MIN_W)
 	end
 
 	--starting x-offset and in-between spacing metrics for aligning.
@@ -4261,7 +4343,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		for i = i, j do
 			local layer = self[i]
 			if layer.visible then
-				local w = layer[MIN_CW] + layer[PW]
+				local w = layer[_MIN_W]
 				layer[X] = x
 				layer[W] = w
 				x = x + w + spacing
@@ -4271,7 +4353,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 
 	--stretch or align a flexbox's items on the main-axis.
 	local function align_x(self)
-		for j, i in line_ranges(self) do
+		for j, i in linewrap(self) do
 			if self.align_main == 'stretch' then
 				stretch_items_x(self, i, j)
 			else
@@ -4279,6 +4361,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 				align_items_x(self, i, j, items_w, items_count)
 			end
 		end
+		return true
 	end
 
 	--align a line of items on the cross-axis.
@@ -4292,7 +4375,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 					layer[Y] = line_y
 					layer[H] = line_h
 				else
-					local item_h = layer[MIN_CH]
+					local item_h = layer[_MIN_H]
 					layer[H] = item_h
 					if align == TOP or align == 'start' then
 						layer[Y] = line_y
@@ -4322,12 +4405,17 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 	end
 
 	--stretch or align a flexbox's items on the cross-axis.
-	local function align_y(self)
+	local function align_y(self, other_axis_synced)
+		if not other_axis_synced and self.flex_wrap then
+			--trying to lay out the y-axis before knowing the x-axis:
+			--dismiss and wait for the 3rd pass.
+			return
+		end
 		local lines_y, line_spacing, line_h
 		if self.align_lines == 'stretch' then
 			local lines_h = self[CH]
 			local line_count = 0
-			for _ in line_ranges(self) do
+			for _ in linewrap(self) do
 				line_count = line_count + 1
 			end
 			line_h = lines_h / line_count
@@ -4336,7 +4424,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		else
 			local lines_h = 0
 			local line_count = 0
-			for j, i in line_ranges(self) do
+			for j, i in linewrap(self) do
 				local line_h = items_min_h(self, i, j)
 				lines_h = lines_h + line_h
 				line_count = line_count + 1
@@ -4345,82 +4433,389 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 				align_metrics_y(self, self.align_lines, lines_h, line_count)
 		end
 		local y = lines_y
-		for j, i in line_ranges(self) do
+		for j, i in linewrap(self) do
 			local line_h = line_h or items_min_h(self, i, j)
 			align_items_y(self, i, j, y, line_h)
 			y = y + line_h + line_spacing
 		end
+		return true
 	end
 
-	layer['sync_min_cw_flexbox_'..X..'_axis'] = sync_min_cw
-	layer['sync_min_ch_flexbox_'..X..'_axis'] = sync_min_ch
-	layer['sync_layout_flexbox_'..X..'_axis'..'_x'] = align_x
-	layer['sync_layout_flexbox_'..X..'_axis'..'_y'] = align_y
+	flexbox['min_cw_'..X..'_axis'] = min_cw
+	flexbox['min_ch_'..X..'_axis'] = min_ch
+	flexbox['sync_layout_'..X..'_axis'..'_x'] = align_x
+	flexbox['sync_layout_'..X..'_axis'..'_y'] = align_y
 end
 gen_funcs('x', 'y', 'w', 'h', 'left', 'right', 'top', 'bottom')
 gen_funcs('y', 'x', 'h', 'w', 'top', 'bottom', 'left', 'right')
 
-function layouts.flexbox:sync_min_cw()
+function flexbox:sync_min_w(other_axis_synced)
+
 	--sync all children first (bottom-up sync).
 	for _,layer in ipairs(self) do
 		if layer.visible then
-			layer:sync_min_cw() --recurse
+			layer:sync_min_w(other_axis_synced) --recurse
 		end
 	end
-	if self.flex_axis == 'x' then
-		return self:sync_min_cw_flexbox_x_axis()
-	else
-		return self:sync_min_cw_flexbox_y_axis()
-	end
+
+	local min_cw = self.flex_axis == 'x'
+		and self:min_cw_x_axis(other_axis_synced)
+		 or self:min_ch_y_axis(other_axis_synced)
+
+	min_cw = math.max(min_cw, self.min_cw)
+	local min_w = min_cw + self.pw
+	self._min_w = min_w
+	return min_w
 end
 
-function layouts.flexbox:sync_min_ch()
+function flexbox:sync_min_h(other_axis_synced)
+
 	--sync all children first (bottom-up sync).
 	for _,layer in ipairs(self) do
 		if layer.visible then
-			layer:sync_min_ch() --recurse
+			layer:sync_min_ch(other_axis_synced) --recurse
 		end
 	end
-	if self.flex_axis == 'x' then
-		return self:sync_min_ch_flexbox_x_axis()
-	else
-		return self:sync_min_ch_flexbox_y_axis()
-	end
+
+	local min_ch = self.flex_axis == 'x'
+		and self:min_ch_x_axis(other_axis_synced)
+		 or self:min_cw_y_axis(other_axis_synced)
+
+	min_ch = math.max(min_ch, self.min_ch)
+	local min_h = min_ch + self.ph
+	self._min_h = min_h
+	return min_h
 end
 
-function layouts.flexbox:sync_x()
-	if self.flex_axis == 'x' then
-		self:sync_layout_flexbox_x_axis_x()
-	elseif self.flex_axis == 'y' then
-		self:sync_layout_flexbox_y_axis_y()
-	end
-	--sync all children last (top-down sync).
-	for _,layer in ipairs(self) do
-		if layer.visible then
-			layer:sync_layout_x() --recurse
+function flexbox:sync_layout_x(other_axis_synced)
+
+	local synced = self.flex_axis == 'x'
+			and self:sync_layout_x_axis_x(other_axis_synced)
+			 or self:sync_layout_y_axis_y(other_axis_synced)
+
+	if synced then
+		--sync all children last (top-down sync).
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				layer:sync_layout_x(other_axis_synced) --recurse
+			end
 		end
 	end
+	return synced
 end
 
-function layouts.flexbox:sync_y()
-	if self.flex_axis == 'y' then
-		self:sync_layout_flexbox_y_axis_x()
-	elseif self.flex_axis == 'x' then
-		self:sync_layout_flexbox_x_axis_y()
-	end
-	--sync all children last (top-down sync).
-	for _,layer in ipairs(self) do
-		if layer.visible then
-			layer:sync_layout_y() --recurse
+function flexbox:sync_layout_y(other_axis_synced)
+
+	local synced = self.flex_axis == 'y'
+		and self:sync_layout_y_axis_x(other_axis_synced)
+		 or self:sync_layout_x_axis_y(other_axis_synced)
+
+	if synced then
+		--sync all children last (top-down sync).
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				layer:sync_layout_y(other_axis_synced) --recurse
+			end
 		end
 	end
+	return synced
 end
 
-layouts.flexbox.sync = layer.sync_layout_xy
-
-function layouts.flexbox:sync_window_view(w, h)
+function flexbox:sync_layout_window_view(w, h)
 	self.min_cw = w
 	self.min_ch = h
+	self:sync_layout()
+end
+
+--grid layout ----------------------------------------------------------------
+
+local grid = object:subclass'grid_layout'
+layer.layouts.grid = grid
+
+--container properties
+layer.grid_cols = {} --{fr1, ...}
+layer.grid_rows = {} --{fr1, ...}
+layer.grid_col_gap = 0
+layer.grid_row_gap = 0
+layer.align_x = false
+layer.align_y = false
+
+--item properties
+layer.align_x_self = false
+layer.align_y_self = false
+
+--grid_pos property parsing
+
+local function parse(self, s)
+	if not s then return end
+	local pos, sep, span = s:match'([^/]*)([/]?)(.*)'
+	if not pos then return end
+	pos = pos ~= '' and tonumber(pos)
+	span = sep == '/' and tonumber(span)
+	if pos ~= nil and span ~= nil and (pos or span) then
+		return pos, span
+	end
+end
+function ui:_grid_pos(s)
+	local row, col = s:match'([^%s]+)%s+([^%s]+)'
+	local row, row_span = parse(self, row)
+	local col, col_span = parse(self, col)
+	local valid = row ~= nil and col ~= nil
+	if self:check(valid, 'invalid grid_pos: "%s"', s) then
+		return {row, col, row_span, col_span}
+	end
+end
+ui:memoize'_grid_pos'
+
+function ui:grid_pos(s)
+	local t = s and self:_grid_pos(s)
+	if not t then return end
+	return t[1], t[2], t[3], t[3]
+end
+
+--auto-positioning algorithm
+
+--container properties
+layer.grid_flow = 'x' --x, y, xr, yr, xb, yb, xrb, yrb
+layer.grid_row_count = 1
+layer.grid_col_count = 1
+
+--item properties
+layer.grid_pos = false --'[row][/span] [col][/span]'
+layer.grid_row = false
+layer.grid_col = false
+layer.grid_row_span = false
+layer.grid_col_span = false
+
+local function mark_occupied(t, row1, col1, row2, col2)
+	for row = row1, row2 do
+		t[row] = t[row] or {}
+		for col = col1, col2 do
+			t[row][col] = true
+		end
+	end
+end
+
+function layer:sync_layout_grid_autopos()
+
+	local flow = self.grid_flow --[y][r][b]
+	local col_first = not flow:find('y', 1, true)
+	local wrap_col = self.grid_col_count
+	local wrap_row = self.grid_row_count
+
+	local occupied = {}
+	self._layout_grid_occuped = occupied
+
+	local max_row, max_col = 0, 0
+
+	--position explicitly-positioned layers first and mark occupied cells.
+	for _,layer in ipairs(self) do
+		if layer.visible then
+			local row, col, row_span, col_span = ui:grid_pos(layer.grid_pos)
+			row = layer.grid_row or row
+			col = layer.grid_col or col
+			row_span = math.min(1, layer.grid_row_span or row_span or 1)
+			col_span = math.min(1, layer.grid_col_span or col_span or 1)
+			if row or col then --explicit position
+				row = row or 1
+				col = col or 1
+				if row < 0 then --support negative row indices
+					row = wrap_row + row + 1
+				end
+				if col < 0 then --support negative col indices
+					col = wrap_col + col + 1
+				end
+				row = math.max(1, row)
+				col = math.max(1, col)
+				local row2 = row + row_span - 1
+				local col2 = col + col_span - 1
+				mark_occupied(occupied, row, col, row2, col2)
+				max_row = math.max(max_row, row2)
+				max_col = math.max(max_col, col2)
+			end
+			layer._layout_grid_row = row
+			layer._layout_grid_col = col
+			layer._layout_grid_row_span = row_span
+			layer._layout_grid_col_span = col_span
+		end
+	end
+
+	--auto-wrap remaining layers over non-occupied cells.
+	local row, col = 1, 1
+	for _,layer in ipairs(self) do
+		if layer.visible and not layer._layout_grid_row then
+			while occupied[row] and occupied[row][col] do
+				if col_first then
+					col = col + 1
+					if col > wrap_col then
+						col = 1
+						row = row + 1
+					end
+				else
+					row = row + 1
+					if row > wrap_row then
+						row = 1
+						col = col + 1
+					end
+				end
+			end
+			layer._layout_grid_row = row
+			layer._layout_grid_col = col
+			local row2 = row + layer._layout_grid_row_span - 1
+			local col2 = col + layer._layout_grid_col_span - 1
+			mark_occupied(occupied, row, col, row2, col2)
+			max_row = math.max(max_row, row2)
+			max_col = math.max(max_col, col2)
+		end
+	end
+
+	--reverse the order of rows and/or columns depending on grid_flow.
+	local rev_rows = flow:find('r', 1, true)
+	local rev_cols = flow:find('b', 1, true)
+	if rev_rows or rev_cols then
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				if rev_rows then
+					self._layout_grid_row = max_row
+						- self._layout_grid_row
+						- self._layout_grid_row_span
+						+ 2
+				end
+				if rev_cols then
+					self._layout_grid_col = max_col
+						- self._layout_grid_col
+						- self._layout_grid_row_span
+						+ 2
+				end
+			end
+		end
+	end
+
+	self._layout_grid_max_row = max_row
+	self._layout_grid_max_col = max_col
+end
+
+local function gen_funcs(X, Y, W, H, COL)
+
+	local CW = 'c'..W
+	local PW = 'p'..W
+	local MIN_CW = 'min_'..CW
+	local _MIN_W = '_min_'..W
+	local SYNC_MIN_W = 'sync_min_'..W
+	local SYNC_LAYOUT_X = 'sync_layout_'..X
+	local COL_GAP = 'grid_'..COL..'_gap'
+	local COLS = 'grid_'..COL..'s'
+
+	local LCOL = '_layout_grid_'..COL
+	local COL_SPAN = '_layout_grid_'..COL..'_span'
+	local MAX_COL = '_layout_grid_max_'..COL
+
+	grid[SYNC_MIN_W] = function(self, other_axis_synced)
+
+		--sync all children first (bottom-up sync).
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				layer[SYNC_MIN_W](layer, other_axis_synced) --recurse
+			end
+		end
+
+		local max_col = self[MAX_COL]
+		local fr = self[COLS] --{fr1, ...}
+
+		--compute the fraction representing the total width.
+		local total_fr = 0
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				local col1 = layer[LCOL]
+				local col2 = col1 + layer[COL_SPAN] - 1
+				for col = col1, col2 do
+					total_fr = total_fr + (fr[col] or 1)
+				end
+			end
+		end
+
+		--compute minimum widths for each column.
+		local t = {} --{min_w1, ...}
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				local col1 = layer[LCOL]
+				local col2 = col1 + layer[COL_SPAN] - 1
+				local span_min_w = layer[_MIN_W]
+				if col1 == col2 then
+					t[col1] = math.max(t[col1] or 0, span_min_w)
+				else --merged columns: unmerge
+					local span_fr = 0
+					for col = col1, col2 do
+						span_fr = span_fr + (fr[col] or 1)
+					end
+					for col = col1, col2 do
+						local col_min_w = (fr[col] or 1) / span_fr * span_min_w
+						t[col] = math.max(t[col] or 0, col_min_w)
+					end
+				end
+			end
+		end
+		local min_cw = 0
+		for _,col_min_w in ipairs(t) do
+			min_cw = min_cw + col_min_w
+		end
+
+		min_cw = math.max(min_cw, self[MIN_CW])
+		local min_w = min_cw + self[PW]
+		self[_MIN_W] = min_w
+		return min_w
+	end
+
+	grid[SYNC_LAYOUT_X] = function(self, other_axis_synced)
+
+		local fr = self[COLS] --{fr1, ...}
+		local x = 0
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				local col1 = layer[LCOL]
+				local col2 = col1 + layer[COL_SPAN] - 1
+				local span_min_w = layer[_MIN_W]
+				if col1 == col2 then
+					local w = (fr[col1] or 1)
+					layer[W] = w
+					layer[X] = x
+					x = x + w
+				else --merged columns: unmerge
+					local span_fr = 0
+					for col = col1, col2 do
+						span_fr = span_fr + (fr[col] or 1)
+					end
+					for col = col1, col2 do
+						local col_min_w = (fr[col] or 1) / span_fr * span_min_w
+						t[col] = math.max(t[col] or 0, col_min_w)
+					end
+				end
+			end
+		end
+
+		--sync all children last (top-down sync).
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				layer[SYNC_LAYOUT_X](layer, other_axis_synced) --recurse
+			end
+		end
+		return true
+	end
+
+end
+gen_funcs('x', 'y', 'w', 'h', 'col')
+gen_funcs('y', 'x', 'h', 'w', 'row')
+
+grid.layout_axis_order = 'xy'
+function grid:sync_layout()
+	self:sync_layout_grid_autopos()
+	self:sync_layout_separate_axes()
+end
+
+function grid:sync_layout_window_view(w, h)
+	self.min_cw = w
+	self.min_ch = h
+	self:sync_layout()
 end
 
 --top layer (window.view) ----------------------------------------------------

@@ -1,9 +1,10 @@
+--go @ luajit -jp=a *
 
 local time = require'time'
 local ui = require'ui'
 local win = ui:window{x = 700, y = 100, cw = 1200, ch = 700, visible = false}
 
---ui.maxfps = 1/0
+ui.maxfps = 1/0
 
 local function fps_function()
 	local count_per_sec = 2
@@ -453,46 +454,92 @@ local function test_flexbox()
 		parent = win,
 		layout = 'flexbox',
 		flex_wrap = true,
-		flex_axis = 'x',
+		flex_axis = 'y',
 		align_main = 'stretch',
 		align_cross = 'center',
-		align_lines = 'bottom',
+		align_lines = 'start',
 		border_width = 20,
-		border_offset = 1,
-		--padding = 10,
+		padding = 20,
 		border_color = '#333',
 		x = 40, y = 40,
-		min_cw = win.cw - 80,
-		min_ch = win.ch - 80,
+		min_cw = win.cw - 120,
+		min_ch = win.ch - 120,
+		xx = 0,
+		style = {
+			transition_duration = 1,
+			transition_times = 1/0,
+			xx = 100,
+			transition_xx = true,
+		},
 	}
 
-	for i = 1, 4 do
+	flex:inherit()
+
+	for i = 1, 50 do
 		local r = math.random(10)
 		local b = ui:layer{
 			parent = flex,
 			layout = 'textbox',
-			--layout = 'flexbox',
 			border_width = 1,
 			min_cw = r * 12,
 			min_ch = r * 6,
+			break_after = i == 50,
+			break_before = i == 50,
 			--padding = 10,
 			--flex_align = i == 3 and 'stretch' or i == 1 and 'bottom' or 'baseline',
 			--layout = 'text_wrap',
 			--text_align = 'c m',
-			text = ('x'):rep(r) .. ' ' .. ('x'):rep(10-r),
+			--text = ('x'):rep(r) .. ' ' .. ('x'):rep(10-r),
 			--text_align = 'r b',
 			flex_fr = r,
 			--font_size = 10 + i * 3,
 		}
 
-		function b:after_draw(cr)
-			--print(self.parent._layout_min_cw, self.parent.cw)
-		end
+		b:inherit()
 	end
 
 	function win:client_resized()
-		flex.min_cw = win.cw - 80
-		flex.min_ch = win.ch - 80
+		flex.min_cw = win.cw - 120
+		flex.min_ch = win.ch - 120
+		self:invalidate()
+	end
+
+end
+
+local function test_grid_layout()
+
+	local grid = ui:layer{
+		parent = win,
+		layout = 'grid',
+		border_width = 20,
+		padding = 20,
+		border_color = '#333',
+		x = 40, y = 40,
+		min_cw = win.cw - 120,
+		min_ch = win.ch - 120,
+		xx = 0,
+		style = {
+			transition_duration = 1,
+			transition_times = 1/0,
+			xx = 100,
+			transition_xx = true,
+		},
+	}
+
+	for i = 1, 10 do
+		local r = math.random(10)
+		local b = ui:layer{
+			parent = grid,
+			layout = 'textbox',
+			border_width = 1,
+			text = ('xx'):rep(r)
+			--grid_col =
+		}
+	end
+
+	function win:client_resized()
+		grid.min_cw = win.cw - 120
+		grid.min_ch = win.ch - 120
 		self:invalidate()
 	end
 
@@ -502,7 +549,8 @@ end
 --test_layers()
 --test_drag()
 --test_text()
-test_flexbox()
+--test_flexbox()
+test_grid_layout()
 win:show()
 ui:run()
 ui:free()
