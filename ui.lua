@@ -4116,26 +4116,25 @@ end
 --flexbox & grid layout utils ------------------------------------------------
 
 --stretch a line of items on the main axis.
-local function stretch_items_x(items, i, j, X, W, MIN_W)
+local function stretch_items_x(self, i, j, total_w, X, W, _MIN_W)
 
 	--compute the fraction representing the total width.
 	local total_fr = 0
 	for i = i, j do
-		local item = items[i]
-		if item.visible then
-			total_fr = total_fr + math.max(0, item.fr)
+		local layer = self[i]
+		if layer.visible then
+			total_fr = total_fr + math.max(0, layer.fr)
 		end
 	end
 
 	--compute the total overflow width and total free width.
-	local total_w = self[CW]
 	local total_overflow_w = 0
 	local total_free_w = 0
 	for i = i, j do
-		local item = items[i]
-		if item.visible then
-			local min_w = item[MIN_W]
-			local flex_w = total_w * math.max(0, item.fr) / total_fr
+		local layer = self[i]
+		if layer.visible then
+			local min_w = layer[_MIN_W]
+			local flex_w = total_w * math.max(0, layer.fr) / total_fr
 			local overflow_w = math.max(0, min_w - flex_w)
 			local free_w = math.max(0, flex_w - min_w)
 			total_overflow_w = total_overflow_w + overflow_w
@@ -4146,13 +4145,13 @@ local function stretch_items_x(items, i, j, X, W, MIN_W)
 	--distribute the overflow to children which have free space to
 	--take it. each child shrinks to take in a part of the overflow
 	--proportional to its percent of free space.
-	local last_item
+	local last_layer
 	local x = 0
 	for i = i, j do
-		local item = items[i]
-		if item.visible then
-			local min_w = item[MIN_W]
-			local flex_w = total_w * item.fr / total_fr
+		local layer = self[i]
+		if layer.visible then
+			local min_w = layer[_MIN_W]
+			local flex_w = total_w * layer.fr / total_fr
 			local w
 			if min_w > flex_w then --overflow
 				w = min_w
@@ -4165,15 +4164,15 @@ local function stretch_items_x(items, i, j, X, W, MIN_W)
 				end
 				w = flex_w - shrink_w
 			end
-			item[X] = x
-			item[W] = w
+			layer[X] = x
+			layer[W] = w
 			x = x + w
-			last_item = item
+			last_layer = layer
 		end
 	end
 	--adjust last item's width for any rounding errors.
-	if last_item then
-		last_item[W] = total_w - last_item[X]
+	if last_layer then
+		last_layer[W] = total_w - last_layer[X]
 	end
 
 end
@@ -4198,26 +4197,26 @@ layer.align_main  = 'stretch' --space_between, space_around
 layer.align_cross_self = false --overrides parent.align_cross
 layer.fr = 1 --stretch fraction
 
-local function items_sum(self, i, j, step, MIN_W)
+local function items_sum(self, i, j, step, _MIN_W)
 	local sum = 0
 	local item_count = 0
 	for i = i, j, step do
 		local layer = self[i]
 		if layer.visible then
-			sum = sum + layer[MIN_W]
+			sum = sum + layer[_MIN_W]
 			item_count = item_count + 1
 		end
 	end
 	return sum, item_count
 end
 
-local function items_max(self, i, j, step, MIN_W)
+local function items_max(self, i, j, step, _MIN_W)
 	local max = 0
 	local item_count = 0
 	for i = i, j, step do
 		local layer = self[i]
 		if layer.visible then
-			max = math.max(max, layer[MIN_W])
+			max = math.max(max, layer[_MIN_W])
 			item_count = item_count + 1
 		end
 	end
@@ -4302,7 +4301,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 
 	--stretch a line of items on the main axis.
 	local function stretch_items_x(self, i, j)
-		stretch_items_x(self, i, j, X, W, _MIN_W)
+		stretch_items_x(self, i, j, self[CW], X, W, _MIN_W)
 	end
 
 	--starting x-offset and in-between spacing metrics for aligning.
@@ -4587,7 +4586,29 @@ layer.grid_col = false
 layer.grid_row_span = false
 layer.grid_col_span = false
 
-local function mark_occupied(t, row1, col1, row2, col2)
+local function clip_span(row1, col1, row_span, col_span, max_row, max_col)
+	local row2 = row1 + row_span - 1
+	local col2 = col1 + col_span - 1
+	--clip the span to grid boundaries
+	row1 = clamp(row1, 1, max_row)
+	col1 = clamp(col1, 1, max_col)
+	row2 = clamp(row2, 1, max_row)
+	col2 = clamp(col2, 1, max_col)
+	--support negative spans
+	if row1 > row2 then
+		row1, row2 = row2, row1
+	end
+	if col1 > col2 then
+		col1, col2 = col2, col1
+	end
+	row_span = row2 - row1 + 1
+	col_span = col2 - col1 + 1
+	return row1, col1, row_span, col_span
+end
+
+local function mark_occupied(t, row1, col1, row_span, col_span)
+	local row2 = row1 + row_span - 1
+	local col2 = col1 + col_span - 1
 	for row = row1, row2 do
 		t[row] = t[row] or {}
 		for col = col1, col2 do
@@ -4596,103 +4617,186 @@ local function mark_occupied(t, row1, col1, row2, col2)
 	end
 end
 
+local function check_occupied(t, row1, col1, row_span, col_span)
+	local row2 = row1 + row_span - 1
+	local col2 = col1 + col_span - 1
+	for row = row1, row2 do
+		if t[row] then
+			for col = col1, col2 do
+				if t[row][col] then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+local function next_pos(row, col, col_first, max_row, max_col)
+	if col_first then
+		col = col + 1
+		if col > max_col then
+			col = 1
+			row = row + 1
+		end
+	else
+		row = row + 1
+		if row > max_row then
+			row = 1
+			col = col + 1
+		end
+	end
+	return row, col
+end
+
 function layer:sync_layout_grid_autopos()
 
 	local flow = self.grid_flow --[y][r][b]
 	local col_first = not flow:find('y', 1, true)
-	local wrap_col = self.grid_col_count
-	local wrap_row = self.grid_row_count
+	local row_first = not col_first
+	local rev_cols = flow:find('r', 1, true)
+	local rev_rows = flow:find('b', 1, true)
+	local grid_wrap = math.max(1, self.grid_wrap)
+	local max_col = col_first and grid_wrap or 0
+	local max_row = row_first and grid_wrap or 0
 
 	local occupied = {}
-	self._layout_grid_occuped = occupied
-
-	local max_row, max_col = 0, 0
 
 	--position explicitly-positioned layers first and mark occupied cells.
+	--grow the grid bounds to include layers outside wrap_row and wrap_col.
+	local missing_indices, negative_indices
 	for _,layer in ipairs(self) do
 		if layer.visible then
+
 			local row, col, row_span, col_span = ui:grid_pos(layer.grid_pos)
 			row = layer.grid_row or row
 			col = layer.grid_col or col
-			row_span = math.min(1, layer.grid_row_span or row_span or 1)
-			col_span = math.min(1, layer.grid_col_span or col_span or 1)
+			row_span = layer.grid_row_span or row_span or 1
+			col_span = layer.grid_col_span or col_span or 1
+
 			if row or col then --explicit position
 				row = row or 1
 				col = col or 1
-				if row < 0 then --support negative row indices
-					row = wrap_row + row + 1
+				if row > 0 and col > 0 then
+					row, col, row_span, col_span =
+						clip_span(row, col, row_span, col_span, 1/0, 1/0)
+
+					mark_occupied(occupied, row, col, row_span, col_span)
+
+					max_row = math.max(max_row, row + row_span - 1)
+					max_col = math.max(max_col, col + col_span - 1)
+				else
+					negative_indices = true --solve these later
 				end
-				if col < 0 then --support negative col indices
-					col = wrap_col + col + 1
+			else --auto-positioned
+				--negative spans are treated as positive.
+				row_span = math.abs(row_span)
+				col_span = math.abs(col_span)
+
+				--grow grid bounds on the main axis to fit the widest layer.
+				if col_first then
+					max_col = math.max(max_col, col_span)
+				else
+					max_row = math.max(max_row, row_span)
 				end
-				row = math.max(1, row)
-				col = math.max(1, col)
-				local row2 = row + row_span - 1
-				local col2 = col + col_span - 1
-				mark_occupied(occupied, row, col, row2, col2)
-				max_row = math.max(max_row, row2)
-				max_col = math.max(max_col, col2)
+
+				missing_indices = true --solve these later
 			end
-			layer._layout_grid_row = row
-			layer._layout_grid_col = col
-			layer._layout_grid_row_span = row_span
-			layer._layout_grid_col_span = col_span
+
+			layer._grid_row = row
+			layer._grid_col = col
+			layer._grid_row_span = row_span
+			layer._grid_col_span = col_span
 		end
 	end
 
-	--auto-wrap remaining layers over non-occupied cells.
-	local row, col = 1, 1
-	for _,layer in ipairs(self) do
-		if layer.visible and not layer._layout_grid_row then
-			while occupied[row] and occupied[row][col] do
-				if col_first then
-					col = col + 1
-					if col > wrap_col then
-						col = 1
-						row = row + 1
+	--position explicitly-positioned layers with negative indices
+	--now that we know the grid bounds. these types of spans do not enlarge
+	--the grid bounds, but instead are clipped to it.
+	if negative_indices then
+		for _,layer in ipairs(self) do
+			if layer.visible then
+				local row = layer._grid_row
+				local col = layer._grid_col
+				if row < 0 or col < 0 then
+					local row_span = layer._grid_row_span
+					local col_span = layer._grid_col_span
+					if row < 0 then
+						row = max_row + row + 1
 					end
-				else
-					row = row + 1
-					if row > wrap_row then
-						row = 1
-						col = col + 1
+					if col < 0 then
+						col = max_col + col + 1
 					end
+					row, col, row_span, col_span =
+						clip_span(row, col, row_span, col_span, max_row, max_col)
+
+					mark_occupied(occupied, row, col, row_span, col_span)
+
+					layer._grid_row = row
+					layer._grid_col = col
+					layer._grid_row_span = row_span
+					layer._grid_col_span = col_span
 				end
 			end
-			layer._layout_grid_row = row
-			layer._layout_grid_col = col
-			local row2 = row + layer._layout_grid_row_span - 1
-			local col2 = col + layer._layout_grid_col_span - 1
-			mark_occupied(occupied, row, col, row2, col2)
-			max_row = math.max(max_row, row2)
-			max_col = math.max(max_col, col2)
+		end
+	end
+
+	--auto-wrap layers with missing explicit indices over non-occupied cells.
+	--grow grid bounds on the cross-axis if needed but not on the main axis.
+	--these types of spans are never clipped to the grid bounds.
+	if missing_indices then
+		local row, col = 1, 1
+		for _,layer in ipairs(self) do
+			if layer.visible and not layer._grid_row then
+				local row_span = layer._grid_row_span
+				local col_span = layer._grid_col_span
+
+				while check_occupied(occupied, row, col, row_span, col_span) do
+					row, col = next_pos(row, col, col_first, max_row, max_col)
+				end
+
+				mark_occupied(occupied, row, col, row_span, col_span)
+
+				layer._grid_row = row
+				layer._grid_col = col
+
+				--grow grid bounds on the cross-axis.
+				if col_first then
+					max_row = math.max(max_row, row + row_span - 1)
+				else
+					max_col = math.max(max_col, col + col_span - 1)
+				end
+
+				row, col = next_pos(
+					row + (row_first and row_span - 1 or 0),
+					col + (col_first and col_span - 1 or 0),
+					col_first, max_row, max_col)
+			end
 		end
 	end
 
 	--reverse the order of rows and/or columns depending on grid_flow.
-	local rev_rows = flow:find('r', 1, true)
-	local rev_cols = flow:find('b', 1, true)
 	if rev_rows or rev_cols then
 		for _,layer in ipairs(self) do
 			if layer.visible then
 				if rev_rows then
-					self._layout_grid_row = max_row
-						- self._layout_grid_row
-						- self._layout_grid_row_span
+					layer._grid_row = max_row
+						- layer._grid_row
+						- layer._grid_row_span
 						+ 2
 				end
 				if rev_cols then
-					self._layout_grid_col = max_col
-						- self._layout_grid_col
-						- self._layout_grid_row_span
+					layer._grid_col = max_col
+						- layer._grid_col
+						- layer._grid_row_span
 						+ 2
 				end
 			end
 		end
 	end
 
-	self._layout_grid_max_row = max_row
-	self._layout_grid_max_col = max_col
+	self._grid_max_row = max_row
+	self._grid_max_col = max_col
 end
 
 local function gen_funcs(X, Y, W, H, COL)
@@ -4706,9 +4810,11 @@ local function gen_funcs(X, Y, W, H, COL)
 	local COL_GAP = 'grid_'..COL..'_gap'
 	local COLS = 'grid_'..COL..'s'
 
-	local LCOL = '_layout_grid_'..COL
-	local COL_SPAN = '_layout_grid_'..COL..'_span'
-	local MAX_COL = '_layout_grid_max_'..COL
+	local _COL = '_grid_'..COL
+	local _COL_SPAN = '_grid_'..COL..'_span'
+	local _MAX_COL = '_grid_max_'..COL
+
+	local _COL_ITEMS = '_grid_items_'..COL
 
 	grid[SYNC_MIN_W] = function(self, other_axis_synced)
 
@@ -4719,45 +4825,64 @@ local function gen_funcs(X, Y, W, H, COL)
 			end
 		end
 
-		local max_col = self[MAX_COL]
+		local max_col = self[_MAX_COL]
 		local fr = self[COLS] --{fr1, ...}
 
 		--compute the fraction representing the total width.
 		local total_fr = 0
 		for _,layer in ipairs(self) do
 			if layer.visible then
-				local col1 = layer[LCOL]
-				local col2 = col1 + layer[COL_SPAN] - 1
+				local col1 = layer[_COL]
+				local col2 = col1 + layer[_COL_SPAN] - 1
 				for col = col1, col2 do
 					total_fr = total_fr + (fr[col] or 1)
 				end
 			end
 		end
 
+		--create pseudo-layers to apply flexbox stretching to later.
+		local max_col = self[_MAX_COL]
+		local col_items = {}
+		for col = 1, max_col do
+			col_items[col] = {
+				visible = true,
+				fr = fr[col] or 1,
+				[_MIN_W] = 0,
+				[X] = false,
+				[W] = false,
+			}
+		end
+		self[_COL_ITEMS] = col_items
+
 		--compute minimum widths for each column.
-		local t = {} --{min_w1, ...}
 		for _,layer in ipairs(self) do
 			if layer.visible then
-				local col1 = layer[LCOL]
-				local col2 = col1 + layer[COL_SPAN] - 1
+				local col1 = layer[_COL]
+				local col2 = col1 + layer[_COL_SPAN] - 1
 				local span_min_w = layer[_MIN_W]
 				if col1 == col2 then
-					t[col1] = math.max(t[col1] or 0, span_min_w)
+					local item = col_items[col1]
+					item[_MIN_W] = math.max(item[_MIN_W], span_min_w)
 				else --merged columns: unmerge
 					local span_fr = 0
 					for col = col1, col2 do
 						span_fr = span_fr + (fr[col] or 1)
 					end
 					for col = col1, col2 do
+						local item = col_items[col]
 						local col_min_w = (fr[col] or 1) / span_fr * span_min_w
-						t[col] = math.max(t[col] or 0, col_min_w)
+						item[_MIN_W] = math.max(item[_MIN_W], col_min_w)
 					end
 				end
 			end
 		end
-		local min_cw = 0
-		for _,col_min_w in ipairs(t) do
-			min_cw = min_cw + col_min_w
+
+		local gap_w = self[COL_GAP]
+		local gaps_w = (max_col - 1) * gap_w
+
+		local min_cw = gaps_w
+		for _,item in ipairs(col_items) do
+			min_cw = min_cw + item[_MIN_W]
 		end
 
 		min_cw = math.max(min_cw, self[MIN_CW])
@@ -4768,28 +4893,26 @@ local function gen_funcs(X, Y, W, H, COL)
 
 	grid[SYNC_LAYOUT_X] = function(self, other_axis_synced)
 
-		local fr = self[COLS] --{fr1, ...}
+		local col_items = self[_COL_ITEMS]
+		local max_col = #col_items
+		local gap_w = self[COL_GAP]
+		local gaps_w = (max_col - 1) * gap_w
+		local stretch_w = self[CW] - gaps_w
+
+		stretch_items_x(col_items, 1, #col_items, stretch_w, X, W, _MIN_W)
+
 		local x = 0
 		for _,layer in ipairs(self) do
 			if layer.visible then
-				local col1 = layer[LCOL]
-				local col2 = col1 + layer[COL_SPAN] - 1
-				local span_min_w = layer[_MIN_W]
-				if col1 == col2 then
-					local w = (fr[col1] or 1)
-					layer[W] = w
-					layer[X] = x
-					x = x + w
-				else --merged columns: unmerge
-					local span_fr = 0
-					for col = col1, col2 do
-						span_fr = span_fr + (fr[col] or 1)
-					end
-					for col = col1, col2 do
-						local col_min_w = (fr[col] or 1) / span_fr * span_min_w
-						t[col] = math.max(t[col] or 0, col_min_w)
-					end
-				end
+				local col1 = layer[_COL]
+				local col2 = col1 + layer[_COL_SPAN] - 1
+				local col_item1 = col_items[col1]
+				local col_item2 = col_items[col2]
+				local x1 = col_item1[X]
+				local x2 = col_item2[X] + col_item2[W]
+				local gap_offset = (col1 - 1) * gap_w
+				layer[X] = x1 + gap_offset
+				layer[W] = x2 - x1
 			end
 		end
 

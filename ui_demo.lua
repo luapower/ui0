@@ -510,7 +510,13 @@ local function test_grid_layout()
 
 	local grid = ui:layer{
 		parent = win,
+
 		layout = 'grid',
+		grid_wrap = 4,
+		grid_flow = 'yrb',
+		grid_col_gap = 10,
+		grid_row_gap = 5,
+
 		border_width = 20,
 		padding = 20,
 		border_color = '#333',
@@ -532,7 +538,7 @@ local function test_grid_layout()
 			parent = grid,
 			layout = 'textbox',
 			border_width = 1,
-			text = ('xx'):rep(r)
+			text = i..(' xx'):rep(r)
 			--grid_col =
 		}
 	end
