@@ -189,6 +189,17 @@ function object:check(ret, ...)
 	self:warn(...)
 end
 
+--autoloading
+
+function object:autoload(autoload)
+	for prop, submodule in pairs(autoload) do
+		self['get_'..prop] = function()
+			require(submodule)
+			return ui[prop]
+		end
+	end
+end
+
 --module object --------------------------------------------------------------
 
 local ui = object:subclass'ui'
@@ -1198,7 +1209,8 @@ local native_fields = {
 	visible=1, minimized=1, maximized=1, enabled=1,
 	frame=1, title=1, transparent=1, corner_radius=1,
 	sticky=1, topmost=1, minimizable=1, maximizable=1, closeable=1,
-	resizeable=1, fullscreenable=1, activable=1, autoquit=1, edgesnapping=1,
+	resizeable=1, fullscreenable=1, activable=1, autoquit=1, hideonclose=1,
+	edgesnapping=1,
 }
 
 window:init_ignore{native_window=1, parent=1}
@@ -4213,9 +4225,12 @@ local function align_metrics(align, container_w, items_w, item_count, LEFT, RIGH
 		x = container_w - items_w
 	elseif align == 'center' then
 		x = (container_w - items_w) / 2
-	elseif align == 'space_around' then
+	elseif align == 'space_evenly' then
 		spacing = (container_w - items_w) / (item_count + 1)
 		x = spacing
+	elseif align == 'space_around' then
+		spacing = (container_w - items_w) / item_count
+		x = spacing / 2
 	elseif align == 'space_between' then
 		spacing = (container_w - items_w) / (item_count - 1)
 		x = 0
@@ -4247,9 +4262,9 @@ flexbox.layout_axis_order = 'xy'
 --container properties
 layer.flex_axis = 'x' --'x', 'y'
 layer.flex_wrap = false -- true, false
-layer.align_lines = 'stretch' --space_between, space_around
+layer.align_lines = 'stretch' --space_between, space_around, space_evenly
 layer.align_cross = 'stretch' --baseline
-layer.align_main  = 'stretch' --space_between, space_around
+layer.align_main  = 'stretch' --space_between, space_around, space_evenly
 	--^align_*: stretch, start/top/left, end/bottom/right, center
 
 --item properties
@@ -4784,7 +4799,7 @@ function layer:sync_layout_grid_autopos()
 				if rev_cols then
 					layer._grid_col = max_col
 						- layer._grid_col
-						- layer._grid_row_span
+						- layer._grid_col_span
 						+ 2
 				end
 			end
@@ -4978,7 +4993,7 @@ end
 
 --widgets autoload -----------------------------------------------------------
 
-local autoload = {
+ui:autoload{
 	scrollbar    = 'ui_scrollbox',
 	scrollbox    = 'ui_scrollbox',
 	button       = 'ui_button',
@@ -4998,12 +5013,5 @@ local autoload = {
 	colorpicker  = 'ui_colorpicker',
 	dropdown     = 'ui_dropdown',
 }
-
-for widget, submodule in pairs(autoload) do
-	ui['get_'..widget] = function()
-		require(submodule)
-		return ui[widget]
-	end
-end
 
 return ui

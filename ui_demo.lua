@@ -2,7 +2,8 @@
 
 local time = require'time'
 local ui = require'ui'
-local win = ui:window{x = 700, y = 100, cw = 1200, ch = 700, visible = false}
+local win = ui:window{x = 700, y = 100, cw = 1200, ch = 700, visible = false, autoquit=true}
+function win:keydown(key) if key == 'esc' then self:close() end end
 
 ui.maxfps = 1/0
 
@@ -513,10 +514,10 @@ local function test_grid_layout()
 
 		layout = 'grid',
 		grid_wrap = 5,
-		--grid_flow = 'yrb',
+		grid_flow = 'yrb',
 		grid_col_gap = 10,
 		grid_row_gap = 5,
-		grid_align_x = 'space_between',
+		grid_align_x = 'space_around',
 		grid_align_y = 'space_around',
 
 		border_width = 20,
