@@ -4115,13 +4115,39 @@ end
 
 --flexbox & grid layout utils ------------------------------------------------
 
+local function items_sum(self, i, j, _MIN_W)
+	local sum = 0
+	local item_count = 0
+	for i = i, j do
+		local layer = self[i]
+		if layer.visible then
+			sum = sum + layer[_MIN_W]
+			item_count = item_count + 1
+		end
+	end
+	return sum, item_count
+end
+
+local function items_max(self, i, j, _MIN_W)
+	local max = 0
+	local item_count = 0
+	for i = i, j do
+		local layer = self[i]
+		if layer.visible then
+			max = math.max(max, layer[_MIN_W])
+			item_count = item_count + 1
+		end
+	end
+	return max, item_count
+end
+
 --stretch a line of items on the main axis.
-local function stretch_items_x(self, i, j, total_w, X, W, _MIN_W)
+local function stretch_items_main_axis(items, i, j, total_w, X, W, _MIN_W)
 
 	--compute the fraction representing the total width.
 	local total_fr = 0
 	for i = i, j do
-		local layer = self[i]
+		local layer = items[i]
 		if layer.visible then
 			total_fr = total_fr + math.max(0, layer.fr)
 		end
@@ -4131,7 +4157,7 @@ local function stretch_items_x(self, i, j, total_w, X, W, _MIN_W)
 	local total_overflow_w = 0
 	local total_free_w = 0
 	for i = i, j do
-		local layer = self[i]
+		local layer = items[i]
 		if layer.visible then
 			local min_w = layer[_MIN_W]
 			local flex_w = total_w * math.max(0, layer.fr) / total_fr
@@ -4148,7 +4174,7 @@ local function stretch_items_x(self, i, j, total_w, X, W, _MIN_W)
 	local last_layer
 	local x = 0
 	for i = i, j do
-		local layer = self[i]
+		local layer = items[i]
 		if layer.visible then
 			local min_w = layer[_MIN_W]
 			local flex_w = total_w * layer.fr / total_fr
@@ -4177,6 +4203,39 @@ local function stretch_items_x(self, i, j, total_w, X, W, _MIN_W)
 
 end
 
+--starting x-offset and in-between spacing metrics for aligning.
+local function align_metrics(align, container_w, items_w, item_count, LEFT, RIGHT)
+	local x
+	local spacing = 0
+	if align == 'start' or align == LEFT then
+		x = 0
+	elseif align == 'end' or align == RIGHT then
+		x = container_w - items_w
+	elseif align == 'center' then
+		x = (container_w - items_w) / 2
+	elseif align == 'space_around' then
+		spacing = (container_w - items_w) / (item_count + 1)
+		x = spacing
+	elseif align == 'space_between' then
+		spacing = (container_w - items_w) / (item_count - 1)
+		x = 0
+	end
+	return x, spacing
+end
+
+--align a line of items on the main axis.
+local function align_items_main_axis(items, i, j, x, spacing, X, W, _MIN_W)
+	for i = i, j do
+		local layer = items[i]
+		if layer.visible then
+			local w = layer[_MIN_W]
+			layer[X] = x
+			layer[W] = w
+			x = x + w + spacing
+		end
+	end
+end
+
 --flexbox layout -------------------------------------------------------------
 
 local flexbox = object:subclass'flexbox_layout'
@@ -4197,32 +4256,6 @@ layer.align_main  = 'stretch' --space_between, space_around
 layer.align_cross_self = false --overrides parent.align_cross
 layer.fr = 1 --stretch fraction
 
-local function items_sum(self, i, j, step, _MIN_W)
-	local sum = 0
-	local item_count = 0
-	for i = i, j, step do
-		local layer = self[i]
-		if layer.visible then
-			sum = sum + layer[_MIN_W]
-			item_count = item_count + 1
-		end
-	end
-	return sum, item_count
-end
-
-local function items_max(self, i, j, step, _MIN_W)
-	local max = 0
-	local item_count = 0
-	for i = i, j, step do
-		local layer = self[i]
-		if layer.visible then
-			max = math.max(max, layer[_MIN_W])
-			item_count = item_count + 1
-		end
-	end
-	return max, item_count
-end
-
 --generate pairs of methods for vertical and horizontal flexbox layouts.
 local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 
@@ -4233,16 +4266,8 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 	local _MIN_W = '_min_'..W
 	local _MIN_H = '_min_'..H
 
-	local function items_min_w(self, i, j)
-		return items_sum(self, i or 1, j or #self, 1, _MIN_W)
-	end
-
 	local function items_min_h(self, i, j)
-		return items_max(self, i or 1, j or #self, 1, _MIN_H)
-	end
-
-	local function items_min_w_wrap(self)
-		return items_max(self, 1, #self, 1, _MIN_W)
+		return items_max(self, i, j, _MIN_H)
 	end
 
 	local function linewrap_next(self, i)
@@ -4279,9 +4304,9 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 
 	local function min_cw(self, other_axis_synced)
 		if self.flex_wrap then
-			return items_min_w_wrap(self, other_axis_synced)
+			return items_max(self, 1, #self, _MIN_W)
 		else
-			return items_min_w(self, other_axis_synced)
+			return items_sum(self, 1, #self, _MIN_W)
 		end
 	end
 
@@ -4301,53 +4326,23 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 
 	--stretch a line of items on the main axis.
 	local function stretch_items_x(self, i, j)
-		stretch_items_x(self, i, j, self[CW], X, W, _MIN_W)
-	end
-
-	--starting x-offset and in-between spacing metrics for aligning.
-	local function align_metrics(self,
-		align, LEFT, RIGHT, container_w, items_w, item_count
-	)
-		local x
-		local spacing = 0
-		if align == 'start' or align == LEFT then
-			x = 0
-		elseif align == 'end' or align == RIGHT then
-			x = container_w - items_w
-		elseif align == 'center' then
-			x = (container_w - items_w) / 2
-		elseif align == 'space_around' then
-			spacing = (container_w - items_w) / (item_count + 1)
-			x = spacing
-		elseif align == 'space_between' then
-			spacing = (container_w - items_w) / (item_count - 1)
-			x = 0
-		end
-		return x, spacing
+		stretch_items_main_axis(self, i, j, self[CW], X, W, _MIN_W)
 	end
 
 	local function align_metrics_x(self, align, items_w, item_count)
-		return align_metrics(self, align, LEFT, RIGHT, self[CW], items_w, item_count)
+		return align_metrics(align, self[CW], items_w, item_count, LEFT, RIGHT)
 	end
 
 	local function align_metrics_y(self, align, items_w, item_count)
-		return align_metrics(self, align, TOP, BOTTOM, self[CH], items_w, item_count)
+		return align_metrics(align, self[CH], items_w, item_count, TOP, BOTTOM)
 	end
 
 	--align a line of items on the main axis.
-	local function align_items_x(self, i, j, items_w, item_count)
+	local function align_items_x(self, i, j)
+		local items_w, items_count = items_sum(self, i, j, _MIN_W)
 		local x, spacing =
 			align_metrics_x(self, self.align_main, items_w, item_count)
-		--position the items.
-		for i = i, j do
-			local layer = self[i]
-			if layer.visible then
-				local w = layer[_MIN_W]
-				layer[X] = x
-				layer[W] = w
-				x = x + w + spacing
-			end
-		end
+		align_items_main_axis(self, i, j, x, spacing, X, W, _MIN_W)
 	end
 
 	--stretch or align a flexbox's items on the main-axis.
@@ -4356,8 +4351,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 			if self.align_main == 'stretch' then
 				stretch_items_x(self, i, j)
 			else
-				local items_w, items_count = items_min_w(self, i, j)
-				align_items_x(self, i, j, items_w, items_count)
+				align_items_x(self, i, j)
 			end
 		end
 		return true
@@ -4472,7 +4466,7 @@ function flexbox:sync_min_h(other_axis_synced)
 	--sync all children first (bottom-up sync).
 	for _,layer in ipairs(self) do
 		if layer.visible then
-			layer:sync_min_ch(other_axis_synced) --recurse
+			layer:sync_min_h(other_axis_synced) --recurse
 		end
 	end
 
@@ -4536,8 +4530,8 @@ layer.grid_cols = {} --{fr1, ...}
 layer.grid_rows = {} --{fr1, ...}
 layer.grid_col_gap = 0
 layer.grid_row_gap = 0
-layer.align_x = false
-layer.align_y = false
+layer.grid_align_x = 'stretch'
+layer.grid_align_y = 'stretch'
 
 --item properties
 layer.align_x_self = false
@@ -4630,23 +4624,6 @@ local function check_occupied(t, row1, col1, row_span, col_span)
 		end
 	end
 	return false
-end
-
-local function next_pos(row, col, col_first, max_row, max_col)
-	if col_first then
-		col = col + 1
-		if col > max_col then
-			col = 1
-			row = row + 1
-		end
-	else
-		row = row + 1
-		if row > max_row then
-			row = 1
-			col = col + 1
-		end
-	end
-	return row, col
 end
 
 function layer:sync_layout_grid_autopos()
@@ -4751,8 +4728,25 @@ function layer:sync_layout_grid_autopos()
 				local row_span = layer._grid_row_span
 				local col_span = layer._grid_col_span
 
-				while check_occupied(occupied, row, col, row_span, col_span) do
-					row, col = next_pos(row, col, col_first, max_row, max_col)
+				while true do
+					--check for wrapping.
+					if col_first and col + col_span - 1 > max_col then
+						col = 1
+						row = row + 1
+					elseif row_first and row + row_span - 1 > max_row then
+						row = 1
+						col = col + 1
+					end
+					if check_occupied(occupied, row, col, row_span, col_span) then
+						--advance cursor by one cell.
+						if col_first then
+							col = col + 1
+						else
+							row = row + 1
+						end
+					else
+						break
+					end
 				end
 
 				mark_occupied(occupied, row, col, row_span, col_span)
@@ -4767,10 +4761,12 @@ function layer:sync_layout_grid_autopos()
 					max_col = math.max(max_col, col + col_span - 1)
 				end
 
-				row, col = next_pos(
-					row + (row_first and row_span - 1 or 0),
-					col + (col_first and col_span - 1 or 0),
-					col_first, max_row, max_col)
+				--advance cursor to right after the span, without wrapping.
+				if col_first then
+					col = col + col_span
+				else
+					row = row + row_span
+				end
 			end
 		end
 	end
@@ -4799,7 +4795,9 @@ function layer:sync_layout_grid_autopos()
 	self._grid_max_col = max_col
 end
 
-local function gen_funcs(X, Y, W, H, COL)
+--layouting algorithm
+
+local function gen_funcs(X, Y, W, H, COL, LEFT, RIGHT)
 
 	local CW = 'c'..W
 	local PW = 'p'..W
@@ -4809,12 +4807,11 @@ local function gen_funcs(X, Y, W, H, COL)
 	local SYNC_LAYOUT_X = 'sync_layout_'..X
 	local COL_GAP = 'grid_'..COL..'_gap'
 	local COLS = 'grid_'..COL..'s'
-
+	local ALIGN_X = 'grid_align_'..X
+	local _COLS = '_grid_'..COL..'s'
+	local _MAX_COL = '_grid_max_'..COL
 	local _COL = '_grid_'..COL
 	local _COL_SPAN = '_grid_'..COL..'_span'
-	local _MAX_COL = '_grid_max_'..COL
-
-	local _COL_ITEMS = '_grid_items_'..COL
 
 	grid[SYNC_MIN_W] = function(self, other_axis_synced)
 
@@ -4825,6 +4822,7 @@ local function gen_funcs(X, Y, W, H, COL)
 			end
 		end
 
+		local gap_w = self[COL_GAP]
 		local max_col = self[_MAX_COL]
 		local fr = self[COLS] --{fr1, ...}
 
@@ -4842,9 +4840,9 @@ local function gen_funcs(X, Y, W, H, COL)
 
 		--create pseudo-layers to apply flexbox stretching to later.
 		local max_col = self[_MAX_COL]
-		local col_items = {}
+		local cols = {}
 		for col = 1, max_col do
-			col_items[col] = {
+			cols[col] = {
 				visible = true,
 				fr = fr[col] or 1,
 				[_MIN_W] = 0,
@@ -4852,36 +4850,47 @@ local function gen_funcs(X, Y, W, H, COL)
 				[W] = false,
 			}
 		end
-		self[_COL_ITEMS] = col_items
+		self[_COLS] = cols
 
-		--compute minimum widths for each column.
+		--compute the minimum widths for each column.
 		for _,layer in ipairs(self) do
 			if layer.visible then
 				local col1 = layer[_COL]
 				local col2 = col1 + layer[_COL_SPAN] - 1
 				local span_min_w = layer[_MIN_W]
+
+				local gap_col1 =
+					col2 == 1 and col2 == max_col and 0
+					or (col2 == 1 or col2 == max_col) and gap_w * .5
+					or gap_w
+				local gap_col2 =
+					col2 == 1 and col2 == max_col and 0
+					or (col2 == 1 or col2 == max_col) and gap_w * .5
+					or gap_w
+
 				if col1 == col2 then
-					local item = col_items[col1]
-					item[_MIN_W] = math.max(item[_MIN_W], span_min_w)
+					local item = cols[col1]
+					local col_min_w = span_min_w + gap_col1 + gap_col2
+					item[_MIN_W] = math.max(item[_MIN_W], col_min_w)
 				else --merged columns: unmerge
 					local span_fr = 0
 					for col = col1, col2 do
 						span_fr = span_fr + (fr[col] or 1)
 					end
 					for col = col1, col2 do
-						local item = col_items[col]
+						local item = cols[col]
 						local col_min_w = (fr[col] or 1) / span_fr * span_min_w
+						col_min_w = col_min_w
+							+ (col == col1 and gap_col1 or 0)
+							+ (col == col2 and gap_col2 or 0)
 						item[_MIN_W] = math.max(item[_MIN_W], col_min_w)
 					end
 				end
 			end
 		end
 
-		local gap_w = self[COL_GAP]
-		local gaps_w = (max_col - 1) * gap_w
-
-		local min_cw = gaps_w
-		for _,item in ipairs(col_items) do
+		local min_cw = 0
+		for _,item in ipairs(cols) do
 			min_cw = min_cw + item[_MIN_W]
 		end
 
@@ -4893,26 +4902,33 @@ local function gen_funcs(X, Y, W, H, COL)
 
 	grid[SYNC_LAYOUT_X] = function(self, other_axis_synced)
 
-		local col_items = self[_COL_ITEMS]
-		local max_col = #col_items
+		local cols = self[_COLS]
 		local gap_w = self[COL_GAP]
-		local gaps_w = (max_col - 1) * gap_w
-		local stretch_w = self[CW] - gaps_w
+		local container_w = self[CW]
+		local align = self[ALIGN_X]
 
-		stretch_items_x(col_items, 1, #col_items, stretch_w, X, W, _MIN_W)
+		if align == 'stretch' then
+			stretch_items_main_axis(cols, 1, #cols, container_w, X, W, _MIN_W)
+		else
+			local items_w, item_count = items_sum(cols, 1, #cols, _MIN_W)
+			local x, spacing =
+				align_metrics(align, self[CW], items_w, item_count, LEFT, RIGHT)
+			align_items_main_axis(cols, 1, #cols, x, spacing, X, W, _MIN_W)
+		end
 
 		local x = 0
 		for _,layer in ipairs(self) do
 			if layer.visible then
 				local col1 = layer[_COL]
 				local col2 = col1 + layer[_COL_SPAN] - 1
-				local col_item1 = col_items[col1]
-				local col_item2 = col_items[col2]
+				local col_item1 = cols[col1]
+				local col_item2 = cols[col2]
 				local x1 = col_item1[X]
 				local x2 = col_item2[X] + col_item2[W]
-				local gap_offset = (col1 - 1) * gap_w
-				layer[X] = x1 + gap_offset
-				layer[W] = x2 - x1
+				local gap1 = (col1 == 1 and 0 or gap_w * .5)
+				local gap2 = (col2 == #cols and 0 or gap_w * .5)
+				layer[X] = x1 + gap1
+				layer[W] = x2 - x1 - gap2 - gap1
 			end
 		end
 
@@ -4926,8 +4942,8 @@ local function gen_funcs(X, Y, W, H, COL)
 	end
 
 end
-gen_funcs('x', 'y', 'w', 'h', 'col')
-gen_funcs('y', 'x', 'h', 'w', 'row')
+gen_funcs('x', 'y', 'w', 'h', 'col', 'left', 'right')
+gen_funcs('y', 'x', 'h', 'w', 'row', 'top', 'bottom')
 
 grid.layout_axis_order = 'xy'
 function grid:sync_layout()

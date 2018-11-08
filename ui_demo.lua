@@ -512,10 +512,12 @@ local function test_grid_layout()
 		parent = win,
 
 		layout = 'grid',
-		grid_wrap = 4,
-		grid_flow = 'yrb',
+		grid_wrap = 5,
+		--grid_flow = 'yrb',
 		grid_col_gap = 10,
 		grid_row_gap = 5,
+		grid_align_x = 'space_between',
+		grid_align_y = 'space_around',
 
 		border_width = 20,
 		padding = 20,
@@ -538,8 +540,10 @@ local function test_grid_layout()
 			parent = grid,
 			layout = 'textbox',
 			border_width = 1,
-			text = i..(' xx'):rep(r)
-			--grid_col =
+			text = i..' '..('xx'):rep(r),
+
+			grid_col_span = i % 2 + 1,
+			grid_row_span = 2 - i % 2,
 		}
 	end
 
