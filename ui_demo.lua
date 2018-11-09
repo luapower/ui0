@@ -3,7 +3,7 @@
 local time = require'time'
 local ui = require'ui'
 local win = ui:window{x = 700, y = 100, cw = 1200, ch = 700, visible = false, autoquit=true}
-function win:keydown(key) if key == 'esc' then self:close() end end
+function win:keyup(key) if key == 'esc' then self:close() end end
 
 ui.maxfps = 1/0
 
@@ -556,12 +556,37 @@ local function test_grid_layout()
 
 end
 
+local function test_widgets_flex()
+
+	win.view.layout = 'flexbox'
+	win.view.align_cross = 'center'
+
+	local ckb = ui:checkbox{
+		parent = win,
+		label =  {text = 'Check me'},
+		checked = true,
+		--enabled = false,
+		border_width = 1,
+	}
+
+	local chb = ui:choicebutton{
+		parent = win,
+		values = {
+			'Choose me',
+			'No, me!',
+			{text = 'Me, me, me!', value = 'val3'},
+		},
+		selected = 'val3',
+	}
+end
+
 --test_css()
 --test_layers()
 --test_drag()
 --test_text()
 --test_flexbox()
-test_grid_layout()
+--test_grid_layout()
+test_widgets_flex()
 win:show()
 ui:run()
 ui:free()

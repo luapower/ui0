@@ -9,14 +9,18 @@ local lerp = glue.lerp
 local button = ui.layer:subclass'button'
 ui.button = button
 button.iswidget = true
-
 button.focusable = true
-button.w = 90
-button.h = 24
-button.background_color = '#444'
-button.border_color = '#888'
+
+button.layout = 'textbox'
+button.min_ch = 20
 button.padding_left = 8
 button.padding_right = 8
+button.padding_top = 2
+button.padding_bottom = 2
+
+button.background_color = '#444'
+button.border_color = '#888'
+
 button._default = false
 button._cancel = false
 button.tags = 'standalone'
@@ -258,32 +262,49 @@ end
 local checkbox = ui.layer:subclass'checkbox'
 ui.checkbox = checkbox
 
-checkbox.h = 18
+checkbox.layout = 'flexbox'
+checkbox.min_ch = 16
 checkbox.align = 'left'
-checkbox._checked = false
 
-function checkbox:get_checked()
-	return self._checked
-end
+--checked property
 
-function checkbox:set_checked(checked)
-	checked = checked and true or false
-	if self._checked == checked then return end
-	self._checked = checked
+checkbox:stored_property'checked'
+function checkbox:after_set_checked(checked)
 	self:settag(':checked', checked)
 	self:fire(checked and 'was_checked' or 'was_unchecked')
-	self:fire('checked_changed', checked)
 end
+checkbox:track_changes'checked'
+checkbox:instance_only'checked'
 
 function checkbox:toggle()
 	self.checked = not self.checked
 end
+
+--align property
+
+checkbox:stored_property'align'
+function checkbox:after_set_align(align)
+	if align == 'right' then
+		self.button:to_front()
+	else
+		self.button:to_back()
+	end
+end
+checkbox:instance_only'align'
+
+--check button
 
 local cbutton = ui.button:subclass'checkbox_button'
 checkbox.button_class = cbutton
 
 cbutton.font = 'Ionicons,16'
 cbutton.text_checked = '\u{f2bc}'
+
+cbutton.fr = 0
+cbutton.min_cw = 20
+cbutton.align_cross_self = 'start'
+cbutton.padding_top = 0
+cbutton.padding_bottom = 0
 cbutton.padding_left = 0
 cbutton.padding_right = 0
 
@@ -296,14 +317,8 @@ ui:style('checkbox_button :active :over', {
 	background_color = '#888',
 })
 
-function cbutton:before_sync()
-	self.text = self.checkbox.checked and self.text_checked
-end
-
 function cbutton:after_sync()
-	self.h = self.checkbox.ch
-	self.w = self.h
-	self.x = self.checkbox.align == 'left' and 0 or self.checkbox.cw - self.h
+	self.text = self.checkbox.checked and self.text_checked
 end
 
 function cbutton:override_hit_test(inherited, mx, my, reason)
@@ -334,19 +349,22 @@ function checkbox:create_button()
 	}, self.button)
 end
 
+--label
+
 local clabel = ui.layer:subclass'checkbox_label'
 checkbox.label_class = clabel
+
+clabel.layout = 'textbox'
+clabel.nowrap = true
 
 function clabel:hit_test(mx, my, reason) end --cbutton does it for us
 
 function clabel:after_sync()
-	self.h = self.checkbox.ch
-	self.w = self.checkbox.cw - self.checkbox.button.w
 	local align = self.checkbox.align
-	self.x = align == 'left' and self.checkbox.cw - self.w or 0
 	self.text_align_x = align
-	self.padding_left = align == 'left' and self.h / 2 or 0
-	self.padding_right = align == 'right' and self.h / 2 or 0
+	local padding = self.checkbox.button.h / 2
+	self.padding_left = align == 'left' and padding or 0
+	self.padding_right = align == 'right' and padding or 0
 end
 
 function checkbox:create_label()
@@ -357,9 +375,12 @@ function checkbox:create_label()
 	}, self.label)
 end
 
-function checkbox:after_init()
+checkbox:init_ignore{align=1}
+
+function checkbox:after_init(ui, t)
 	self.button = self:create_button()
 	self.label = self:create_label()
+	self.align = t.align
 	self.button:settag('standalone', false)
 end
 
@@ -470,6 +491,8 @@ end
 local choicebutton = ui.layer:subclass'choicebutton'
 ui.choicebutton = choicebutton
 
+choicebutton.layout = 'flexbox'
+
 --model
 
 choicebutton.values = {} --{{index=, text=, value=, ...}, ...}
@@ -536,28 +559,12 @@ end
 
 choicebutton.button_corner_radius = 0
 
-function choicebutton:button_xw(index)
-	local w = self.cw / #self.values
-	local x = (index - 1) * w
-	return x, w
-end
-
-function choicebutton:sync_button(b)
-	b.x, b.w = self:button_xw(b.index)
-	self.ch = b.h
+function choicebutton:sync_layout_for_button(b)
 	local r = self.button_corner_radius
 	b.corner_radius_top_left = b.index == 1 and r or 0
 	b.corner_radius_bottom_left = b.index == 1 and r or 0
 	b.corner_radius_top_right = b.index == #self.values and r or 0
 	b.corner_radius_bottom_right = b.index == #self.values and r or 0
-end
-
-function choicebutton:before_draw_content(cr)
-	for _, layer in ipairs(self) do
-		if layer.choicebutton == self then
-			self:sync_button(layer)
-		end
-	end
 end
 
 --init
@@ -577,6 +584,10 @@ function choicebutton:create_button(index, value)
 		text = type(value) == 'table' and value.text or value,
 		value = type(value) == 'table' and value.value or value,
 	}, self.button, type(value) == 'table' and value or nil)
+
+	function btn:after_sync()
+		self.choicebutton:sync_layout_for_button(self)
+	end
 
 	--input/abstract
 	function btn.before_press(btn)
@@ -613,7 +624,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local b1 = ui:button{
 		id = 'OK',
 		parent = win,
-		x = 100, y = 100, w = 100,
+		x = 100, y = 100, min_cw = 120,
 		text = '&OK',
 		default = true,
 	}
@@ -623,7 +634,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local b2 = btn(ui, {
 		id = 'Disabled',
 		parent = win,
-		x = 100, y = 150, w = 100,
+		x = 100, y = 150,
 		text = 'Disabled',
 		enabled = false,
 		text_align_x = 'right',
@@ -632,7 +643,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local b3 = btn(ui, {
 		id = 'Cancel',
 		parent = win,
-		x = 100, y = 200, w = 100,
+		x = 100, y = 200,
 		text = '&Cancel',
 		cancel = true,
 		text_align_x = 'left',
@@ -649,8 +660,8 @@ if not ... then require('ui_demo')(function(ui, win)
 	local cb1 = ui:checkbox{
 		id = 'CB1',
 		parent = win,
-		x = 300, y = 100, w = 200,
-		label =  {text = 'Check me'},
+		x = 300, y = 100, --min_cw = 200,
+		label =  {text = 'Check me.\nI\'m multiline.'},
 		checked = true,
 		--enabled = false,
 	}
@@ -658,7 +669,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local cb2 = ui:checkbox{
 		id = 'CB2',
 		parent = win,
-		x = 300, y = 140, w = 200,
+		x = 300, y = 140, --min_cw = 200,
 		label =  {text = 'Check me too'},
 		align = 'right',
 		--enabled = false,
@@ -667,7 +678,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local rb1 = ui:radiobutton{
 		id = 'RB1',
 		parent = win,
-		x = 300, y = 180, w = 200,
+		x = 300, y = 180,
 		label =  {text = 'Radio me'},
 		checked = true,
 		radio_group = 1,
@@ -677,7 +688,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local rb2 = ui:radiobutton{
 		id = 'RB2',
 		parent = win,
-		x = 300, y = 220, w = 200,
+		x = 300, y = 220,
 		label =  {text = 'Radio me too'},
 		radio_group = 1,
 		align = 'right',
@@ -687,7 +698,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local cb1 = ui:choicebutton{
 		id = 'CHOICE',
 		parent = win,
-		x = 100, y = 300, w = 400,
+		x = 100, y = 300, min_cw = 400,
 		values = {
 			'Choose me',
 			'No, me!',

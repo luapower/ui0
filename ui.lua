@@ -111,7 +111,6 @@ end
 
 --change a property so that its setter is only called when the value changes.
 function object:nochange_barrier(prop)
-	local changed_event = prop..'_changed'
 	self:override('set_'..prop, function(self, inherited, val)
 		val = val or false
 		local old_val = self[prop] or false
@@ -195,7 +194,7 @@ function object:autoload(autoload)
 	for prop, submodule in pairs(autoload) do
 		self['get_'..prop] = function()
 			require(submodule)
-			return ui[prop]
+			return self[prop]
 		end
 	end
 end
@@ -1059,6 +1058,7 @@ function element.blend_transition:wait(
 	end
 end
 
+element.transitions = false
 element.transition_duration = tran.duration
 element.transition_ease = tran.ease
 element.transition_delay = tran.delay
@@ -3966,7 +3966,7 @@ function layer:rect() return self.x, self.y, self.w, self.h end
 
 layer.layout = false --false/'null', 'textbox', 'flexbox', 'grid'
 
---common attributes respected by all layouts except the null layout.
+--min client width/height used by flexible layouts and their children.
 layer.min_cw = 0
 layer.min_ch = 0
 
@@ -4000,7 +4000,7 @@ function layer:sync_layout_separate_axes()
 			axis_synced = self:sync_layout_y(other_axis_synced)
 		end
 		if axis_synced and other_axis_synced then
-			break --both axes solved before last phase.
+			break --both axes were solved before last phase.
 		end
 		sync_x = not sync_x
 	end
@@ -4012,15 +4012,15 @@ end
 local null_layout = object:subclass'null_layout'
 layer.layouts.null = null_layout
 
---layouting system entry point: called on the window's view layer after
---all layers are sync'ed (so after styles and transitions are updated).
-function null_layout:sync_layout_window_view(w, h)
+--called on the window's view layer after all layers are sync'ed
+--(styles and transitions are updated at this point).
+function null_layout:sync_window_view(w, h)
 	self.w = w
 	self.h = h
-	self:sync_layout()
 end
 
---called on children of null-layout layers to layout themselves.
+--layouting system entry point: called on the window view layer.
+--called by null-layout layers to layout themselves and their children.
 function null_layout:sync_layout()
 	if not self.visible then return end
 	self:sync_text_shape()
@@ -4031,20 +4031,23 @@ function null_layout:sync_layout()
 	end
 end
 
---compute the minimum client width of a layer.
---called before h and y are sync'ed on width-in-height-out layouts.
+--called by flexible layouts to know the minimum width of their children.
+--width-in-height-out layouts call this before h and y are sync'ed.
 function null_layout:sync_min_w()
-	self._min_w = 0
-	return 0
+	self._min_w = self.min_cw + self.pw
+	return self._min_w
 end
 
---compute the minimum client height of a layer.
---called only after w and x are sync'ed on width-in-height-out layouts.
+--called by flexible layouts to know the minimum height of their children.
+--width-in-height-out layouts call this only after w and x are sync'ed.
 function null_layout:sync_min_h()
-	self._min_h = 0
-	return 0
+	self._min_h = self.min_ch + self.ph
+	return self._min_h
 end
 
+--called by flexible layouts to sync their children on one axis. in response,
+--null-layouts sync themselves and their children on both axes when the
+--second axis is synced.
 function null_layout:sync_layout_x(other_axis_synced)
 	if other_axis_synced then
 		self:sync_layout()
@@ -4060,6 +4063,11 @@ layer:inherit(null_layout, true)
 local textbox = object:subclass'textbox_layout'
 layer.layouts.textbox = textbox
 
+function textbox:sync_window_view(w, h)
+	self.min_cw = w
+	self.min_ch = h
+end
+
 function textbox:sync_layout()
 	if not self.visible then return end
 	local segs = self:sync_text_shape()
@@ -4070,7 +4078,7 @@ function textbox:sync_layout()
 	end
 	self.cw = math.max(segs:min_w(), self.min_cw)
 	self:sync_text_wrap()
-	self.cw = segs.lines.max_ax
+	self.cw = math.max(segs.lines.max_ax, self.min_cw)
 	self.ch = math.max(self.min_ch, segs.lines.spacing_h)
 	self:sync_text_align()
 end
@@ -4117,12 +4125,6 @@ function textbox:sync_layout_y(other_axis_synced)
 		self:sync_text_align()
 		return true
 	end
-end
-
-function textbox:sync_layout_window_view(w, h)
-	self.min_cw = w
-	self.min_ch = h
-	self:sync_layout()
 end
 
 --flexbox & grid layout utils ------------------------------------------------
@@ -4529,10 +4531,9 @@ function flexbox:sync_layout_y(other_axis_synced)
 	return synced
 end
 
-function flexbox:sync_layout_window_view(w, h)
+function flexbox:sync_window_view(w, h)
 	self.min_cw = w
 	self.min_ch = h
-	self:sync_layout()
 end
 
 --grid layout ----------------------------------------------------------------
@@ -4966,10 +4967,9 @@ function grid:sync_layout()
 	self:sync_layout_separate_axes()
 end
 
-function grid:sync_layout_window_view(w, h)
+function grid:sync_window_view(w, h)
 	self.min_cw = w
 	self.min_ch = h
-	self:sync_layout()
 end
 
 --top layer (window.view) ----------------------------------------------------
@@ -4986,9 +4986,10 @@ view.background_operator = 'source'
 view.to_window = view.to_parent
 view.from_window = view.from_parent
 
---sync the layout recursively in a second pass, after all sync'ing is done.
+--sync the layout recursively after all children are sync'ed.
 function view:after_sync()
-	self:sync_layout_window_view(self.window:client_size())
+	self:sync_window_view(self.window:client_size())
+	self:sync_layout()
 end
 
 --widgets autoload -----------------------------------------------------------
