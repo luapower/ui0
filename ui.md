@@ -47,7 +47,7 @@ ui:run()
 ## The `ui` module/singleton
 
 The `ui` singleton is a thin facade over [nw]'s app singleton.
-It manages the app's runtime settings, behavior, events and resources.
+It manages the app's runtime settings, behavior, events and global resources.
 
 -------------------------------------- ---------------------------------------
 __native properties__
