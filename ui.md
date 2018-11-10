@@ -308,12 +308,12 @@ __backgrounds__
 `background_y1`                  0                linear gradient: 1st endpoint y-coord
 `background_x2`                  0                linear gradient: 2nd endpoint x-coord
 `background_y2`                  0                linear gradient: 2nd endpoint y-coord
-`background_cx1                  0                radial gradient: 1st center x-coord
-`background_cy1                  0                radial gradient: 1st center y-coord
-`background_r1                   0                radial gradient: 1st radius
-`background_cx2                  0                radial gradient: 2nd center x-coord
-`background_cy2                  0                radial gradient: 2nd center y-coord
-`background_r2                   0                radial gradient: 2nd radius
+`background_cx1`                 0                radial gradient: 1st center x-coord
+`background_cy1`                 0                radial gradient: 1st center y-coord
+`background_r1`                  0                radial gradient: 1st radius
+`background_cx2`                 0                radial gradient: 2nd center x-coord
+`background_cy2`                 0                radial gradient: 2nd center y-coord
+`background_r2`                  0                radial gradient: 2nd radius
 `background_image`               false            image file (requires [libjpeg])
 `background_operator`            'over'           cairo blending operator
 `background_clip_border_offset`  1                like border_offset but for clipping the background
