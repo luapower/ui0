@@ -46,8 +46,8 @@ ui:run()
 
 ## The `ui` module/singleton
 
-The `ui` singleton is an object. API-wise it's a facade on [nw]'s app
-singleton. It manages app behavior, events and resources.
+The `ui` singleton is a thin facade over [nw]'s app singleton.
+It manages app settings, behavior, events and resources.
 
 -------------------------------------- ---------------------------------------
 __native properties__
@@ -143,8 +143,7 @@ __attribute transitions__
 
 ## Windows
 
-Window objects are a thin facade over [nw]'s windows API for creating native
-top-level windows.
+Windows are a thin facade over [nw]'s windows.
 Windows are elements, so all element methods and properties apply.
 
 -------------------------------------- ---------------------------------------
