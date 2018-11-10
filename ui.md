@@ -363,8 +363,8 @@ __grid layouts__
 `grid_rows`                      {}               row size fractions `{fr1, ...}`
 `col_gap`                        0 (none)         gap size between columns
 `row_gap`                        0 (none)         gap size between rows
-`align_x`                       'stretch'         'stretch', 'start'/'top'/'left', 'end'/'bottom'/'right', 'center', 'space_between', 'space_around', 'space_evenly'
-`align_y`                       'stretch'         'stretch', 'start'/'top'/'left', 'end'/'bottom'/'right', 'center', 'space_between', 'space_around', 'space_evenly'
+`align_x`                        'stretch'        'stretch', 'start'/'top'/'left', 'end'/'bottom'/'right', 'center', 'space_between', 'space_around', 'space_evenly'
+`align_y`                        'stretch'        'stretch', 'start'/'top'/'left', 'end'/'bottom'/'right', 'center', 'space_between', 'space_around', 'space_evenly'
 `align_x_self`                   false            item `align_x` override
 `align_y_self`                   false            item `align_y` override
 -------------------------------- ---------------- ------------------------------------------------------------------
