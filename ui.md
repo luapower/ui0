@@ -147,13 +147,13 @@ Windows are a thin facade over [nw]'s windows.
 Windows are elements, so all element methods and properties apply.
 
 -------------------------------------- ---------------------------------------
-`ui:window{...} -> win`
+`ui:window{...} -> win`                create a window. see [nw] for options.
 
-`win:free()`
+`win:free()`                           close & free a window.
 
 __parent/child relationship__
 
-`win.parent`
+`win.parent`                           a layer on a different window.
 
 `win:to_parent(x, y)`
 
@@ -161,7 +161,7 @@ __parent/child relationship__
 
 __native methods__
 
-`frame_rect, client_rect,` \           these map directly to nw window \
+`frame_rect, client_rect,` \           these map directly to nw window
 `client_to_frame, frame_to_client,` \  methods, so see [nw].
 `closing, close, show, hide,` \
 `activate, minimize, maximize,` \
