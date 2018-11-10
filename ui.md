@@ -42,8 +42,8 @@ ui:run()
 
 ## The `object` class
 
-  * base class, created with [oo]; inherits oo.Object
-  * inherits the [events] mixin
+  * base class, created with [oo]; inherits oo.Object.
+  * inherits the [events] mixin.
 
 ### Method & property decorators
 
