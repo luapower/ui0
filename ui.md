@@ -350,10 +350,10 @@ __null-layouts__
 __flexbox layouts__
 `flex_axis`                      'x'              main axis of flow: 'x', 'y'
 `flex_wrap`                      false            line-wrap content
-`align_lines/_cross/_main`       'stretch'        'stretch', 'start'/'top'/'left', 'end'/'bottom'/'right', 'center'
-`align_lines`                    'stretch'        additionally: 'space_between', 'space_around', 'space_evenly'
-`align_cross`                    'stretch'        additionally: 'baseline'
+`align_main/_cross/_lines`       'stretch'        'stretch', 'start'/'top'/'left', 'end'/'bottom'/'right', 'center'
 `align_main`                     'stretch'        additionally: 'space_between', 'space_around', 'space_evenly'
+`align_cross`                    'stretch'        additionally: 'baseline'
+`align_lines`                    'stretch'        additionally: 'space_between', 'space_around', 'space_evenly'
 `align_cross_self`               false            overrides `parent.align_cross`
 `fr`                             1                stretch fraction
 __grid layouts__
