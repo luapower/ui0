@@ -394,6 +394,9 @@ to accomodate both the content size and the window size. Layers of different
 layout types and properties can be mixed freely in a layer hierarchy with
 some caveats:
 
+  * non-layouted children of non-layouted layers _are not_ sized by their
+  parent and do not size themselves either, thus these layers must be sized
+  and positioned manually by setting their `x, y, w, h`.
   * layouted children of non-layouted layers _are not_ sized by their
   parent and must thus set their `min_cw, min_ch`, otherwise they will size
   themselves to the minimum allowed by their children.
