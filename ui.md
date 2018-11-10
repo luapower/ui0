@@ -362,18 +362,18 @@ layer's array part               r/o              is where child layers are kept
 
 ### Hierarchy
 
--------------------------------- ---------------- ------------------------------------------------------------------
+------------------------------------------------- ------------------------------------------------------------------
 `to_back()`                                       set `layer_index` to 1
 `to_front()`                                      set `layer_index` to 1/0
 `each_child(func)`                                calls `func(layer)` for each child, recursively, depth-first
 `children() -> iter() -> layer`
 `add_layer(layer, [index])`                       add a child
 `remove_layer(layer)`                             remove a child
--------------------------------- ---------------- ------------------------------------------------------------------
+------------------------------------------------- ------------------------------------------------------------------
 
 ### Measuring tools
 
--------------------------------- ---------------- ------------------------------------------------------------------
+------------------------------------------------- ------------------------------------------------------------------
 __derived geometry__
 `border_inner_x/_y/_w/_h`                         border's inner contour box
 `border_outer_x/_y/_w/_h`                         border's outer contour box
@@ -395,7 +395,7 @@ __coord converters__
 `from_screen(x, y) -> x, y`
 `to_other(widget, x, y) -> x, y`                 convert point from own content space to other's content space.
 `from_other(widget, x, y) -> x, y`               convert point from other's content space to own content space
--------------------------------- ---------------- ------------------------------------------------------------------
+------------------------------------------------- ------------------------------------------------------------------
 
 ### Events
 
