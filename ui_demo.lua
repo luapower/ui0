@@ -558,18 +558,20 @@ end
 
 local function test_widgets_flex()
 
-	win.view.layout = 'flexbox'
+	win.view.layout = 'grid'
+	win.view.padding = 40
+	win.view.grid_wrap = 2
+	win.view.grid_gap_x = 20
+	--win.view.flex_axis = 'y'
 	win.view.align_cross = 'center'
 
-	local ckb = ui:checkbox{
+	ui:checkbox{
 		parent = win,
-		label =  {text = 'Check me'},
+		label =  {text = 'Check me', nowrap = false},
 		checked = true,
-		--enabled = false,
-		border_width = 1,
 	}
 
-	local chb = ui:choicebutton{
+	ui:choicebutton{
 		parent = win,
 		values = {
 			'Choose me',
@@ -577,6 +579,21 @@ local function test_widgets_flex()
 			{text = 'Me, me, me!', value = 'val3'},
 		},
 		selected = 'val3',
+	}
+
+	ui:radiobutton{
+		parent = win,
+		label =  {text = 'Radio me'},
+		checked = true,
+		radio_group = 1,
+		align = 'right',
+	}
+
+	ui:slider{
+		parent = win,
+		position = 3, size = 10,
+		step_labels = {Low = 0, Medium = 5, High = 10},
+		step = 2,
 	}
 end
 

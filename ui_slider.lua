@@ -29,6 +29,7 @@ slider.tip_class        = tip
 slider.step_label_class = step_label
 
 slider.focusable = true
+slider.min_ch = 24
 slider.w = 180
 slider.h = 24
 

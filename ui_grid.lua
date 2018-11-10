@@ -936,6 +936,7 @@ function grid:draw_row_col(cr, i, col, y, h, hot)
 	cell:settag(':hot', hot)
 	cell.visible = true
 	cell:sync()
+	cell:sync_layout()
 	cell:draw(cr)
 	cell.visible = false
 end

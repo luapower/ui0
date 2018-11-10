@@ -264,7 +264,8 @@ ui.checkbox = checkbox
 
 checkbox.layout = 'flexbox'
 checkbox.min_ch = 16
-checkbox.align = 'left'
+checkbox.align_cross = 'top'
+checkbox.align_lines = 'center'
 
 --checked property
 
@@ -281,6 +282,8 @@ function checkbox:toggle()
 end
 
 --align property
+
+checkbox.align = 'left'
 
 checkbox:stored_property'align'
 function checkbox:after_set_align(align)
@@ -302,7 +305,6 @@ cbutton.text_checked = '\u{f2bc}'
 
 cbutton.fr = 0
 cbutton.min_cw = 20
-cbutton.align_cross_self = 'start'
 cbutton.padding_top = 0
 cbutton.padding_bottom = 0
 cbutton.padding_left = 0
@@ -355,7 +357,6 @@ local clabel = ui.layer:subclass'checkbox_label'
 checkbox.label_class = clabel
 
 clabel.layout = 'textbox'
-clabel.nowrap = true
 
 function clabel:hit_test(mx, my, reason) end --cbutton does it for us
 
@@ -492,6 +493,7 @@ local choicebutton = ui.layer:subclass'choicebutton'
 ui.choicebutton = choicebutton
 
 choicebutton.layout = 'flexbox'
+choicebutton.align_cross = 'center'
 
 --model
 
@@ -660,7 +662,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local cb1 = ui:checkbox{
 		id = 'CB1',
 		parent = win,
-		x = 300, y = 100, --min_cw = 200,
+		x = 300, y = 100, min_cw = 200,
 		label =  {text = 'Check me.\nI\'m multiline.'},
 		checked = true,
 		--enabled = false,
@@ -669,8 +671,8 @@ if not ... then require('ui_demo')(function(ui, win)
 	local cb2 = ui:checkbox{
 		id = 'CB2',
 		parent = win,
-		x = 300, y = 140, --min_cw = 200,
-		label =  {text = 'Check me too'},
+		x = 300, y = 140,
+		label =  {text = 'Check me too', nowrap = true},
 		align = 'right',
 		--enabled = false,
 	}
@@ -679,7 +681,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		id = 'RB1',
 		parent = win,
 		x = 300, y = 180,
-		label =  {text = 'Radio me'},
+		label =  {text = 'Radio me', nowrap = true},
 		checked = true,
 		radio_group = 1,
 		--enabled = false,
@@ -689,7 +691,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		id = 'RB2',
 		parent = win,
 		x = 300, y = 220,
-		label =  {text = 'Radio me too'},
+		label =  {text = 'Radio me too', nowrap = true},
 		radio_group = 1,
 		align = 'right',
 		--enabled = false,

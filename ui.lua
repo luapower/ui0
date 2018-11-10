@@ -160,6 +160,7 @@ function object:instance_only(prop)
 	end)
 end
 
+--validate a property when being set against a list of allowed values.
 function object:enum_property(prop, values)
 	if type(values) == 'string' then
 		local s = values
@@ -4064,8 +4065,8 @@ local textbox = object:subclass'textbox_layout'
 layer.layouts.textbox = textbox
 
 function textbox:sync_window_view(w, h)
-	self.min_cw = w
-	self.min_ch = h
+	self.min_cw = w - self.pw
+	self.min_ch = h - self.ph
 end
 
 function textbox:sync_layout()
@@ -4532,8 +4533,8 @@ function flexbox:sync_layout_y(other_axis_synced)
 end
 
 function flexbox:sync_window_view(w, h)
-	self.min_cw = w
-	self.min_ch = h
+	self.min_cw = w - self.pw
+	self.min_ch = h - self.ph
 end
 
 --grid layout ----------------------------------------------------------------
@@ -4544,8 +4545,8 @@ layer.layouts.grid = grid
 --container properties
 layer.grid_cols = {} --{fr1, ...}
 layer.grid_rows = {} --{fr1, ...}
-layer.grid_col_gap = 0
-layer.grid_row_gap = 0
+layer.col_gap = 0
+layer.row_gap = 0
 layer.grid_align_x = 'stretch'
 layer.grid_align_y = 'stretch'
 
@@ -4586,8 +4587,7 @@ end
 
 --container properties
 layer.grid_flow = 'x' --x, y, xr, yr, xb, yb, xrb, yrb
-layer.grid_row_count = 1
-layer.grid_col_count = 1
+layer.grid_wrap = 1
 
 --item properties
 layer.grid_pos = false --'[row][/span] [col][/span]'
@@ -4968,8 +4968,8 @@ function grid:sync_layout()
 end
 
 function grid:sync_window_view(w, h)
-	self.min_cw = w
-	self.min_ch = h
+	self.min_cw = w - self.pw
+	self.min_ch = h - self.ph
 end
 
 --top layer (window.view) ----------------------------------------------------
