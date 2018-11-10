@@ -393,8 +393,8 @@ __coord converters__
 `from_window(x, y) -> x, y`
 `to_screen(x, y) -> x, y`
 `from_screen(x, y) -> x, y`
-`to_other(widget, x, y) -> x, y`                 convert point from own content space to other's content space.
-`from_other(widget, x, y) -> x, y`               convert point from other's content space to own content space
+`to_other(widget, x, y) -> x, y`                  convert point from own content space to other's content space.
+`from_other(widget, x, y) -> x, y`                convert point from other's content space to own content space
 ------------------------------------------------- ------------------------------------------------------------------
 
 ### Events
