@@ -401,6 +401,8 @@ __coord converters__
 
 ------------------------------------------------- ------------------------------------------------------------------
 __mouse__
+`activated()`                                     layer activated (mouse captured)
+`deactivated()`                                   layer deactivated
 `mousemove(x, y, area)`                           mouse moved
 `mouseenter(x, y, area)`                          mouse entered
 `mouseleave()`                                    mouse left
@@ -412,6 +414,8 @@ __mouse__
 `[right|middle]quadrupleclick()`                  mouse left/right/middle button quadruple-click
 `mousewheel(delta, x, y, area, pdelta)`           mouse wheel turned
 __keyboard__
+`gotfocus()`                                      layer focused
+`lostfocus()`                                     layer unfocused
 `keydown(key)`                                    key pressed
 `keyup(key)`                                      key released
 `keypress(key)`                                   key pressed (on repeat)
@@ -424,12 +428,6 @@ __drag & drop__
 `drop(widget, x, y, area)`
 `started_dragging()`
 `ended_dragging()`
-__focus__
-`gotfocus()`                                      focused
-`lostfocus()`                                     unfocused
-__activation__
-`activated()`                                     activated
-`deactivated()`                                   deactivated
 __hierarchy__
 `layer_added(layer, index)`                       a child layer was added
 `layer_removed(layer)`                            a child layer was removed
