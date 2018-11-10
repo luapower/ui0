@@ -407,10 +407,10 @@ some caveats:
   solved on one axis completely before solving on the other axis. This only
   works properly if all the wrappable content has either horizontal flow
   (so the whole layout is width-in-height-out) or vertical flow (so the
-  whole layout is height-in-width out). Mixed flows are will cause the
-  contents to overflow their container (browsers behave the same here too).
-  Setting `min_cw, min_ch` on the cross-flow layers can be used to alleviate
-  the problem on a case-by-case basis.
+  whole layout is height-in-width out). Mixed flows will cause the contents
+  which wrap perpendicularly to overflow their container (browsers have this
+  limitation too). Setting `min_cw, min_ch` on the cross-flow layers can be
+  used to alleviate the problem on a case-by-case basis.
 
 #### No layout
 
