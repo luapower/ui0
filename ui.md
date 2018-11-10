@@ -40,7 +40,7 @@ local b = ui:button{
 ui:run()
 ~~~
 
-### The `ui` module/singleton
+## The `ui` module/singleton
 
   * it subclasses `ui.object`
 
