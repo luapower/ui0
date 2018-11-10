@@ -245,27 +245,30 @@ __display & behavior__           __default__
 `mousedown_activate`             false            activate/deactivate on left mouse down/up
 `drag_threshold`                 0                moving distance before start dragging
 `max_click_chain`                1                2 for getting doubleclick events, etc.
-__geometry__
-`x, y, w, h`                     0, 0, 0, 0       calculated box coordinates relative to `pos_parent`
+__affine transforms__
 `rotation`                       0                rotation angle (radians)
 `rotation_cx, rotation_cy`       0, 0             rotation center coordinates
 `scale`                          1                scale factor
 `scale_x, scale_y`               false, false     scale factor: axis overrides
 `scale_cx, scale_cy`             0, 0             scaling center coordinates
+__content box__
+`padding`                        0 (none)         default padding for all sides
+`padding_left`                   false            padding override: left side
+`padding_right`                  false            padding override: right side
+`padding_top`                    false            padding override: top side
+`padding_bottom`                 false            padding override: bottom side
 __parent/child__
 `parent`                         false            painting/clipping parent
-`pos_parent`                     false            positioning parent (false means use `parent`)
-`[i]`                                             `i`'th child layer
+`self[i]`                                         `i`'th child layer
 `layer_index`                                     index in parent's array part
 `window`                                          parent's window
+`pos_parent`                     false            positioning parent (false means use `parent`)
 __mouse state__
 `mouse_x, mouse_y`                                last-mouse-event mouse coords
-__tooltips__
-`tooltip`                        false (none)     native tooltip text
 __focus__
 `focused`                                         has keyboard focus
-`tabindex`                                        tab order, for tab-based navigation
-`tabgroup`                                        tab group, for tab-based navigation
+`tabindex`                       0                tab order, for tab-based navigation
+`tabgroup`                       0                tab group, for tab-based navigation
 `taborder_algorithm`             'xy'             tab order algorithm: 'xy', 'yx'
 __borders__
 `border_width`                   0 (none)         border thickness
@@ -322,12 +325,6 @@ __text__
 `text_align`                     'center center'  text x & y alignments: 'l|c|r t|c|b'
 `text_align_x`                   false            text x-align override: 'l|c|r'
 `text_align_y`                   false            text y-align override: 't|c|b'
-__content box__
-`padding`                        0 (none)         default padding for all sides
-`padding_left`                   false            padding override: left side
-`padding_right`                  false            padding override: right side
-`padding_top`                    false            padding override: top side
-`padding_bottom`                 false            padding override: bottom side
 __layouting__
 `layout`                         false (none)     layout type: false (none), 'textbox', 'flexbox', 'grid'
 `min_cw, min_ch`                 0, 0             minimum content-box size for flexible layouts
@@ -353,6 +350,8 @@ __grid layouts__
 `align_y`                        'stretch'        'stretch', 'start'/'top'/'left', 'end'/'bottom'/'right', 'center', 'space_between', 'space_around', 'space_evenly'
 `align_x_self`                   false            item `align_x` override
 `align_y_self`                   false            item `align_y` override
+__tooltips__
+`tooltip`                        false (none)     native tooltip text
 -------------------------------- ---------------- ------------------------------------------------------------------
 
 ### Box model
