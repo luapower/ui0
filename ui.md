@@ -46,9 +46,9 @@ ui:run()
         * `ui` - this module, also serving as the app singleton
 	     * `ui.element` - adds css styling and transitions to objects
            * `ui.window` - native windows: a thin layer over [nw]'s windows
-		     * `ui.popup` - frameless pop-up windows
-        * `ui.layer` - the basic UI building block
-           * any widget
+		        * `ui.popup` - frameless pop-up windows
+           * `ui.layer` - the basic UI building block
+              * any widget
 
 ## The `ui` module/singleton
 
