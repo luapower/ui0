@@ -42,13 +42,13 @@ ui:run()
 ## Class hierarchy
 
   * `oo.Object` - [oo]'s base class
-    * `ui.object` - ui's base class. includes [events]
-      * `ui` - this module, also serving as the app singleton
-	   * `ui.element` - adds css styling and transitions to objects
-        * `ui.window` - native windows: a thin layer over [nw]'s windows
-		    * `ui.popup` - frameless pop-up windows
+     * `ui.object` - ui's base class. includes [events]
+        * `ui` - this module, also serving as the app singleton
+	     * `ui.element` - adds css styling and transitions to objects
+           * `ui.window` - native windows: a thin layer over [nw]'s windows
+		     * `ui.popup` - frameless pop-up windows
         * `ui.layer` - the basic UI building block
-          * any widget
+           * any widget
 
 ## The `ui` module/singleton
 
