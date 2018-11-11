@@ -58,26 +58,26 @@ It manages the app's runtime settings, behavior, events and global resources.
 -------------------------------------- ---------------------------------------
 __native properties__
 
-`autoquit, maxfps, app_active,` \      these map directly to [nw] app features
-`app_visible, caret_blink_time,` \     except they are exposed as properties
-`displays, main_display,` \            instead of methods like in [nw].
+`autoquit, maxfps, app_active,`        these map directly to [nw] app features
+`app_visible, caret_blink_time,`       except they are exposed as properties
+`displays, main_display,`              instead of methods like in [nw].
 `active_display, app_id`
 
 __native methods__
 
-`run, poll, stop, quit, runevery,` \   these map directly to [nw] app
-`runafter, sleep, activate_app,` \     methods.
-`hide_app, unhide_app, key,` \
-`getclipboard, setclipboard,` \
-`opendialog, savedialog,` \
-`app_already_running,` \
-`wakeup_other_app_instances,` \
+`run, poll, stop, quit, runevery,`     these map directly to [nw] app
+`runafter, sleep, activate_app,`       methods.
+`hide_app, unhide_app, key,`
+`getclipboard, setclipboard,`
+`opendialog, savedialog,`
+`app_already_running,`
+`wakeup_other_app_instances,`
 `check_single_app_instance`
 
 __native events__
 
-`quitting, activated, deactivated,` \  these map directly to [nw] app
-`wakeup, hidden, unhidden,` \          events.
+`quitting, activated, deactivated,`    these map directly to [nw] app
+`wakeup, hidden, unhidden,`            events.
 `displays_changed`
 
 __font registration__
@@ -157,42 +157,41 @@ __attribute transitions__
 
 __native properties__
 
-`x, y, w, h, cx, cy, cw, ch,` \        these map directly to [nw] window
-`min_cw, min_ch, max_cw, max_ch,` \    features except they are exposed as
-`autoquit, visible, fullscreen,` \     properties instead of methods like
-`enabled, edgesnapping, topmost,` \    in [nw].
-`title, dead, closeable,` \
+`x, y, w, h, cx, cy, cw, ch,`          these map directly to [nw] window
+`min_cw, min_ch, max_cw, max_ch,`      features except they are exposed as
+`autoquit, visible, fullscreen,`       properties instead of methods like
+`enabled, edgesnapping, topmost,`      in [nw].
+`title, dead, closeable,`
 `activable, minimizable,`
-`maximizable, resizeable,` \
-`fullscreenable, frame,` \
+`maximizable, resizeable,`
+`fullscreenable, frame,`
 `transparent, corner_radius,`
-`sticky, dead, active, isminimized,` \
+`sticky, dead, active, isminimized,`
 `ismaximized, display, cursor`
 
 __native methods__
 
-`frame_rect, client_rect,` \           these map directly to [nw] window
-`client_to_frame, frame_to_client,` \  methods.
-`closing, close, show, hide,` \
-`activate, minimize, maximize,` \
-`restore, shownormal, raise, lower,` \
+`frame_rect, client_rect,`             these map directly to [nw] window
+`client_to_frame, frame_to_client,`    methods.
+`closing, close, show, hide,`
+`activate, minimize, maximize,`
+`restore, shownormal, raise, lower,`
 `to_screen, from_screen`
 
 __native events__
 
-`activated, deactivated, wakeup,` \    these map directly to [nw] window
-`shown, hidden,` \                     events.
-`minimized, unminimized,` \
-`maximized, unmaximized,` \
-`entered_fullscreen,` \ \
-`exited_fullscreen,` \
-`changed,` \
-`sizing,` \
-`frame_rect_changed, frame_moved,` \
-`frame_resized,` \
-`client_moved, client_resized,` \
-`magnets,` \
-`free_cairo, free_bitmap,` \
+`activated, deactivated, wakeup,`      these map directly to [nw] window
+`shown, hidden,`                       events.
+`minimized, unminimized,`
+`maximized, unmaximized,`
+`entered_fullscreen,`
+`exited_fullscreen,`
+`changed, sizing,`
+`frame_rect_changed, frame_moved,`
+`frame_resized,`
+`client_moved, client_resized,`
+`magnets,`
+`free_cairo, free_bitmap,`
 `scalingfactor_changed`
 
 __element query interface__
