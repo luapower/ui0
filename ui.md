@@ -50,7 +50,7 @@ ui:run()
         * `ui.transition` - attribute transitions
         * `ui.element` - adds css styling and transitions to objects
            * `ui.window` - native windows: a thin layer over [nw]'s windows
-           * `ui.popup` - frameless pop-up windows
+              * `ui.popup` - frameless pop-up windows
            * `ui.layer` - the basic UI building block
               * `ui.window.view_class` - a window's top layer
               * any widget
