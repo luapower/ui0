@@ -204,7 +204,7 @@ or they can be defined declaratively in styles:
 `transition_delay`               `0`                delay before starting (seconds)
 `transition_repeat`              `1`                repeat times
 `transition_speed`               `1`                speed factor
-`transition_blend`               `'replace'``       blend function: `'replace'`, `'restart'`, `'wait'`
+`transition_blend`               `'replace'`        blend function: `'replace'`, `'restart'`, `'wait'`
 -------------------------------- ------------------ ------------------------------------------------------------------
 
 Transition parameters can also be defined on a per attribute basis with
