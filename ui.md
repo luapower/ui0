@@ -348,7 +348,7 @@ __flexbox layout__
 `align_cross_self`                   `false`            item `align_cross` override
 `fr`                                 `1`                item stretch fraction for `align_main='stretch'`
 __grid layout__
-`grid_flow`                          `'x'`              flow main axis & direction: `'x'`, `'y'`, `'xr'`, `'yr'`, `'xb'`, `'yb'`, `'xrb'`, `'yrb'`
+`grid_flow`                          `'x'`              main axis & direction for automatic positioning: `'x'`, `'y'`, `'xr'`, `'yr'`, `'xb'`, `'yb'`, `'xrb'`, `'yrb'`
 `grid_wrap`                          `1`                number of rows/columns on the main axis of flow
 `grid_cols`                          `{}`               column size fractions `{fr1, ...}` for `align_x='stretch'`
 `grid_rows`                          `{}`               row size fractions `{fr1, ...}` for `align_y='stretch'`
