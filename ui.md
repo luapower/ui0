@@ -207,7 +207,7 @@ or they can be defined declaratively in styles:
 `transition_blend`               `'replace'`        blend function: `'replace'`, `'restart'`, `'wait'`
 -------------------------------- ------------------ ------------------------------------------------------------------
 
-Transition parameters can also be defined on a per attribute basis with
+Transition parameters can also be specified for each attribute with
 `transition_<param>_<attr>`, eg. `transition_duration_opacity = 2`.
 
 
