@@ -331,8 +331,8 @@ __behavior__
 `tabindex`                           `0`                tab order in tab group, for tab-based navigation
 `taborder_algorithm`                 `'xy'`             tab order algorithm: `'xy'`, `'yx'`
 __content box__
-`padding`                            `0`                default padding for all sides
-`padding_<side>`                     `false`            padding side overrides: left/right/top/bottom
+`padding`                            `0`                padding for all sides
+`padding_<side>`                     `false`            `left`/`right`/`top`/`bottom` padding override
 __sizing & positioning__
 `layout`                             `false`            layout model: `false` (none), `'textbox'`, `'flexbox'`, `'grid'`
 `min_cw, min_ch`                     `0`                minimum content-box size for flexible layouts
@@ -362,12 +362,12 @@ __transparency & clipping__
 `opacity`                            `1`                overall opacity (0..1)
 `clip_content`                       `false`            content clip area: `'padding'`/`true`, `'background'`, `false` (don't clip)
 __borders__
-`border_width`                       `0`                border thickness
-`border_width_<side>`                `false`            border thickness side overrides: left/right/top/bottom
-`corner_radius`                      `0`                border corner radius
-`corner_radius_<corner>`             `false`            border corner radius overrides: top_left/top_right/bottom_left/bottom_right
+`border_width`                       `0`                border thickness for all sides
+`border_width_<side>`                `false`            `left`/`right`/`top`/`bottom` border thickness override
+`corner_radius`                      `0`                border corner radius for all corners
+`corner_radius_<corner>`             `false`            `top_left`/`top_right`/`bottom_left`/`bottom_right` corner radius override
 `border_color`                       `'#fff'`           border color
-`border_color_<side>`                `false`            border color side overrides: left/right/top/bottom
+`border_color_<side>`                `false`            `left`/`right`/`top`/`bottom` border color override
 `border_dash`                        `false`            border dash pattern: `{length1, ...}`
 `border_offset`                      `-1`               border stroke position rel. to box edge (-1=inside..1=outside)
 `corner_radius_kappa`                `1.2`              smoother rounded corners (1=circle arc)
