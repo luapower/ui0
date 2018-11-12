@@ -258,7 +258,9 @@ on the `transition_blend` attribute, which can be:
 
 Windows are created with:
 
-	`ui:window(attrs1, ...) -> win`
+~~~{.lua}
+	ui:window(attrs1, ...) -> win
+~~~
 
 Attributes can be pased in one or multiple tables. The values in latter
 tables will take precedence over the values in former tables.
