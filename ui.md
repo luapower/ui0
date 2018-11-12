@@ -389,9 +389,9 @@ __text__
 `text_dir`                       `'auto'`           BiDi base direction: `'auto'`, `'rtl'`, `'ltr'`
 `nowrap`                         `false`            disable automatic line wrapping
 `text_operator`                  `'over'`           blending operator (see [cairo])
-`text_align`                     `'center center'`  text x & y alignments: `'l|c|r t|c|b'`
-`text_align_x`                   `false`            text x-align override: `'l'`, `'c'`, `'r'`
-`text_align_y`                   `false`            text y-align override: `'t'`, `'c'`, `'b'`
+`text_align`                     `'c c'`            text x & y alignments: `'l[eft]|c[enter]|r[ight] t[op]|c[enter]|b[ottom]'`
+`text_align_x`                   `false`            text x-align override: `'l[eft]'`, `'c[enter]'`, `'r[ight]'`
+`text_align_y`                   `false`            text y-align override: `'t[op]'`, `'c[enter]'`, `'b[ottom]'`
 __layouting__
 `layout`                         `false`            layout type: `false` (none), `'textbox'`, `'flexbox'`, `'grid'`
 `min_cw, min_ch`                 `0`                minimum content-box size for flexible layouts
@@ -400,7 +400,7 @@ __null-layouts__
 __flexbox layouts__
 `flex_axis`                      `'x'`              main axis of flow: `'x'`, `'y'`
 `flex_wrap`                      `false`            line-wrap content
-`align_main/_cross/_lines`       `'stretch'`        `'stretch'`, `'start'`/`'top'`/`'left'`, `'end'`/`'bottom'`/`'right'`, `'center'`
+`align_main/_cross/_lines`       `'stretch'`        `'stretch'`, `'start'`/`'t[op]'`/`'l[eft]'`, `'end'`/`'b[ottom]'`/`'r[ight]'`, `'c[enter]'`
 `align_main`                     `'stretch'`        main-axis align: `'space_between'`, `'space_around'`, `'space_evenly'`
 `align_cross`                    `'stretch'`        cross-axis align: `'baseline'`
 `align_lines`                    `'stretch'`        content-align: `'space_between'`, `'space_around'`, `'space_evenly'`
@@ -414,7 +414,8 @@ __grid layouts__
 `col_gap`                        `0`                gap size between columns
 `row_gap`                        `0`                gap size between rows
 `grid_pos`                       `nil`              element position in grid: `'[row][/span] [col][/span]'`
-`align_x`, `align_y`             `'stretch'`        `'stretch'`, `'start'`/`'top'`/`'left'`, `'end'`/`'bottom'`/`'right'`, `'center'`, `'space_between'`, `'space_around'`, `'space_evenly'`
+`align_x`                        `'stretch'`        `'stretch'`, `'start'`/`'l[eft]'`, `'end'`/`'r[ight]'`, `'c[enter]'`, `'space_between'`, `'space_around'`, `'space_evenly'`
+`align_y`                        `'stretch'`        `'stretch'`, `'start'`/`'t[op]'`, `'end'`/`'b[ottom]'`, `'c[enter]'`, `'space_between'`, `'space_around'`, `'space_evenly'`
 `align_x_self`, `align_y_self`   `false`            item `align_x` and `align_y` overrided
 __tooltips__
 `tooltip`                        `false`            native tooltip text (false=none)
