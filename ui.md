@@ -591,7 +591,7 @@ bitmap on every repaint:
 
 -------------------------------- ---------------- ------------------------------------------------------------------
 `background_color`               '#040404'        a default color that works with transparent windows
-`background_operator`            'source'         clear background
+`background_operator`            'source'         makes it clear the background
 -------------------------------- ---------------- ------------------------------------------------------------------
 
 User-created layers must ultimately be atteched to the window's view (or to
@@ -601,9 +601,10 @@ is a window, not another layer.
 
 ## Widgets
 
-Widgets are layer trees with custom styling and behavior and additional
-properties, methods and events. Widgets can be extended by subclassing and
-overriding and can be re-styled with `ui:style()`.
+Widgets are layers (usually containing other layers) with custom styling
+and behavior and additional properties, methods and events. Widgets can be
+extended by subclassing and overriding and can be re-styled with `ui:style()`
+or by assigning them a different stylesheet.
 
 -------------------------------------- ---------------------------------------
 __input__
