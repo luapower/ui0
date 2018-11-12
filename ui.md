@@ -152,12 +152,16 @@ Selector syntax differs from CSS:
   * simple selectors: `'tag1 tag2'` -- in CSS: `.tag1.tag2`
   * parent-child selectors: `'tag1 > tag2'` -- in CSS: `tag1 tag2`
 
-Selector objects can be created with `ui:selector(select_text)`:
+##### Selector Objects
 
-	* `sel:filter(func)` -- add a filter function `f(elem) -> true|false`
-	to the selector, to further filter the selected results; multiple filters
-	can be added and they will be applied in order.
-	* `sel:selects(elem) -> true|false` -- test a selector against an element.
+Selector objects can be created with `ui:selector(select_text)`. It's not
+normally necessary to create them explicitly (they are created automatically
+in places where a selector is expected), but they have additional methods:
+
+  * `sel:filter(func)` -- add a filter function `f(elem) -> true|false`
+  to the selector, to further filter the selected results; multiple filters
+  can be added and they will be applied in order.
+  * `sel:selects(elem) -> true|false` -- test a selector against an element.
 
 #### Styles
 
