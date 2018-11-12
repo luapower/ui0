@@ -197,15 +197,15 @@ Transitions can be created manually with:
 
 or they can be defined declaratively in styles:
 
--------------------------------- ---------------- ------------------------------------------------------------------
-`transition_<attr>`              nil              set to `true` to enable transitions for an attribute
-`transition_duration`            0 (disabled)     animation duration (seconds)
-`transition_ease`                'expo out'       easing function and way (see [easing])
-`transition_delay`               0                delay before starting (seconds)
-`transition_repeat`              1                repeat times
-`transition_speed`               1                speed factor
-`transition_blend`               'replace'`       blend function: 'replace', 'restart', 'wait'
--------------------------------- ---------------- ------------------------------------------------------------------
+-------------------------------- ------------------ ------------------------------------------------------------------
+`transition_<attr>`              `nil`              set to `true` to enable transitions for an attribute
+`transition_duration`            `0` (disabled)     animation duration (seconds)
+`transition_ease`                `'expo out'`       easing function and way (see [easing])
+`transition_delay`               `0`                delay before starting (seconds)
+`transition_repeat`              `1`                repeat times
+`transition_speed`               `1`                speed factor
+`transition_blend`               `'replace'``       blend function: `'replace'`, `'restart'`, `'wait'`
+-------------------------------- ------------------ ------------------------------------------------------------------
 
 Transition parameters can also be defined on a per attribute basis with
 `transition_<param>_<attr>`, eg. `transition_duration_opacity = 2`.
