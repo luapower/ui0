@@ -179,14 +179,15 @@ updated manually with `elem:sync_styles()`.
 
 #### State tags
 
-  * tags that start with `:` are _state tags_ and are used exclusively for
-  tagging element states like `:hot` and `:selected`.
-  * styles containing state tags are applied only after all styles containing
-  only normal tags are applied. It's like if styles containing state tags
-  were added to a second stylesheet that was included after the default one.
-  This allows overriding base styles without resetting any matching state
-  styles, so for instance, declaring a new style for `'mybutton'` will not
-  affect the syle set previously for `'mybutton :hot'`.
+Tags that start with `:` are _state tags_ and are used exclusively for
+tagging element states like `:hot` and `:selected`.
+
+Styles containing state tags are applied only after all styles containing
+only normal tags are applied. It's as if styles containing state tags
+were added to a second stylesheet that was included after the default one.
+This allows overriding base styles without resetting any matching state
+styles, so for instance, declaring a new style for `'mybutton'` will not
+affect the syle set previously for `'mybutton :hot'`.
 
 ### Transition animations
 
