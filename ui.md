@@ -62,7 +62,9 @@ creating timers, using the clipboard, adding fonts, etc.
 
 ### Forwarded properties, methods and events
 
-The ui singleton is mostly a thin facade over [nw]'s app singleton:
+The ui singleton is mostly a thin facade over [nw]'s app singleton.
+Those `ui` features which map directly to nw app features are listed below
+but are not documented here again.
 
 -------------------------------------- ---------------------------------------
 __native properties__
@@ -92,11 +94,12 @@ __native events__
 
 ### Font management
 
-Fonts must be registered before they can be used:
+Fonts must be registered before they can be used. Fonts can be read from
+files or from memory buffers. See [tr] for details.
 
 -------------------------------------- ---------------------------------------
-`ui:add_font_file(...)`                calls [tr]:add_font_file(...)
-`ui:add_mem_font(...)`                 calls [tr]:add_mem_font(...)
+`ui:add_font_file(...)`                calls `tr:add_font_file(...)`
+`ui:add_mem_font(...)`                 calls `tr:add_mem_font(...)`
 -------------------------------------- ---------------------------------------
 
 ## Elements
@@ -116,15 +119,6 @@ lexicographic order. This means that:
   create layers or windows with custom fields.
   * properties are set (i.e. setters are called) in a stable
   (albeit arbitrary) order.
-    * this order can be altered with the class method
-	 `:init_priority{field->priority}` to accomodate any dependencies between
-	 properties.
-	 * some properties can be excluded from being automatically set this way
-	 with the class method `:init_ignore{field->true}`, in which case they
-	 must be set manually in the constructor.
-  * the constructor `:init(ui, t)` receives `ui` followed by the merged arg
-  table which is also set up to inherit the class, thus providing transparent
-  access to defaults.
 
 ### Styling
 
@@ -791,7 +785,7 @@ TODO
 TODO
 -------------------------------------- ---------------------------------------
 
-# Creating new widgets
+## Creating new widgets
 
 The API for creating and extending widgets is larger and more complex
 than the API for instantiating and using existing widgets. This is normal,
@@ -817,62 +811,76 @@ The main topics that need to be understood in order to create new widgets are:
 	* routing keyboard events to the focused widget; tab-based navigation
 	* the drag & drop API (event-based)
 
-## The `object` base class
+### The `object` base class
 
   * created with [oo]; inherits oo.Object; published as `ui.object`.
   * inherits the [events] mixin.
   * common ancestor of all classes.
 
-## Method & property decorators
+#### Method & property decorators
 
 These are meta-programming facilities exposed as class methods for creating
 or enhancing the behavior of properties and methods in specific ways.
 
-### `object:memoize(method_name)`
+#### `object:memoize(method_name)`
 
 Memoize a method (which must be single-return-value).
 
-### `object:forward_events(obj, events)`
+#### `object:forward_events(obj, events)`
 
 Forward some events (`{event_name1, ...}`) from `obj` to `self`,
 i.e. install event handlers in `obj` which forward events to `self`.
 
-### `object:stored_property(prop, [priv])`
+#### `object:stored_property(prop, [priv])`
 
 Create a r/w property which reads/writes from a "private field" (`priv` which
 defaults to `_<prop>`).
 
-### `object:nochange_barrier(prop)`
+#### `object:nochange_barrier(prop)`
 
 Change a property so that its setter is only called when the value changes.
 
-### `object:track_changes(prop)`
+#### `object:track_changes(prop)`
 
 Change a property so that its setter is only called when the value changes
 and also `<prop>_changed` event is fired.
 
-### `object:instance_only(prop)`
+#### `object:instance_only(prop)`
 
 Inhibit a property's getter and setter when using the property on the class.
 instead, set a private var on the class which serves as default value.
 NOTE: use this decorator only _after_ defining the getter and setter.
 
-### `object:enum_property(prop, values)`
+#### `object:enum_property(prop, values)`
 
 Validate a property when being set against a list of allowed values.
 
-## Error reporting
+### Error reporting
 
-### `object:warn(fmt, ...)`
+#### `object:warn(fmt, ...)`
 
 Issue a warning on `stderr`.
 
-### `object:check(ret, fmt, ...) -> ret|nil`
+#### `object:check(ret, fmt, ...) -> ret|nil`
 
 Issue a warning if `ret` is falsey or return `ret`.
 
-## Submodule autoloading
+### Submodule autoloading
 
-### `object:autoload(t)`
+#### `object:autoload(t)`
 
 See [glue].autoload.
+
+### The element constructor
+
+  * the order in which attribute values are copied over when creating a new
+  element can be altered with the class method
+  `:init_priority{field->priority}` to accomodate any dependencies between
+  properties.
+  * some properties can be excluded from being automatically set this way
+  with the class method `:init_ignore{field->true}`, in which case they
+  must be set manually in the constructor.
+  * the constructor `:init(ui, t)` receives `ui` followed by the merged arg
+  table which is also set up to inherit the class, thus providing transparent
+  access to defaults.
+
