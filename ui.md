@@ -312,12 +312,12 @@ changed freely at runtime to change its behavior or appearance.
 -------------------------------- ------------------ ------------------------------------------------------------------
 __position in layer hierarchy__
 `parent`                         `false`            parent: for positioning (if pos_parent=false), painting and clipping
-`layer_index`                                       preferred index in parent's child list (1=backmost, 1/0=frontmost)
+`layer_index`                    `1/0`              preferred index in parent's child list: `1=backmost`, `1/0=frontmost`
 `pos_parent`                     `false`            positioning parent (`false` means use `parent`)
 __behavior__
 `visible`                        `true`             visible and occupies space in the layout
-`enabled`                        `true`             looks enabled and receives input
-`activable`                      `true`             can be clicked and set as hot
+`enabled`                        `true`             looks enabled and can receive input
+`activable`                      `true`             can be clicked and hovered (set as hot)
 `vscrollable`                    `false`            enable mouse wheel when hot and not focused
 `hscrollable`                    `false`            enable mouse horiz. wheel when hot and not focused
 `scrollable`                     `false`            can be hit for vscroll or hscroll
@@ -338,7 +338,7 @@ __content box__
 __sizing & positioning__
 `layout`                         `false`            layout model: `false` (none), `'textbox'`, `'flexbox'`, `'grid'`
 `min_cw, min_ch`                 `0`                minimum content-box size for flexible layouts
-__layout=none__
+__layout=false__
 `x, y, w, h`                     `0`                fixed position & size
 __flexbox layout__
 `flex_axis`                      `'x'`              main axis of flow: `'x'`, `'y'`
