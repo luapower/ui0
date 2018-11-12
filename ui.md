@@ -822,52 +822,52 @@ The main topics that need to be understood in order to create new widgets are:
 These are meta-programming facilities exposed as class methods for creating
 or enhancing the behavior of properties and methods in specific ways.
 
-#### `object:memoize(method_name)`
+### `object:memoize(method_name)`
 
 Memoize a method (which must be single-return-value).
 
-#### `object:forward_events(obj, events)`
+### `object:forward_events(obj, events)`
 
 Forward some events (`{event_name1, ...}`) from `obj` to `self`,
 i.e. install event handlers in `obj` which forward events to `self`.
 
-#### `object:stored_property(prop, [priv])`
+### `object:stored_property(prop, [priv])`
 
 Create a r/w property which reads/writes from a "private field" (`priv` which
 defaults to `_<prop>`).
 
-#### `object:nochange_barrier(prop)`
+### `object:nochange_barrier(prop)`
 
 Change a property so that its setter is only called when the value changes.
 
-#### `object:track_changes(prop)`
+### `object:track_changes(prop)`
 
 Change a property so that its setter is only called when the value changes
 and also `<prop>_changed` event is fired.
 
-#### `object:instance_only(prop)`
+### `object:instance_only(prop)`
 
 Inhibit a property's getter and setter when using the property on the class.
 instead, set a private var on the class which serves as default value.
 NOTE: use this decorator only _after_ defining the getter and setter.
 
-#### `object:enum_property(prop, values)`
+### `object:enum_property(prop, values)`
 
 Validate a property when being set against a list of allowed values.
 
 ### Error reporting
 
-#### `object:warn(fmt, ...)`
+### `object:warn(fmt, ...)`
 
 Issue a warning on `stderr`.
 
-#### `object:check(ret, fmt, ...) -> ret|nil`
+### `object:check(ret, fmt, ...) -> ret|nil`
 
 Issue a warning if `ret` is falsey or return `ret`.
 
 ### Submodule autoloading
 
-#### `object:autoload(t)`
+### `object:autoload(t)`
 
 See [glue].autoload.
 
