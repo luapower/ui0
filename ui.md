@@ -324,7 +324,7 @@ __affine transforms__
 `scale_x, scale_y`               `false`            scale factor: axis overrides
 `scale_cx, scale_cy`             `0`                scaling center coordinates
 __content box__
-`padding`                        `0` (none)         default padding for all sides
+`padding`                        `0`                default padding for all sides
 `padding_left`                   `false`            padding override: left side
 `padding_right`                  `false`            padding override: right side
 `padding_top`                    `false`            padding override: top side
@@ -338,12 +338,12 @@ __focus__
 `tabgroup`                       `0`                tab group, for tab-based navigation
 `taborder_algorithm`             `'xy'`             tab order algorithm: `'xy'`, `'yx'`
 __borders__
-`border_width`                   `0` (none)         border thickness
+`border_width`                   `0`                border thickness
 `border_width_left`              `false`            border thickness side override
 `border_width_right`             `false`            border thickness side override
 `border_width_top`               `false`            border thickness side override
 `border_width_bottom`            `false`            border thickness side override
-`corner_radius`                  `0` (square)       border corner radius
+`corner_radius`                  `0`                border corner radius
 `corner_radius_top_left`         `false`            border corner radius side override
 `corner_radius_top_right`        `false`            border corner radius side override
 `corner_radius_bottom_left`      `false`            border corner radius side override
@@ -354,7 +354,7 @@ __borders__
 `border_color_top`               `false`            border color side override
 `border_color_bottom`            `false`            border color side override
 `border_dash`                    `false`            border dash: `{width1, width2, ...}`
-`border_offset`                  `-1` (inside)      border stroke position rel. to box edge (1=outside)
+`border_offset`                  `-1`               border stroke position rel. to box edge (-1=inside..1=outside)
 `corner_radius_kappa`            `1.2`              smoother rounded corners
 __backgrounds__
 `background_type`                `'color'`          `false`, `'color'`, `'gradient'`, `'radial_gradient'`, `'image'`
@@ -364,20 +364,20 @@ __backgrounds__
 `background_rotation_cx/_cy`     `0`                background rotation center coords
 `background_scale`               `1`                background scale factor
 `background_scale_cx/_cy`        `0`                background scale factor: axis override
-`background_color`               `false` (none)     solid color
+`background_color`               `false`            solid color
 `background_colors`              `false`            gradient: `{[offset1], color1, ...}`
 `background_x1/_y1/_x2/_y2`      `0`                linear gradient: end-point coords
 `background_cx1/_cy1/_cx2/_cy2`  `0`                radial gradient: end-point coords
 `background_r1/_r2`              `0`                radial gradient: radii
-`background_image`               `false` (none)     background image file (requires [libjpeg])
+`background_image`               `false`            background image file (requires [libjpeg])
 `background_operator`            `'over'`           cairo blending operator
 `background_clip_border_offset`  `1`                like `border_offset` but for clipping the background
 __shadows__
 `shadow_x, shadow_y`             `0`                shadow offset coords
 `shadow_color`                   `'#000'`           shadow color
-`shadow_blur`                    `0` (none)         shadow blur size
+`shadow_blur`                    `0`                shadow blur size (0=disable)
 __text__
-`text`                           `false` (none)
+`text`                           `false`            text, wrapped around `cw`
 `font`                           `'Open Sans,14'`   font spec: `'name [weight] [slant], size'`
 `font_name`                      `false`            font override: name
 `font_weight`                    `false`            font override: weight (`100..900`, `'bold'`, etc.)
@@ -393,7 +393,7 @@ __text__
 `text_align_x`                   `false`            text x-align override: `'l'`, `'c'`, `'r'`
 `text_align_y`                   `false`            text y-align override: `'t'`, `'c'`, `'b'`
 __layouting__
-`layout`                         `false` (none)     layout type: `false` (none), `'textbox'`, `'flexbox'`, `'grid'`
+`layout`                         `false`            layout type: `false` (none), `'textbox'`, `'flexbox'`, `'grid'`
 `min_cw, min_ch`                 `0`                minimum content-box size for flexible layouts
 __null-layouts__
 `x, y, w, h`                     `0`                fixed box coordinates
@@ -411,13 +411,13 @@ __grid layouts__
 `grid_wrap`                      `1`                number of rows/columns on the main axis of flow
 `grid_cols`                      `{}`               column size fractions `{fr1, ...}`
 `grid_rows`                      `{}`               row size fractions `{fr1, ...}`
-`col_gap`                        `0` (none)         gap size between columns
-`row_gap`                        `0` (none)         gap size between rows
+`col_gap`                        `0`                gap size between columns
+`row_gap`                        `0`                gap size between rows
 `grid_pos`                       `nil`              element position in grid: `'[row][/span] [col][/span]'`
 `align_x`, `align_y`             `'stretch'`        `'stretch'`, `'start'`/`'top'`/`'left'`, `'end'`/`'bottom'`/`'right'`, `'center'`, `'space_between'`, `'space_around'`, `'space_evenly'`
 `align_x_self`, `align_y_self`   `false`            item `align_x` and `align_y` overrided
 __tooltips__
-`tooltip`                        `false` (none)     native tooltip text
+`tooltip`                        `false`            native tooltip text (false=none)
 -------------------------------- ------------------ ------------------------------------------------------------------
 
 ### Runtime state
