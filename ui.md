@@ -323,6 +323,7 @@ __behavior__
 `scrollable`                     `false`            can be hit for vscroll or hscroll
 `focusable`                      `false`            can be focused
 `draggable`                      `true`             can be dragged (still needs to respond to `start_drag()`)
+`background_hittable`            `true`             background area receives mouse input even when there's no background
 `mousedown_activate`             `false`            activate/deactivate on left mouse down/up
 `drag_threshold`                 `0`                moving distance before start dragging
 `max_click_chain`                `1`                2 for getting doubleclick events, etc.
@@ -348,40 +349,39 @@ __flexbox layout__
 `align_cross`                    `'stretch'`        cross-axis align: `'baseline'`
 `align_lines`                    `'stretch'`        content-align: `'space_between'`, `'space_around'`, `'space_evenly'`
 `align_cross_self`               `false`            item `align_cross` override
-`fr`                             `1`                stretch fraction
+`fr`                             `1`                item stretch fraction for `align_main='stretch'`
 __grid layout__
-`grid_flow`                      `'x'`              flow direction & main axis: `'x'`, `'y'`, `'xr'`, `'yr'`, `'xb'`, `'yb'`, `'xrb'`, `'yrb'`
+`grid_flow`                      `'x'`              flow main axis & direction: `'x'`, `'y'`, `'xr'`, `'yr'`, `'xb'`, `'yb'`, `'xrb'`, `'yrb'`
 `grid_wrap`                      `1`                number of rows/columns on the main axis of flow
-`grid_cols`                      `{}`               column size fractions `{fr1, ...}`
-`grid_rows`                      `{}`               row size fractions `{fr1, ...}`
+`grid_cols`                      `{}`               column size fractions `{fr1, ...}` for `align_x='stretch'`
+`grid_rows`                      `{}`               row size fractions `{fr1, ...}` for `align_y='stretch'`
 `col_gap`                        `0`                gap size between columns
 `row_gap`                        `0`                gap size between rows
 `grid_pos`                       `nil`              element position in grid: `'[row][/span] [col][/span]'`
 `align_x`                        `'stretch'`        `'stretch'`, `'start'`/`'l[eft]'`, `'end'`/`'r[ight]'`, `'c[enter]'`, `'space_between'`, `'space_around'`, `'space_evenly'`
 `align_y`                        `'stretch'`        `'stretch'`, `'start'`/`'t[op]'`, `'end'`/`'b[ottom]'`, `'c[enter]'`, `'space_between'`, `'space_around'`, `'space_evenly'`
-`align_x_self`, `align_y_self`   `false`            item `align_x` and `align_y` overrided
+`align_x_self`, `align_y_self`   `false`            item `align_x` and `align_y` overrides
 __borders__
 `border_width`                   `0`                border thickness
-`border_width_left`              `false`            border thickness side override
-`border_width_right`             `false`            border thickness side override
-`border_width_top`               `false`            border thickness side override
-`border_width_bottom`            `false`            border thickness side override
+`border_width_left`              `false`            border thickness left side override
+`border_width_right`             `false`            border thickness right side override
+`border_width_top`               `false`            border thickness top side override
+`border_width_bottom`            `false`            border thickness bottom side override
 `corner_radius`                  `0`                border corner radius
-`corner_radius_top_left`         `false`            border corner radius side override
-`corner_radius_top_right`        `false`            border corner radius side override
-`corner_radius_bottom_left`      `false`            border corner radius side override
-`corner_radius_bottom_right`     `false`            border corner radius side override
+`corner_radius_top_left`         `false`            border corner radius top-left corner override
+`corner_radius_top_right`        `false`            border corner radius top-right corner override
+`corner_radius_bottom_left`      `false`            border corner radius bottom-left corner override
+`corner_radius_bottom_right`     `false`            border corner radius bottom-right corner override
 `border_color`                   `'#fff'`           border color
-`border_color_left`              `false`            border color side override
-`border_color_right`             `false`            border color side override
-`border_color_top`               `false`            border color side override
-`border_color_bottom`            `false`            border color side override
-`border_dash`                    `false`            border dash: `{width1, width2, ...}`
+`border_color_left`              `false`            border color left side override
+`border_color_right`             `false`            border color right side override
+`border_color_top`               `false`            border color top side override
+`border_color_bottom`            `false`            border color bottom side override
+`border_dash`                    `false`            border dash pattern: `{length1, ...}`
 `border_offset`                  `-1`               border stroke position rel. to box edge (-1=inside..1=outside)
-`corner_radius_kappa`            `1.2`              smoother rounded corners
+`corner_radius_kappa`            `1.2`              smoother rounded corners (1=circle arc)
 __background__
 `background_type`                `'color'`          `false`, `'color'`, `'gradient'`, `'radial_gradient'`, `'image'`
-`background_hittable`            `true`
 `background_x, background_y`     `0`                background offset coords
 `background_rotation`            `0`                background rotation angle (radians)
 `background_rotation_cx/_cy`     `0`                background rotation center coords
