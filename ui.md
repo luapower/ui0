@@ -256,17 +256,22 @@ on the `transition_blend` attribute, which can be:
 
 ## Windows
 
-Windows are a thin facade over [nw] windows.
+Windows are created with:
+
+	`ui:window(attrs1, ...) -> win`
+
+Attributes can be pased in one or multiple tables. The values in latter
+tables will take precedence over the values in former tables.
 
 Windows are elements, so all element methods and properties apply.
 
+### Forwarded properties, methods and events
+
+Windows are a thin facade over [nw] windows. Those features which map
+directly to nw window features are listed below but are not documented here
+again.
+
 -------------------------------------- ---------------------------------------
-`ui:window{...} -> win`                create a window. see [nw] for options.
-
-`win:close()`                          close a window.
-
-`win:free()`                           close & free a window.
-
 __native properties__
 
 `x, y, w, h, cx, cy, cw, ch,`          these map directly to [nw] window
@@ -283,8 +288,9 @@ __native properties__
 
 __native methods__
 
-`frame_rect, client_rect,`             these map directly to [nw] window
-`client_to_frame, frame_to_client,`    methods.
+`close`, `free`,                       these map directly to [nw] window
+`frame_rect, client_rect,`             methods.
+`client_to_frame, frame_to_client,`
 `closing, close, show, hide,`
 `activate, minimize, maximize,`
 `restore, shownormal, raise, lower,`
@@ -305,31 +311,33 @@ __native events__
 `magnets,`
 `free_cairo, free_bitmap,`
 `scalingfactor_changed`
+-------------------------------------- ---------------------------------------
 
-__mouse state__
+### Child windows
 
+A child window by [nw]'s definition is a top-level window that does not
+appear in the taskbar and by default will follow its parent window when that
+is moved. That behavior is extended here so that the child window is
+positioned _relative to a layer_ in another window so that it follows that
+layer even when the parent window itself doesn't move but the layer moves
+inside it.
+
+-------------------------------------- ---------------------------------------
+`win.parent`                           the parent layer in another window
+`win:to_parent(x, y) -> x, y`          window's client space -> its parent space
+`win:from_parent(x, y) -> x, y`        window's parent space -> its client space
+-------------------------------------- ---------------------------------------
+
+### Frameless windows
+
+You can specify a layer to `win.move_layer` that will act as the
+drag-to-move area of the window (usually its title bar).
+
+### Window mouse state
+
+-------------------------------------- ---------------------------------------
 `win.mouse_x, win.mouse_y` \           mouse position at the time of last mouse event.
 `win:mouse_pos() -> x, y`
-
-__drawing__
-
-`win:sync()`                           synchronize the window and its contents.
-
-`win:draw(cr)`                         draw the window's view layer.
-
-`win:invalidate()`                     request a window repaint.
-
-__child windows__
-
-`win.parent`                           a layer on a different window which this window is positioned relative to.
-
-`win:to_parent(x, y) -> x, y`          convert coords from window's client space to its parent space
-
-`win:from_parent(x, y) -> x, y`        convert coords from window's parent space to its client space
-
-__frameless windows__
-
-`win.move_layer`                       layer which by dragging it moves the window.
 -------------------------------------- ---------------------------------------
 
 ## Layers
