@@ -362,7 +362,7 @@ __grid layout__
 `align_y`                        `'stretch'`        `'stretch'`, `'start'`/`'t[op]'`, `'end'`/`'b[ottom]'`, `'c[enter]'`, `'space_between'`, `'space_around'`, `'space_evenly'`
 `align_x_self`, `align_y_self`   `false`            item `align_x` and `align_y` overrides
 __transparency & clipping__
-`opacity`                        `1`                opacity (0..1)
+`opacity`                        `1`                overall opacity (0..1)
 `clip_content`                   `false`            content clip area: `'padding'`/`true`, `'background'`, `false` (don't clip)
 __borders__
 `border_width`                   `0`                border thickness
