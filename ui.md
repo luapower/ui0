@@ -198,8 +198,8 @@ affect the syle set previously for `'mybutton :hot'`.
 
 #### Finding elements using selectors
 
-  * `ui|win:find(sel) -> elem_list` -- find elements and return them in a list
-  * `ui|win:each(sel, func)` -- run `func(elem)` for each found element
+  * `ui|win|elem_list:find(sel) -> elem_list` - find elements and return them in a list.
+  * `ui|win|elem_list:each(sel, func)` - run `func(elem)` for each element found.
 
 ### Transition animations
 
