@@ -749,8 +749,8 @@ The main topics that need to be understood in order to create new widgets are:
  * the `ui.layer` class and its visual model:
 	* layer hierarchies with relative affine transforms and clipping
 	* borders, backgrounds, shadows, aligned text
-	* hit testing borders, background and content
-	* layouting, including css-flexbox and css-grid-like models
+	* hit testing
+	* layouting, for making the widgets elastic
  * the `ui.window` and `ui.layer` classes, which together provide an input API:
    * routing mouse events to the hot widget; mouse capturing
 	* routing keyboard events to the focused widget; tab-based navigation
