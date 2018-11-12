@@ -57,9 +57,12 @@ ui:run()
 
 ## The ui module/singleton
 
-The ui singleton is a thin facade over [nw]'s app singleton. It allows
-creating OS windows, quitting the app, creating timers, using the clipboard,
-adding fonts, etc.
+The ui singleton allows for creating OS windows, quitting the app,
+creating timers, using the clipboard, adding fonts, etc.
+
+### Forwarded properties, methods and events
+
+The ui singleton is mostly a thin facade over [nw]'s app singleton:
 
 -------------------------------------- ---------------------------------------
 __native properties__
@@ -85,15 +88,14 @@ __native events__
 `quitting, activated, deactivated,`    these map directly to [nw] app
 `wakeup, hidden, unhidden,`            events.
 `displays_changed`
+-------------------------------------- ---------------------------------------
 
-__clock__
+### Font management
 
-`ui:clock()`                           returns [time].clock()
+Fonts must be registered before they can be used:
 
-__font registration__
-
+-------------------------------------- ---------------------------------------
 `ui:add_font_file(...)`                calls [tr]:add_font_file(...)
-
 `ui:add_mem_font(...)`                 calls [tr]:add_mem_font(...)
 -------------------------------------- ---------------------------------------
 
@@ -131,9 +133,9 @@ to matching sets of elements based on matching tag combinations.
 
 #### Tags
 
-Selecting elements for styling is based on element tags only, which are
-equivalent to CSS classes (there is no concept of ids or other things to
-match on other than tags).
+Selecting elements is based on element tags only, which are equivalent to
+CSS classes (there is no concept of ids or other things to match on other
+than tags).
 
 Elements can be initialized with the attribute `tags = 'tag1 tag2 ...'`
 similar to the html class attribute. Tags can also be added/removed later
@@ -146,6 +148,11 @@ Tags matching the entire hierarchy of class names up to and including
 the `'element'` and `'layer'` tags, etc.
 
 #### Selectors
+
+Selectors are used in two contexts:
+
+  * creating styles with `ui:style()`.
+  * finding elements with `ui|win:find()` and `ui|win:each()`.
 
 Selector syntax differs from CSS:
 
@@ -161,11 +168,15 @@ in places where a selector is expected), but they have additional methods:
   can be added and they will be applied in order.
   * `sel:selects(elem) -> true|false` -- test a selector against an element.
 
+Selector objects pass-through the selector constructor, which is short for
+saying that the selector constructor can take a selector object as arg#1 in
+which case the selector object is simply returned and no selector is created.
+
 #### Styles
 
-Styles can be added with `ui:style(selector, attr_values)` which adds them
-to the default stylesheet `ui.element.stylesheet`. Inline styles can be
-set with the `style` attribute when creating the element.
+Selector-based styles can be created with `ui:style(selector, attr_values)`
+which adds them to the default stylesheet `ui.element.stylesheet`. Inline
+styles can be added with the `style` attribute when creating the element.
 
 Styles are updated automatically on the next repaint. They can also be
 updated manually with `elem:sync_styles()`.
@@ -191,6 +202,11 @@ This allows overriding base styles without resetting any matching state
 styles, so for instance, declaring a new style for `'mybutton'` will not
 affect the syle set previously for `'mybutton :hot'`.
 
+#### Finding elements using selectors
+
+  * `ui|win:find(sel) -> elem_list` -- find elements and return them in a list
+  * `ui|win:each(sel, func)` -- run `func(elem)` for each found element
+
 ### Transition animations
 
 Transitions are about gradually changing the value of an element attribute
@@ -201,7 +217,7 @@ interpolated. Currently, numbers, colors and color gradients can be
 interpolated, but more data types and interpolator functions can be added
 if needed (see the code for that).
 
-Transitions can be created manually with:
+Transitions can be created by calling:
 
 ~~~{.lua}
 	elem:transition(
@@ -243,7 +259,6 @@ on the `transition_blend` attribute, which can be:
   * `'wait'` - wait for the current transition to terminate before starting
   the new one, but do nothing if the new transition has the same end value
   as the current one.
-
 
 ## Windows
 
@@ -296,12 +311,6 @@ __native events__
 `magnets,`
 `free_cairo, free_bitmap,`
 `scalingfactor_changed`
-
-__element query interface__
-
-`win:find(sel) -> elem_list`           find elements in a window based on a css selector.
-
-`win:each(sel, f)`                     run `f(elem)` for each element selected by a selector.
 
 __mouse state__
 
