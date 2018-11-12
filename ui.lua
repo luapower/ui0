@@ -841,6 +841,8 @@ end
 
 --element tags & styles ------------------------------------------------------
 
+element.tags = false
+element.style = false
 element.stylesheet = ui:stylesheet()
 
 element:init_ignore{tags=1}
