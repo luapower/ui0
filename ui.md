@@ -256,14 +256,9 @@ on the `transition_blend` attribute, which can be:
 
 ## Windows
 
-Windows are created with:
-
-~~~{.lua}
-	ui:window(attrs1, ...) -> win
-~~~
-
-Attributes can be pased in one or multiple tables. The values in latter
-tables will take precedence over the values in former tables.
+Windows are created with `ui:window(attrs1, attrs2,...)`. Attributes can be
+passed in multiple tables: the values in latter tables will take precedence
+over the values in former tables.
 
 Windows are elements, so all element methods and properties apply.
 
@@ -319,21 +314,21 @@ __native events__
 
 A child window by [nw]'s definition is a top-level window that does not
 appear in the taskbar and by default will follow its parent window when that
-is moved. That behavior is extended here so that the child window is
-positioned _relative to a layer_ in another window so that it follows that
-layer even when the parent window itself doesn't move but the layer moves
-inside it.
+is moved. That behavior is extended here so that a child window is positioned
+_relative to a layer_ in another window so that it follows that layer even
+when the parent window itself doesn't move but only the layer moves inside it.
 
 -------------------------------------- ---------------------------------------
-`win.parent`                           the parent layer in another window
+`win.parent`                           a layer in another window
 `win:to_parent(x, y) -> x, y`          window's client space -> its parent space
 `win:from_parent(x, y) -> x, y`        window's parent space -> its client space
 -------------------------------------- ---------------------------------------
 
-### Frameless windows
+### Moving frameless windows
 
-You can specify a layer to `win.move_layer` that will act as the
-drag-to-move area of the window (usually its title bar).
+For frameless windows, a layer (usually the layer representing the title bar)
+can be assigned to `win.move_layer` which will set it up to move the window
+when dragged.
 
 ### Window mouse state
 
