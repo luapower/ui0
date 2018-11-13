@@ -516,43 +516,43 @@ __rotation & scaling__
 
 ### Box model API
 
---------------------------------------- ------------- ------------------------
-__layer hierarchy & z-order__
-`parent`                                r/w property  layer's parent
-`window`                                r/o property  layer's window
-`layer_index`                           r/w property  index in parent array (z-order)
-`to_back()`                             method        set `layer_index` to `1`
-`to_front()`                            method        set `layer_index` to `1/0`
-`each_child(func)`                      method        call `func(layer)` for each child recursively depth-first
-`children() -> iter() -> layer`         method        iterate children recursively depth-first
-`layer_added(layer, index)`             event         a child layer was added
-`layer_removed(layer)`                  event         a child layer was removed
-__size & positioning__
-`x, y, w, h`                            plain field   computed box size and position
-`cw, ch`                                r/w property  content box size
-`cx, cy`                                r/w property  box's center coords
-`x2, y2`                                r/w property  box's bottom-right corner coords
-`pw, ph`                                r/o property  total horizontal and vertical paddings
-`pw1, pw2, ph1, ph2`                    r/o property  paddings for each side
-`inner_x/y/w/h`                         r/o property  border's inner contour box
-`outer_x/y/w/h`                         r/o property  border's outer contour box
-`baseline`                              r/o property  text's baseline
-`size() -> w, h`                        method        box size
-`client_size() -> cw, ch`               method        content box size
-`padding_size() -> cw, ch`              method        content box size
-`client_rect() -> 0, 0, cw, ch`         method        content box rect in content box space
-__space conversion__
-`from_box_to_parent  (x, y) -> x, y`    method        own box space -> parent content space
-`from_parent_to_box  (x, y) -> x, y`    method        parent content space -> own box space
-`to_parent           (x, y) -> x, y`    method        own content space -> parent content space
-`from_parent         (x, y) -> x, y`    method        parent content space -> own content space
-`to_window           (x, y) -> x, y`    method        own content space -> window's content space
-`from_window         (x, y) -> x, y`    method        window's content space -> own content space
-`to_screen           (x, y) -> x, y`    method        own content space -> screen space
-`from_screen         (x, y) -> x, y`    method        screen space -> own content space
-`to_other    (widget, x, y) -> x, y`    method        own content space -> other's content space
-`from_other  (widget, x, y) -> x, y`    method        other's content space -> own content space
---------------------------------------- ------------- ------------------------
+------------- --------------------------------------- ------------------------
+              __layer hierarchy & z-order__
+r/w property  `parent`                                layer's parent
+r/o property  `window`                                layer's window
+r/w property  `layer_index`                           index in parent array (z-order)
+method        `to_back()`                             set `layer_index` to `1`
+method        `to_front()`                            set `layer_index` to `1/0`
+method        `each_child(func)`                      call `func(layer)` for each child recursively depth-first
+method        `children() -> iter() -> layer`         iterate children recursively depth-first
+event         `layer_added(layer, index)`             a child layer was added
+event         `layer_removed(layer)`                  a child layer was removed
+              __size & positioning__
+plain field   `x, y, w, h`                            computed box size and position
+r/w property  `cw, ch`                                content box size
+r/w property  `cx, cy`                                box's center coords
+r/w property  `x2, y2`                                box's bottom-right corner coords
+r/o property  `pw, ph`                                total horizontal and vertical paddings
+r/o property  `pw1, pw2, ph1, ph2`                    paddings for each side
+r/o property  `inner_x/y/w/h`                         border's inner contour box
+r/o property  `outer_x/y/w/h`                         border's outer contour box
+r/o property  `baseline`                              text's baseline
+method        `size() -> w, h`                        box size
+method        `client_size() -> cw, ch`               content box size
+method        `padding_size() -> cw, ch`              content box size
+method        `client_rect() -> 0, 0, cw, ch`         content box rect in content box space
+              __space conversion__
+method        `from_box_to_parent  (x, y) -> x, y`    own box space -> parent content space
+method        `from_parent_to_box  (x, y) -> x, y`    parent content space -> own box space
+method        `to_parent           (x, y) -> x, y`    own content space -> parent content space
+method        `from_parent         (x, y) -> x, y`    parent content space -> own content space
+method        `to_window           (x, y) -> x, y`    own content space -> window's content space
+method        `from_window         (x, y) -> x, y`    window's content space -> own content space
+method        `to_screen           (x, y) -> x, y`    own content space -> screen space
+method        `from_screen         (x, y) -> x, y`    screen space -> own content space
+method        `to_other    (widget, x, y) -> x, y`    own content space -> other's content space
+method        `from_other  (widget, x, y) -> x, y`    other's content space -> own content space
+------------- --------------------------------------- ------------------------
 
 ### Input model
 
@@ -604,8 +604,8 @@ __space conversion__
 __enabled state__
 `enabled`                                    r/w property  enabled and all parents are enabled too
 `:disabled`                                  tag           layer is disabled (`enabled` property is false)
-__hit-testing__
-`hot`                                        r/o property  mouse pointer is over the layer or the layer is active
+__hot state__
+`hot`                                        r/o property  mouse pointer is over the layer (or the layer is active)
 `:hot`                                       tag           layer is hot
 `:hot_<area>`                                tag           layer is hot and on a specific area
 __active state__
