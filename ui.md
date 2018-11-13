@@ -579,19 +579,25 @@ __space conversion__
 
   * a layer must be in `active` state for dragging to work.
   * when the user starts dragging a layer, the `start_drag()` method is
-  called (which by default doesn't do anything). Draggable layers must
-  implement this method to return the layer that is to be dragged (could
-  be `self` or other layer) along with a "grab position" relative to that
-  layer. If a layer is returned, a dragging operation starts.
+  called on the layer (which by default doesn't do anything). Draggable
+  layers must implement this method to return the layer that is to be dragged
+  (could be `self` or other layer) along with the "grab position" inside
+  that layer. If a layer is returned, a dragging operation starts.
   * when the dragging operation starts, all visible and enabled layers from
   all windows are asked to `accept_drag_widget()`. Those that can be a drop
-  target for the dragged layer must return `true`. The dragged layer in turn
-  is asked to `accept_drop_widget()` for each layer that accepted the layer.
-  Then the `started_dragging()` event is fired on the dragged layer.
-  * when the layer is dragged over an accepting layer, the dragged layer
-  receives the `enter_drop_target()` event. Then when the mouse is depressed
-  the drop target receives the `drop()` event, and the dragged layer
-  receives the `ended_dragging()` event.
+  target for the dragged layer must return `true` (the default implementation
+  does not return anything). For those that do return `true`, the dragged
+  layer is asked too to `accept_drop_widget()` (the default implementation
+  returns `true`). If both agree, all potential drop targets get the
+  `:drop_target` tag and the `started_dragging()` event is fired on the
+  dragged layer.
+  * when the layer is dragged over an accepting layer, `accept_drag_widget()`
+  and `accept_drop_widgets()` are called again on the respective layers,
+  this time with a mouse position and target area. If these calls both
+  return `true`, the dragged layer receives the `enter_drop_target()` event.
+  Then when the mouse is depressed the drop target receives the `drop()`
+  event, the dragged layer receives the `ended_dragging()` event, and the
+  initiating layer receives the `end_drag()` event.
 
 ### Input model API
 
@@ -632,15 +638,15 @@ __keyboard interaction__
 `keychar(s)`                                 event         utf-8 sequence entered
 __drag & drop__
 `start_drag(button, mx, my, area)`           stub method   called on dragging layer to start dragging
-`end_drag(drag_widget)`                      event         called on initiating layer after dragging ended
 `accept_drag_widget(widget, mx, my, area)`   stub method   called on drop target to accept the payload
 `accept_drop_widget(widget, area)`           stub method   called on dragged layer accept the target
-`drop(widget, x, y, area)`                   event         fired on drop target to perform the drop
 `started_dragging()`                         event         fired on dragged layer after dragging started
-`ended_dragging()`                           event         fired on dragged layer after dragging ended
 `drag(x, y)`                                 event         fired on dragged layer while dragging
 `enter_drop_target(widget, area)`            event         fired on dragged layer when entering a target
 `leave_drop_target(widget)`                  event         fired on dragged layer when leaving a target
+`drop(widget, x, y, area)`                   event         fired on drop target to perform the drop
+`ended_dragging()`                           event         fired on dragged layer after dragging ended
+`end_drag(drag_widget)`                      event         called on initiating layer after dragging ended
 `:dragging`                                  tag           layer is being dragged
 `:dropping`                                  tag           dragged layer is over a drop target
 `:drop_target`                               tag           layer is a potential drop target
