@@ -604,15 +604,16 @@ __space conversion__
 __enabled state__
 `enabled`                                    r/w property  enabled and all parents are enabled too
 `:disabled`                                  tag           layer is disabled (`enabled` property is false)
-__mouse interaction__
-`active`                                     r/w property  mouse is captured
-`:active`                                    tag           layer is active
+__hit-testing__
 `hot`                                        r/o property  mouse pointer is over the layer or the layer is active
 `:hot`                                       tag           layer is hot
 `:hot_<area>`                                tag           layer is hot and on a specific area
-`mouse_x, mouse_y`                           r/o property  mouse coords from the last mouse event
+__active state__
+`active`                                     r/w property  mouse is captured
+`:active`                                    tag           layer is active
 `activated()`                                event         layer activated (mouse captured)
 `deactivated()`                              event         layer deactivated
+__mouse events & state__
 `mousemove(x, y, area)`                      event         mouse moved over a layer's area
 `mouseenter(x, y, area)`                     event         mouse entered a layer's area
 `mouseleave()`                               event         mouse left the layer's area
@@ -623,7 +624,8 @@ __mouse interaction__
 `[right|middle]tripleclick()`                event         mouse left/right/middle button triple-click
 `[right|middle]quadrupleclick()`             event         mouse left/right/middle button quadruple-click
 `mousewheel(delta, x, y, area, pdelta)`      event         mouse wheel moved `delta` notches
-__keyboard interaction__
+`mouse_x, mouse_y`                           r/o property  mouse coords from the last mouse event
+__focused state__
 `focused`                                    r/o property  has keyboard focus
 `:focused`                                   tag           layer has focus
 `:child_focused`                             tag           layer is a parent of a layer that has focus
@@ -631,6 +633,7 @@ __keyboard interaction__
 `unfocus()`                                  method        unfocus layer
 `gotfocus()`                                 event         layer focused
 `lostfocus()`                                event         layer unfocused
+__keyboard events__
 `keydown(key)`                               event         key pressed
 `keyup(key)`                                 event         key released
 `keypress(key)`                              event         key pressed (on repeat)
