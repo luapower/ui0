@@ -219,7 +219,7 @@ Transitions can be created by calling:
 
 or they can be defined declaratively as styles:
 
------------------------- ------------------ ------------------------------------------------------------------
+------------------------ ------------------ ----------------------------------
 `transition_<attr>`                         set to `true` to enable transitions for an attribute
 `transition_duration`    `0` (disabled)     animation duration (seconds)
 `transition_ease`        `'expo out'`       easing function and way (see [easing])
@@ -228,7 +228,7 @@ or they can be defined declaratively as styles:
 `transition_speed`       `1`                speed factor
 `transition_blend`       `'replace'`        blend function: `'replace'`, `'restart'`, `'wait'`
 `transition_from`        _current value_    start value
------------------------- ------------------ ------------------------------------------------------------------
+------------------------ ------------------ ----------------------------------
 
 Transition parameters can also be specified for each attribute with
 `transition_<param>_<attr>`, eg. `transition_duration_opacity = 2`.
@@ -359,7 +359,7 @@ Layers are elements, so all element methods and properties apply.
 The following attributes can be used to initialize a layer and can also be
 changed freely at runtime to change its behavior or appearance.
 
------------------------------------- ------------------ ------------------------------------------------------------------
+------------------------------------ ------------------ ----------------------
 __position in layer hierarchy__
 `parent`                             `false`            parent: for positioning (if pos_parent=false), painting and clipping
 `layer_index`                        `1/0`              preferred index in parent's child list: `1=backmost`, `1/0=frontmost`
@@ -464,7 +464,7 @@ __rotation & scaling__
 `scale`                              `1`                scale factor
 `scale_x, scale_y`                   `false`            scale factor: axis overrides
 `scale_cx, scale_cy`                 `0`                scaling center coordinates
------------------------------------- ------------------ ------------------------------------------------------------------
+------------------------------------ ------------------ ----------------------
 
 ### Box model
 
@@ -494,16 +494,16 @@ __rotation & scaling__
   * `layer_index` represents a preferred index when constructing a layer,
   but at runtime it always reflects the actual index in the parent array.
 
---------------------------------- --
-`layer_index`                     index in parent array (z-order)
-`window`                          layer's window (r/o)
-`to_back()`                       set `layer_index` to 1
-`to_front()`                      set `layer_index` to 1/0
-`each_child(func)`                calls `func(layer)` for each child, recursively, depth-first
-`children() -> iter() -> layer`   iterate children recursively, depth-first
-`layer_added(layer, index)`       event: a child layer was added
-`layer_removed(layer)`            event: a child layer was removed
---------------------------------- --
+--------------------------------- ------------- --
+`layer_index`                     r/w property  index in parent array (z-order)
+`window`                          r/o property  layer's window
+`to_back()`                       method        set `layer_index` to `1`
+`to_front()`                      method        set `layer_index` to `1/0`
+`each_child(func)`                method        call `func(layer)` for each child recursively depth-first
+`children() -> iter() -> layer`   method        iterate children recursively depth-first
+`layer_added(layer, index)`       event         a child layer was added
+`layer_removed(layer)`            event         a child layer was removed
+--------------------------------- ------------- --
 
 ### Runtime state
 
