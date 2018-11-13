@@ -110,7 +110,7 @@ to both.
 
 ### Constructing elements
 
-Unlike normal objects, elements have a standardized constructor which takes
+Unlike normal objects, elements have a single-form constructor which takes
 the `ui` singleton as arg#1 followed by any number of tables whose fields
 are first merged into a single table and then copied over to the element in
 lexicographic order. This means that:
@@ -256,9 +256,9 @@ on the `transition_blend` attribute, which can be:
 
 ## Windows
 
-Windows are created with `ui:window(attrs1, attrs2,...)`. Attributes can be
-passed in multiple tables: the values in latter tables will take precedence
-over the values in former tables.
+Like all elements, windows are created with `ui:window(attrs1, ...)`.
+Attributes can be passed in multiple tables: the values in latter tables
+will take precedence over the values in former tables.
 
 Windows are elements, so all element methods and properties apply.
 
@@ -343,6 +343,10 @@ Similar to HTML divs, layers encapsulate all the positioning, drawing,
 clipping, hit-testing and input infrastructure necessary for implementing
 widgets, and can also be used standalone as layout containers, text labels
 or other presentation elements.
+
+Like all elements, layers are created with `ui:layer(attrs1, ...)`.
+Attributes can be passed in multiple tables: the values in latter tables
+will take precedence over the values in former tables.
 
 Layers are elements, so all element methods and properties apply.
 
