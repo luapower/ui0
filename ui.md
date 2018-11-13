@@ -600,60 +600,60 @@ method        `from_other  (widget, x, y) -> x, y`    other's content space -> o
 
 ### Input model API
 
--------------------------------------------- ------------- -------------------
-__enabled state__
-`enabled`                                    r/w property  enabled and all parents are enabled too
-`:disabled`                                  tag           layer is disabled (`enabled` property is false)
-__hot state__
-`hot`                                        r/o property  mouse pointer is over the layer (or the layer is active)
-`:hot`                                       tag           layer is hot
-`:hot_<area>`                                tag           layer is hot and on a specific area
-__active state__
-`active`                                     r/w property  mouse is captured
-`:active`                                    tag           layer is active
-`activated()`                                event         layer activated (mouse captured)
-`deactivated()`                              event         layer deactivated
-__mouse events & state__
-`mousemove(x, y, area)`                      event         mouse moved over a layer's area
-`mouseenter(x, y, area)`                     event         mouse entered a layer's area
-`mouseleave()`                               event         mouse left the layer's area
-`[right|middle]mousedown(x, y, area)`        event         mouse left/right/middle button pressed
-`[right|middle]mouseup(x, y, area)`          event         mouse left/right/middle button depressed
-`[right|middle]click(x, y, area)`            event         mouse left/right/middle button click
-`[right|middle]doubleclick()`                event         mouse left/right/middle button double-click
-`[right|middle]tripleclick()`                event         mouse left/right/middle button triple-click
-`[right|middle]quadrupleclick()`             event         mouse left/right/middle button quadruple-click
-`mousewheel(delta, x, y, area, pdelta)`      event         mouse wheel moved `delta` notches
-`mouse_x, mouse_y`                           r/o property  mouse coords from the last mouse event
-__focused state__
-`focused`                                    r/o property  has keyboard focus
-`:focused`                                   tag           layer has focus
-`:child_focused`                             tag           layer is a parent of a layer that has focus
-`focus()`                                    method        focus layer
-`unfocus()`                                  method        unfocus layer
-`gotfocus()`                                 event         layer focused
-`lostfocus()`                                event         layer unfocused
-__keyboard events__
-`keydown(key)`                               event         key pressed
-`keyup(key)`                                 event         key released
-`keypress(key)`                              event         key pressed (on repeat)
-`keychar(s)`                                 event         utf-8 sequence entered
-__drag & drop__
-`start_drag(button, mx, my, area)`           stub method   called on dragging layer to start dragging
-`accept_drag_widget(widget, mx, my, area)`   stub method   called on drop target to accept the payload
-`accept_drop_widget(widget, area)`           stub method   called on dragged layer accept the target
-`started_dragging()`                         event         fired on dragged layer after dragging started
-`drag(x, y)`                                 event         fired on dragged layer while dragging
-`enter_drop_target(widget, area)`            event         fired on dragged layer when entering a target
-`leave_drop_target(widget)`                  event         fired on dragged layer when leaving a target
-`drop(widget, x, y, area)`                   event         fired on drop target to perform the drop
-`ended_dragging()`                           event         fired on dragged layer after dragging ended
-`end_drag(drag_widget)`                      event         called on initiating layer after dragging ended
-`:dragging`                                  tag           layer is being dragged
-`:dropping`                                  tag           dragged layer is over a drop target
-`:drop_target`                               tag           layer is a potential drop target
-`:drag_source`                               tag           dragging was initiated from this layer
--------------------------------------------- ------------- -------------------
+------------- -------------------------------------------- -------------------
+              __enabled state__
+r/w property  `enabled`                                    enabled and all parents are enabled too
+tag           `:disabled`                                  layer is disabled (`enabled` property is false)
+              __hot state__
+r/o property  `hot`                                        mouse pointer is over the layer (or the layer is active)
+tag           `:hot`                                       layer is hot
+tag           `:hot_<area>`                                layer is hot and on a specific area
+              __active state__
+r/w property  `active`                                     mouse is captured
+tag           `:active`                                    layer is active
+event         `activated()`                                layer activated (mouse captured)
+event         `deactivated()`                              layer deactivated
+              __mouse events & state__
+event         `mousemove(x, y, area)`                      mouse moved over a layer's area
+event         `mouseenter(x, y, area)`                     mouse entered a layer's area
+event         `mouseleave()`                               mouse left the layer's area
+event         `[right|middle]mousedown(x, y, area)`        mouse left/right/middle button pressed
+event         `[right|middle]mouseup(x, y, area)`          mouse left/right/middle button depressed
+event         `[right|middle]click(x, y, area)`            mouse left/right/middle button click
+event         `[right|middle]doubleclick()`                mouse left/right/middle button double-click
+event         `[right|middle]tripleclick()`                mouse left/right/middle button triple-click
+event         `[right|middle]quadrupleclick()`             mouse left/right/middle button quadruple-click
+event         `mousewheel(delta, x, y, area, pdelta)`      mouse wheel moved `delta` notches
+r/o property  `mouse_x, mouse_y`                           mouse coords from the last mouse event
+              __focused state__
+r/o property  `focused`                                    has keyboard focus
+tag           `:focused`                                   layer has focus
+tag           `:child_focused`                             layer is a parent of a layer that has focus
+method        `focus()`                                    focus layer
+method        `unfocus()`                                  unfocus layer
+event         `gotfocus()`                                 layer focused
+event         `lostfocus()`                                layer unfocused
+              __keyboard events__
+event         `keydown(key)`                               key pressed
+event         `keyup(key)`                                 key released
+event         `keypress(key)`                              key pressed (on repeat)
+event         `keychar(s)`                                 utf-8 sequence entered
+              __drag & drop__
+stub method   `start_drag(button, mx, my, area)`           called on dragging layer to start dragging
+stub method   `accept_drag_widget(widget, mx, my, area)`   called on drop target to accept the payload
+stub method   `accept_drop_widget(widget, area)`           called on dragged layer accept the target
+event         `started_dragging()`                         fired on dragged layer after dragging started
+event         `drag(x, y)`                                 fired on dragged layer while dragging
+event         `enter_drop_target(widget, area)`            fired on dragged layer when entering a target
+event         `leave_drop_target(widget)`                  fired on dragged layer when leaving a target
+event         `drop(widget, x, y, area)`                   fired on drop target to perform the drop
+event         `ended_dragging()`                           fired on dragged layer after dragging ended
+event         `end_drag(drag_widget)`                      called on initiating layer after dragging ended
+tag           `:dragging`                                  layer is being dragged
+tag           `:dropping`                                  dragged layer is over a drop target
+tag           `:drop_target`                               layer is a potential drop target
+tag           `:drag_source`                               dragging was initiated from this layer
+------------- -------------------------------------------- -------------------
 
 ### Layouting
 
