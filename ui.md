@@ -581,23 +581,22 @@ __space conversion__
   * when the user starts dragging a layer, the `start_drag()` method is
   called on the layer (which by default doesn't do anything). Draggable
   layers must implement this method to return the layer that is to be dragged
-  (could be `self` or other layer) along with the "grab position" inside
-  that layer. If a layer is returned, a dragging operation starts.
+  (could be `self` or other layer) and an optional "grab position" inside
+  that layer. If a layer is returned, a dragging operation starts and the
+  `started_dragging()` event is fired on the dragged layer.
   * when the dragging operation starts, all visible and enabled layers from
   all windows are asked to `accept_drag_widget()`. Those that can be a drop
   target for the dragged layer must return `true` (the default implementation
-  does not return anything). For those that do return `true`, the dragged
-  layer is asked too to `accept_drop_widget()` (the default implementation
-  returns `true`). If both agree, all potential drop targets get the
-  `:drop_target` tag and the `started_dragging()` event is fired on the
-  dragged layer.
+  does not return anything) after which the dragged layer is asked to
+  `accept_drop_widget()` too (the default implementation returns `true`).
+  The potential drop targets then get the `:drop_target` tag.
   * when the layer is dragged over an accepting layer, `accept_drag_widget()`
   and `accept_drop_widgets()` are called again on the respective layers,
   this time with a mouse position and target area. If these calls both
   return `true`, the dragged layer receives the `enter_drop_target()` event.
-  Then when the mouse is depressed the drop target receives the `drop()`
-  event, the dragged layer receives the `ended_dragging()` event, and the
-  initiating layer receives the `end_drag()` event.
+  * when the mouse is depressed over a drop target, the drop target receives
+  the `drop()` event, the dragged layer receives the `ended_dragging()` event,
+  and the initiating layer receives the `end_drag()` event.
 
 ### Input model API
 
