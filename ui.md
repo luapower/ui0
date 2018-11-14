@@ -47,7 +47,7 @@ ui:run()
         * [`ui.transition`](#transition-animations) - attribute transition
         * [`ui.element`](#elements) - object with styles and transitions
            * [`ui.window`](#windows) - top-level window: a thin layer over [nw]'s windows
-              * [`ui.popup`](#popup-windows) - frameless pop-up window
+              * [`ui.popup`](#pop-up-windows) - frameless pop-up window
            * [`ui.layer`](#layers) - the basic UI building block
               * [`ui.window_view`](#the-top-layer) - a window's top layer
               * [`ui.button`](#buttons) - button
@@ -337,11 +337,11 @@ when the parent window itself doesn't move but only the layer moves inside it.
 `win:from_parent(x, y) -> x, y`        window's parent space -> its client space
 -------------------------------------- ---------------------------------------
 
-### Popup windows
+### Pop-up windows
 
-Popup windows are frameless, non-focusable, non-moveable child windows.
-They are created with `ui:popup(attrs1, ...)`. Clicking outside the popup
-area hides the popup, subject to the `autohide` property.
+Pop-up windows are frameless, non-focusable, non-moveable child windows.
+They are created with `ui:popup(attrs1, ...)`. Clicking outside the pop-up
+area hides the pop-up, subject to the `autohide` property.
 
 ### Moving frameless windows
 
@@ -761,15 +761,15 @@ __input__
 [`ui:colorpicker(...)`](#color-pickers)         create a color picker
 [`ui:calendar(...)`](#calendars)                create a calendar
 __output__
-[`ui:image(...)`](#images)                      reate an image
-[`ui:progressbar(...)`](#progress-bars)         reate a progress bar
+[`ui:image(...)`](#images)                      create an image
+[`ui:progressbar(...)`](#progress-bars)         create a progress bar
 __input/output__
 [`ui:grid(...)`](#editable-grids)               create a grid
 __containers__
-[`ui:scrollbar(...)`](#scroll-bars)             reate a scroll bar
-[`ui:scrollbox(...)`](#scroll-boxes)            reate a scroll box
-[`ui:popup(...)`](#popups)                      reate a pop-up window
-[`ui:tablist(...)`](#tab-lists)                 reate a tab list
+[`ui:scrollbar(...)`](#scroll-bars)             create a scroll bar
+[`ui:scrollbox(...)`](#scroll-boxes)            create a scroll box
+[`ui:popup(...)`](#pop-up-windows)              create a pop-up window
+[`ui:tablist(...)`](#tab-lists)                 create a tab list
 ----------------------------------------------- ------------------------------
 
 __TIP:__ Widgets are implemented in separate modules. Run each module
