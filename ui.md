@@ -40,33 +40,32 @@ ui:run()
 
   * [`oo.Object`][oo] - [oo]'s base class
      * `ui.object` - ui's base class. includes the [events] mixin.
-        * `ui` - this module, also serving as the app singleton
+        * [`ui`][ui] - this module, also serving as the app singleton
         * [`ui.selector`](#selectors) - element selector
         * `ui.element_list` - list of elements
-        * `ui.stylesheet` - stylesheet
-        * `ui.transition` - attribute transition
-        * `ui.element` - object with styles and transitions
-           * `ui.window` - top-level window: a thin layer over [nw]'s windows
-              * `ui.popup` - frameless pop-up window
-           * `ui.layer` - the basic UI building block
-              * `ui.window.view_class` - a window's top layer
-              * `ui.editbox`
-              * `ui.dropdown`
-              * `ui.slider`
-              * `ui.checkbox`
-              * `ui.radiobutton`
-              * `ui.choicebutton`
-              * `ui.colorpicker`
-              * `ui.calendar`
-              * `ui.image`
-              * `ui.progressbar`
-              * `ui.grid`
-              * `ui.button`
-              * `ui.menu`
-              * `ui.scrollbar`
-              * `ui.scrollbox`
-              * `ui.popup`
-              * `ui.tablist`
+        * [`ui.stylesheet`](#stylesheets) - stylesheet
+        * [`ui.transition`](#transition animations) - attribute transition
+        * [`ui.element`](#elements) - object with styles and transitions
+           * [`ui.window`](#windows) - top-level window: a thin layer over [nw]'s windows
+              * [`ui.popup`](#popup windows) - frameless pop-up window
+           * [`ui.layer`][#layers] - the basic UI building block
+              * [`ui.window.view_class`](#the top layer) - a window's top layer
+              * [`ui.editbox`](#editboxes) - editbox
+              * [`ui.dropdown`](#drop-downs) - drop-down menu
+              * [`ui.slider`](#sliders) - slider
+              * [`ui.checkbox`](#checkboxes) - checkbox
+              * [`ui.radiobutton`](#radio buttons) - radio button
+              * [`ui.choicebutton`](#multi-choice buttons) - multi-choice button
+              * [`ui.colorpicker`](#color pickers) - color picker
+              * [`ui.calendar`](#calendars) - calendar
+              * [`ui.image`](#images) - static image
+              * [`ui.progressbar`](#progress bars) - progress bar
+              * [`ui.grid`](#grids) - grid
+              * [`ui.button`](#buttons) - button
+              * [`ui.menu`](#menus) - menu
+              * [`ui.scrollbar`](#scrollbars) - scrollbar
+              * [`ui.scrollbox`](#scrollboxes) - scrollbox
+              * [`ui.tablist`](#tab lists) - tab list
 
 
 ## The ui module/singleton
@@ -167,7 +166,7 @@ Selector syntax differs from CSS:
   * simple selectors: `'tag1 tag2'` -- in CSS: `.tag1.tag2`
   * parent-child selectors: `'tag1 > tag2'` -- in CSS: `.tag1 .tag2`
 
-Selector objects can be created with `ui:selector(select_text)`. It's not
+Selector objects are created with `ui:selector(select_text)`. It's not
 normally necessary to create them explicitly (they are created automatically
 in places where a selector is expected), but they have additional methods:
 
@@ -182,7 +181,7 @@ which case the selector object is simply returned and no selector is created.
 
 #### Styles
 
-Selector-based styles can be created with `ui:style(selector, attr_values)`
+Selector-based styles are created with `ui:style(selector, attr_values)`
 which adds them to the default stylesheet `ui.element.stylesheet`. Inline
 styles can be added with the `style` attribute when creating the element.
 
@@ -337,6 +336,12 @@ when the parent window itself doesn't move but only the layer moves inside it.
 `win:to_parent(x, y) -> x, y`          window's client space -> its parent space
 `win:from_parent(x, y) -> x, y`        window's parent space -> its client space
 -------------------------------------- ---------------------------------------
+
+### Popup windows
+
+Popup windows are frameless, non-focusable, non-moveable child windows.
+They are created with `ui:popup(attrs1, ...)`. Clicking outside the popup
+area hides the popup, subject to the `autohide` property.
 
 ### Moving frameless windows
 
@@ -800,7 +805,7 @@ TODO
 TODO
 -------------------------------------- ---------------------------------------
 
-## Check boxes
+## Checkboxes
 
 -------------------------------------- ---------------------------------------
 TODO
@@ -849,12 +854,6 @@ TODO
 -------------------------------------- ---------------------------------------
 
 ## Scroll boxes
-
--------------------------------------- ---------------------------------------
-TODO
--------------------------------------- ---------------------------------------
-
-## Pop-up windows
 
 -------------------------------------- ---------------------------------------
 TODO
