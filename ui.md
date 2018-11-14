@@ -44,28 +44,28 @@ ui:run()
         * [`ui.selector`](#selectors) - element selector
         * `ui.element_list` - list of elements
         * [`ui.stylesheet`](#stylesheets) - stylesheet
-        * [`ui.transition`](#transition%20animations) - attribute transition
+        * [`ui.transition`](#transition-animations) - attribute transition
         * [`ui.element`](#elements) - object with styles and transitions
            * [`ui.window`](#windows) - top-level window: a thin layer over [nw]'s windows
-              * [`ui.popup`](#popup%20windows) - frameless pop-up window
-           * [`ui.layer`][#layers] - the basic UI building block
-              * [`ui.window.view_class`](#the%20top%20layer) - a window's top layer
+              * [`ui.popup`](#popup-windows) - frameless pop-up window
+           * [`ui.layer`](#layers) - the basic UI building block
+              * [`ui.window.view_class`](#the-top-layer) - a window's top layer
               * [`ui.editbox`](#editboxes) - editbox
               * [`ui.dropdown`](#drop-downs) - drop-down menu
               * [`ui.slider`](#sliders) - slider
               * [`ui.checkbox`](#checkboxes) - checkbox
-              * [`ui.radiobutton`](#radio%20buttons) - radio button
-              * [`ui.choicebutton`](#multi-choice%20buttons) - multi-choice button
-              * [`ui.colorpicker`](#color%20pickers) - color picker
+              * [`ui.radiobutton`](#radio-buttons) - radio button
+              * [`ui.choicebutton`](#multi-choice-buttons) - multi-choice button
+              * [`ui.colorpicker`](#color-pickers) - color picker
               * [`ui.calendar`](#calendars) - calendar
               * [`ui.image`](#images) - static image
-              * [`ui.progressbar`](#progress%20bars) - progress bar
+              * [`ui.progressbar`](#progress-bars) - progress bar
               * [`ui.grid`](#grids) - grid
               * [`ui.button`](#buttons) - button
               * [`ui.menu`](#menus) - menu
               * [`ui.scrollbar`](#scrollbars) - scrollbar
               * [`ui.scrollbox`](#scrollboxes) - scrollbox
-              * [`ui.tablist`](#tab%20lists) - tab list
+              * [`ui.tablist`](#tab-lists) - tab list
 
 
 ## The ui module/singleton
