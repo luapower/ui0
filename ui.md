@@ -775,6 +775,9 @@ and behavior and additional properties, methods and events. Widgets can be
 extended by subclassing and method overriding and can be over-styled with
 `ui:style()` or by assigning them a different stylesheet.
 
+The methods below are actually widget classes used as methods (see the [oo]
+section on virtual classes), so `ui.button` is the button class, etc.
+
 ----------------------------------------------- ------------------------------
 __input widgets__
 [`ui:button(...)`](#buttons)                    create a button
