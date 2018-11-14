@@ -62,7 +62,7 @@ ui:run()
               * [`ui.calendar`](#calendars) - calendar
               * [`ui.image`](#images) - static image
               * [`ui.progressbar`](#progress-bars) - progress bar
-              * [`ui.grid`](#grids) - grid
+              * [`ui.grid`](#editable-grids) - editable grid
               * [`ui.scrollbar`](#scrollbars) - scrollbar
               * [`ui.scrollbox`](#scrollboxes) - scrollbox
               * [`ui.tablist`](#tab-lists) - tab list
@@ -764,7 +764,7 @@ __output__
 [`ui:image(...)`](#images)                      reate an image
 [`ui:progressbar(...)`](#progress-bars)         reate a progress bar
 __input/output__
-[`ui:grid(...)`](#grids)                        reate a grid
+[`ui:grid(...)`](#editable-grids)               create a grid
 __containers__
 [`ui:scrollbar(...)`](#scrollbars)              reate a scroll bar
 [`ui:scrollbox(...)`](#scrollboxes)             reate a scroll box
@@ -818,6 +818,12 @@ TODO
 -------------------------------------- ---------------------------------------
 
 ## Multi-choice buttons
+
+-------------------------------------- ---------------------------------------
+TODO
+-------------------------------------- ---------------------------------------
+
+## Color pickers
 
 -------------------------------------- ---------------------------------------
 TODO
