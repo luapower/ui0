@@ -873,12 +873,13 @@ TODO
 
 ## Creating new widgets
 
-The API for creating and extending widgets is larger and more complex
-than the API for instantiating and using existing widgets. This is normal,
-since widgets are supposed to encapsulate complex user interaction patterns
+The API for creating and extending widgets is necessarily larger and more
+complex than the API for instantiating and using existing widgets, since
+widgets are supposed to encapsulate complex user interaction patterns
 as well as provide customizable presentation and behavior.
 
-The main topics that need to be understood in order to create new widgets are:
+The main topics that need to be understood in order to create new widgets
+or extend existing ones are:
 
  * the [object system][oo] and its extensibility mechanisms:
 	* subclassing and instantiation
@@ -946,11 +947,12 @@ Validate a property when being set against a list of allowed values.
 
 ### `object:warn(fmt, ...)`
 
-Issue a warning on `stderr`.
+Issue a warning on `stderr`. Use this to report API misuses that are not
+fatal (ideally there should be no fatal errors at all).
 
 ### `object:check(ret, fmt, ...) -> ret|nil`
 
-Issue a warning if `ret` is falsey or return `ret`.
+Issue a warning if `ret` is falsey otherwise return `ret`.
 
 ### Submodule autoloading
 
