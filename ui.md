@@ -932,7 +932,8 @@ TODO
 ## Progress bars
 
 ------------ ---------------------- ------------ -----------------------------
-TODO
+r/w property `progress`             `0`          progress in `0..1`
+stub         `format_text(p) -> s`               format progress text
 ------------ ---------------------- ------------ -----------------------------
 
 ## Editable grids
@@ -944,14 +945,42 @@ TODO
 ## Scroll bars
 
 ------------ ---------------------- ------------ -----------------------------
-TODO
+r/w property `content_length`       `0`
+r/w property `view_length`          `0`
+r/w property `offset`               `0`          in `0..content_length` range
+r/w property `vertical`             `true`       rotated 90deg
+r/w property `step`                 `false`      snap
+r/w property `autohide`             `false`      hide when mouse is not near the scrollbar
+r/w property `autohide_empty`       `true`       hide when content is smaller than the view
+r/w property `autohide_distance`    `20`         distance around the scrollbar for `autohide`
+r/w property `click_scroll_length`  `300`        how much to scroll when clicking on the track
 ------------ ---------------------- ------------ -----------------------------
+
+------------ ----------------------------------- -----------------------------
+tag          `:near`                             autohidden scrollbar is visible
+tag          `vertical`                          scrollbar is vertical
+tag          `horizontal`                        scrollbar is horizontal
+method       `empty()`                           the content is smaller than the view
+method       `scroll_to(offset, [duration])`     scroll to offset
+method       `scroll_to_view(x, w, [duration])`  scroll to position in view
+method       `scroll(delta, [duration])`         scroll a number of pixels
+method       `scroll_pages(pages, [duration])`   scroll a number of pages
+------------ ----------------------------------- -----------------------------
 
 ## Scroll boxes
 
 ------------ ---------------------- ------------ -----------------------------
-TODO
+r/w property `wheel_scroll_length`  `50`         how much is a mouse wheel notch
+r/w property `auto_h`               `false`      auto-height: TODO
+r/w property `auto_w`               `false`      auto-width: TODO
+component    `vscrollbar`                        the vertical scrollbar
+component    `hscrollbar`                        the horizontal scrollbar
 ------------ ---------------------- ------------ -----------------------------
+
+------------ ----------------------------------- -----------------------------
+method       `scroll_to_view(x,y,w,h)`           x, y is in content's content space.
+method       `scrollbox:view_rect() -> x,y,w,h`  view rect in content's content space.
+------------ ----------------------------------- -----------------------------
 
 ## Tab lists
 
