@@ -49,7 +49,9 @@ ui:run()
            * [`ui.window`](#windows) - top-level window: a thin layer over [nw]'s windows
               * [`ui.popup`](#popup-windows) - frameless pop-up window
            * [`ui.layer`](#layers) - the basic UI building block
-              * [`ui.window.view_class`](#the-top-layer) - a window's top layer
+              * [`ui.window_view`](#the-top-layer) - a window's top layer
+              * [`ui.button`](#buttons) - button
+              * [`ui.menu`](#menus) - menu
               * [`ui.editbox`](#editboxes) - editbox
               * [`ui.dropdown`](#drop-downs) - drop-down menu
               * [`ui.slider`](#sliders) - slider
@@ -61,8 +63,6 @@ ui:run()
               * [`ui.image`](#images) - static image
               * [`ui.progressbar`](#progress-bars) - progress bar
               * [`ui.grid`](#grids) - grid
-              * [`ui.button`](#buttons) - button
-              * [`ui.menu`](#menus) - menu
               * [`ui.scrollbar`](#scrollbars) - scrollbar
               * [`ui.scrollbox`](#scrollboxes) - scrollbox
               * [`ui.tablist`](#tab-lists) - tab list
@@ -748,29 +748,29 @@ and behavior and additional properties, methods and events. Widgets can be
 extended by subclassing and overriding and can be over-styled with
 `ui:style()` or by assigning them a different stylesheet.
 
--------------------------------------- ---------------------------------------
+----------------------------------------------- ------------------------------
 __input__
-`ui:button(...)`                       create a button
-`ui:menu(...)`                         create a menu
-`ui:editbox(...)`                      create an editbox
-`ui:dropdown(...)`                     create a drop-down
-`ui:slider(...)`                       create a slider
-`ui:checkbox(...)`                     create a check box
-`ui:radiobutton(...)`                  create a radio button
-`ui:choicebutton(...)`                 create a multi-choice button
-`ui:colorpicker(...)`                  create a calendar
-`ui:calendar(...)`
+[`ui:button(...)`](#buttons)                    create a button
+[`ui:menu(...)`](#menus)                        create a menu
+[`ui:editbox(...)`](#editboxes)                 create an editbox
+[`ui:dropdown(...)`](#drop-downs)               create a drop-down
+[`ui:slider(...)`](#sliders)                    create a slider
+[`ui:checkbox(...)`](#checkboxes)               create a check box
+[`ui:radiobutton(...)`](#radio-buttons)         create a radio button
+[`ui:choicebutton(...)`](#multi-choice-buttons) create a multi-choice button
+[`ui:colorpicker(...)`](#color-pickers)         create a color picker
+[`ui:calendar(...)`](#calendars)                create a calendar
 __output__
-`ui:image(...)`                        create an image
-`ui:progressbar(...)`                  create a progress bar
+[`ui:image(...)`](#images)                      reate an image
+[`ui:progressbar(...)`](#progress-bars)         reate a progress bar
 __input/output__
-`ui:grid(...)`                         create a grid
+[`ui:grid(...)`](#grids)                        reate a grid
 __containers__
-`ui:scrollbar(...)`                    create a scroll bar
-`ui:scrollbox(...)`                    create a scroll box
-`ui:popup(...)`                        create a pop-up window
-`ui:tablist(...)`                      create a tab list
--------------------------------------- ---------------------------------------
+[`ui:scrollbar(...)`](#scrollbars)              reate a scroll bar
+[`ui:scrollbox(...)`](#scrollboxes)             reate a scroll box
+[`ui:popup(...)`](#popups)                      reate a pop-up window
+[`ui:tablist(...)`](#tab-lists)                 reate a tab list
+----------------------------------------------- ------------------------------
 
 __TIP:__ Widgets are implemented in separate modules. Run each module
 standalone to see a demo of the widgets implemented in the module.
