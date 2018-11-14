@@ -1040,13 +1040,13 @@ Many aspects of the core engine can also be extended, by:
   * changing the 2D graphics library requires mostly just re-implementing
   the various `draw_*()` methods of the layer class, since most widgets
   don't use the graphics library directly, but use layers instead.
-  Anything library that can draw on a BGRA bitmap can work.
+  Any library that can draw on a BGRA bitmap can work.
   * changing the text rendering engine requires re-implementing
-  `draw_text()`, except for the editbox widget which uses [tr]'s
-  selection and cursor objects extensively to jump, select and edit the text,
-  so those would have to be provided too.
+  `sync_text_*()` and `draw_text()`, except for the editbox widget which
+  uses [tr]'s selection and cursor objects extensively to select and edit
+  the text, so those would have to be provided too.
   * changing the native windows library is a bit harder because [nw]'s
   API is already very high-level and covers a lot of functionality
-  seldom found in other libraries of this type. Adding missing
-  functionality to [nw] insteaed would probably be easier.
+  seldom found in other libraries of this type. Adding missing functionality
+  to [nw] instead would probably be easier.
 
