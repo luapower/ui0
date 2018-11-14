@@ -38,7 +38,7 @@ ui:run()
 
 ## Class hierarchy
 
-  * [`oo.Object`] - [oo]'s base class
+  * [`oo.Object`][oo] - [oo]'s base class
      * `ui.object` - ui's base class. includes the [events] mixin.
         * `ui` - this module, also serving as the app singleton
         * `ui.selector` - element selector
