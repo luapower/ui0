@@ -38,19 +38,36 @@ ui:run()
 
 ## Class hierarchy
 
-  * `oo.Object` - [oo]'s base class
+  * [`oo.Object`] - [oo]'s base class
      * `ui.object` - ui's base class. includes the [events] mixin.
         * `ui` - this module, also serving as the app singleton
-        * `ui.selector` - element selectors
-        * `ui.element_list` - lists of elements
-        * `ui.stylesheet` - stylesheets
-        * `ui.transition` - attribute transitions
-        * `ui.element` - adds styling and transitions to objects
-           * `ui.window` - top-level windows: a thin layer over [nw]'s windows
-              * `ui.popup` - frameless pop-up windows
+        * `ui.selector` - element selector
+        * `ui.element_list` - list of elements
+        * `ui.stylesheet` - stylesheet
+        * `ui.transition` - attribute transition
+        * `ui.element` - object with styles and transitions
+           * `ui.window` - top-level window: a thin layer over [nw]'s windows
+              * `ui.popup` - frameless pop-up window
            * `ui.layer` - the basic UI building block
               * `ui.window.view_class` - a window's top layer
-              * any widget
+              * `ui.editbox`
+              * `ui.dropdown`
+              * `ui.slider`
+              * `ui.checkbox`
+              * `ui.radiobutton`
+              * `ui.choicebutton`
+              * `ui.colorpicker`
+              * `ui.calendar`
+              * `ui.image`
+              * `ui.progressbar`
+              * `ui.grid`
+              * `ui.button`
+              * `ui.menu`
+              * `ui.scrollbar`
+              * `ui.scrollbox`
+              * `ui.popup`
+              * `ui.tablist`
+
 
 ## The ui module/singleton
 
@@ -566,6 +583,9 @@ method        `from_other  (widget, x, y) -> x, y`    other's content space -> o
   * while a layer is `active`, it continues to be `hot` and receive
   `mousemove` events even when the mouse is outside its hit-test area or
   outside the window even (that is, the mouse is captured).
+  * `max_click_chain` controls how many repeated clicks are to be taken
+  as one single click chain (a double-click, triple-click or quadruple-click).
+  if set to 1 for instance, double-clicks are never received.
 
 #### Keyboard interaction
 
@@ -720,11 +740,13 @@ is a window, not another layer.
 
 Widgets are layers (usually containing other layers) with custom styling
 and behavior and additional properties, methods and events. Widgets can be
-extended by subclassing and overriding and can be re-styled with `ui:style()`
-or by assigning them a different stylesheet.
+extended by subclassing and overriding and can be over-styled with
+`ui:style()` or by assigning them a different stylesheet.
 
 -------------------------------------- ---------------------------------------
 __input__
+`ui:button(...)`                       create a button
+`ui:menu(...)`                         create a menu
 `ui:editbox(...)`                      create an editbox
 `ui:dropdown(...)`                     create a drop-down
 `ui:slider(...)`                       create a slider
@@ -738,9 +760,6 @@ __output__
 `ui:progressbar(...)`                  create a progress bar
 __input/output__
 `ui:grid(...)`                         create a grid
-__action__
-`ui:button(...)`                       create a button
-`ui:menu(...)`                         create a menu
 __containers__
 `ui:scrollbar(...)`                    create a scroll bar
 `ui:scrollbox(...)`                    create a scroll box
@@ -750,6 +769,18 @@ __containers__
 
 __TIP:__ Widgets are implemented in separate modules. Run each module
 standalone to see a demo of the widgets implemented in the module.
+
+## Buttons
+
+-------------------------------------- ---------------------------------------
+TODO
+-------------------------------------- ---------------------------------------
+
+## Menus
+
+-------------------------------------- ---------------------------------------
+TODO
+-------------------------------------- ---------------------------------------
 
 ## Editboxes
 
@@ -806,18 +837,6 @@ TODO
 -------------------------------------- ---------------------------------------
 
 ## Editable grids
-
--------------------------------------- ---------------------------------------
-TODO
--------------------------------------- ---------------------------------------
-
-## Buttons
-
--------------------------------------- ---------------------------------------
-TODO
--------------------------------------- ---------------------------------------
-
-## Menus
 
 -------------------------------------- ---------------------------------------
 TODO
