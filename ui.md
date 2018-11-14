@@ -63,8 +63,8 @@ ui:run()
               * [`ui.image`](#images) - static image
               * [`ui.progressbar`](#progress-bars) - progress bar
               * [`ui.grid`](#editable-grids) - editable grid
-              * [`ui.scrollbar`](#scrollbars) - scrollbar
-              * [`ui.scrollbox`](#scrollboxes) - scrollbox
+              * [`ui.scrollbar`](#scroll-bars) - scrollbar
+              * [`ui.scrollbox`](#scroll-boxes) - scrollbox
               * [`ui.tablist`](#tab-lists) - tab list
 
 
@@ -727,7 +727,7 @@ themselves and to size and position their children recursively.
 
 ### The top layer
 
-All windows have a top layer in their `view` field. Its size is kept in sync
+Windows have a top layer in their `view` field. Its size is kept in sync
 with the window's client area and it is configured to clear the window's
 bitmap on every repaint:
 
@@ -766,8 +766,8 @@ __output__
 __input/output__
 [`ui:grid(...)`](#editable-grids)               create a grid
 __containers__
-[`ui:scrollbar(...)`](#scrollbars)              reate a scroll bar
-[`ui:scrollbox(...)`](#scrollboxes)             reate a scroll box
+[`ui:scrollbar(...)`](#scroll-bars)             reate a scroll bar
+[`ui:scrollbox(...)`](#scroll-boxes)            reate a scroll box
 [`ui:popup(...)`](#popups)                      reate a pop-up window
 [`ui:tablist(...)`](#tab-lists)                 reate a tab list
 ----------------------------------------------- ------------------------------
