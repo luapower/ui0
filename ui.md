@@ -449,10 +449,10 @@ __grid layout__
 `grid_pos`                           `nil`              element position in grid: `'[row][/span] [col][/span]'`
 `grid_align_x`                       `'stretch'`        how each item is x-aligned: `'stretch'`, `'start'`/`'l[eft]'`, `'end'`/`'r[ight]'`, `'c[enter]'`,
 `grid_align_y`                       `'stretch'`        how each item is y-aligned: `'stretch'`, `'start'`/`'t[op]'`, `'end'`/`'b[ottom]'`, `'c[enter]'`,
-`align_x`, `align_y`                 false              item `grid_align_x` and `grid_align_y` override
+`align_x`, `align_y`                 false              item `grid_align_x` and `grid_align_y` overrides
 __transparency & clipping__
 `opacity`                            `1`                overall opacity (0..1)
-`clip_content`                       `false`            content clip area: `'padding'`/`true`, `'background'`, `false` (don't clip)
+`clip_content`                       `false`            content clipping: `false` (don't clip), `'padding'`/`true` (clip to content box), `'background'` (clip to background clip box)
 __borders__
 `border_width`                       `0`                border thickness for all sides
 `border_width_<side>`                `false`            `left`/`right`/`top`/`bottom` border thickness override
