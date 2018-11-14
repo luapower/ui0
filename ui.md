@@ -440,14 +440,16 @@ __flexbox layout__
 __grid layout__
 `grid_flow`                          `'x'`              main axis & direction for automatic positioning: `'x'`, `'y'`, `'xr'`, `'yr'`, `'xb'`, `'yb'`, `'xrb'`, `'yrb'`
 `grid_wrap`                          `1`                number of rows/columns on the main axis of flow
-`grid_cols`                          `{}`               column size fractions `{fr1, ...}` for `grid_cols_align='stretch'`
-`grid_rows`                          `{}`               row size fractions `{fr1, ...}` for `grid_rows_align='stretch'`
+`grid_align_cols`                    `'stretch'`        how columns as a whole are aligned: `'stretch'`, `'start'`/`'l[eft]'`, `'end'`/`'r[ight]'`, `'c[enter]'`, `'space_between'`, `'space_around'`, `'space_evenly'`
+`grid_align_rows`                    `'stretch'`        how rows as a whole are aligned: `'stretch'`, `'start'`/`'t[op]'`, `'end'`/`'b[ottom]'`, `'c[enter]'`, `'space_between'`, `'space_around'`, `'space_evenly'`
+`grid_cols`                          `{}`               column stretch fractions `{fr1, ...}`
+`grid_rows`                          `{}`               row stretch fractions `{fr1, ...}`
 `grid_col_gap`                       `0`                gap size between grid columns
 `grid_row_gap`                       `0`                gap size between grid rows
 `grid_pos`                           `nil`              element position in grid: `'[row][/span] [col][/span]'`
-`grid_align_x`                       `'stretch'`        `'stretch'`, `'start'`/`'l[eft]'`, `'end'`/`'r[ight]'`, `'c[enter]'`, `'space_between'`, `'space_around'`, `'space_evenly'`
-`grid_align_y`                       `'stretch'`        `'stretch'`, `'start'`/`'t[op]'`, `'end'`/`'b[ottom]'`, `'c[enter]'`, `'space_between'`, `'space_around'`, `'space_evenly'`
-`align_x`, `align_y`                 false              item `grid_cols_align` and `grid_rows_align` override
+`grid_align_x`                       `'stretch'`        how each item is x-aligned: `'stretch'`, `'start'`/`'l[eft]'`, `'end'`/`'r[ight]'`, `'c[enter]'`,
+`grid_align_y`                       `'stretch'`        how each item is y-aligned: `'stretch'`, `'start'`/`'t[op]'`, `'end'`/`'b[ottom]'`, `'c[enter]'`,
+`align_x`, `align_y`                 false              item `grid_align_x` and `grid_align_y` override
 __transparency & clipping__
 `opacity`                            `1`                overall opacity (0..1)
 `clip_content`                       `false`            content clip area: `'padding'`/`true`, `'background'`, `false` (don't clip)
