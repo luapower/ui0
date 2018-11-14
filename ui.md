@@ -1029,11 +1029,13 @@ See [glue].autoload.
 
 ## Extending the core engine
 
-Many aspects of the core engine can also be extended, by:
+Many aspects of the core engine can also be extended with:
 
   * adding new attribute types and type matches
   * adding new transition interpolators
   * adding new transition blend modes
+  * adding new ways to look-up fonts
+  * adding new image file decoders
 
 ## Changing the underlying libraries
 
