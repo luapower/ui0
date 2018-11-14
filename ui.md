@@ -41,7 +41,7 @@ ui:run()
   * [`oo.Object`][oo] - [oo]'s base class
      * `ui.object` - ui's base class. includes the [events] mixin.
         * `ui` - this module, also serving as the app singleton
-        * `ui.selector` - element selector
+        * [`ui.selector`][#selectors] - element selector
         * `ui.element_list` - list of elements
         * `ui.stylesheet` - stylesheet
         * `ui.transition` - attribute transition
@@ -894,7 +894,7 @@ The main topics that need to be understood in order to create new widgets are:
 
 ### The `ui.object` base class
 
-  * inherits [oo].Object.
+  * inherits [`oo.Object`][oo].
   * inherits the [events] mixin.
   * common ancestor of all classes.
   * tweaked so that class hierarchy depth does not affect performance.
