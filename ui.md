@@ -150,7 +150,7 @@ If you are on multigit, you can get them with:
 	$ mgit clone fonts-open-sans fonts-ionicons
 
 If you have them somewhere else, set `ui.default_fonts_path` after
-loading [ui] (or set it to `false` if you don't want default fonts at all).
+loading [ui] (or set that to `false` if you don't want default fonts at all).
 
 #### Custom fonts
 
@@ -160,8 +160,8 @@ Custom fonts can be added with:
   * `ui:add_mem_font(...)`, which calls `tr:add_mem_font(...)`.
 
 See [tr] for details on those methods. To change the default font used
-by all the layers and widgets, set `ui.layer.font` before creating any
-layers or widgets, or add a style on the `layer` tag with that.
+for text by all the layers and widgets, set `ui.layer.font` before creating
+any layers or widgets, or add a style on the `layer` tag with that.
 
 #### Fonts from google fonts
 
