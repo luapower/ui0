@@ -21,7 +21,7 @@ and [milestones](https://github.com/luapower/ui/milestones).
 ## Before using
 
 1. You need to get some fonts in order to see text on screen. Refer to
-[Font management](#font-management) below for how to do that.
+[Font management](#font-management) below for that.
 
 2. Besides the many hard dependencies this library has, there are also a few
 runtime dependencies that are only loaded if/when certain features are used:
