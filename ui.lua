@@ -872,7 +872,7 @@ end
 function element:init_tags(t)
 	--custom class tags
 	local class_tags = self.tags
-	self.tags = {['*'] = true}
+	self.tags = {}
 	add_tags(self.tags, class_tags)
 
 	--classname tags
@@ -2172,12 +2172,12 @@ ui:memoize'image_pattern'
 function ui:add_font_file(...) return self.tr:add_font_file(...) end
 function ui:add_mem_font(...) return self.tr:add_mem_font(...) end
 
-ui.fonts_path = 'media/fonts'
+ui.default_fonts_path = 'media/fonts'
 ui.google_fonts_path = 'media/fonts/gfonts'
 ui.use_gfonts = false
 
 function ui:add_default_fonts(dir)
-	local dir = self.fonts_path
+	local dir = self.default_fonts_path
 	if not dir then return end
 	dir = dir:gsub('[\\/]$', '') .. '/'
 	--$ mgit clone fonts-open-sans

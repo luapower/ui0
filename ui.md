@@ -140,30 +140,30 @@ Fonts must be registered before they can be used (fonts can be loaded from
 files or from memory buffers). A few default fonts are registered
 automatically to make the default styles work.
 
-### Default fonts
+#### Default fonts
 
-The default styles depend on free fonts `'Open Sans Regular'`
-and `'Ionicons'`, which are looked for in `ui.fonts_path` (which
-defaults to `media/fonts`) as `OpenSans-Regular.ttf` and `ionicons.ttf`
-respectively. They are available as luapower packages
-[`fonts-open-sans`](luapower.com/fonts-ionicons) and
-[`fonts-ionicons`](luapower.com/fonts-ionicons).
-If you are using multigit, you can get them with:
+Default fonts are in packages
+[fonts-open-sans](/fonts-ionicons) and
+[fonts-ionicons](/fonts-ionicons).
+If you are on multigit, you can get them with:
 
 	$ mgit clone fonts-open-sans fonts-ionicons
 
-To skip registering them, set `ui.fonts_path` to `false` before using [ui].
+If you have them somewhere else, set `ui.default_fonts_path` after
+loading [ui] (or set it to `false` if you don't want default fonts at all).
 
-### Custom fonts
+#### Custom fonts
 
 Custom fonts can be added with:
 
   * `ui:add_font_file(...)`, which calls `tr:add_font_file(...)`, or
   * `ui:add_mem_font(...)`, which calls `tr:add_mem_font(...)`.
 
-See [tr] for details.
+See [tr] for details on those methods. To change the default font used
+by all the layers and widgets, set `ui.layer.font` before creating any
+layers or widgets, or add a style on the `layer` tag with that.
 
-### Fonts from google fonts
+#### Fonts from google fonts
 
 Fonts from the google fonts repository can be used directly by name without
 the need to register them. To enable this, clone the google fonts repository
@@ -172,9 +172,7 @@ with:
 	$ git clone https://github.com/google/fonts media/fonts/gfonts
 
 and set `ui.use_gfonts = true` before using [ui] (set `ui.google_fonts_path`
-too if you cloned the repo somewhere else).
-
-You also need the [gfonts] module:
+too if you cloned the repo somewhere else). You also need the [gfonts] module:
 
 	$ mgit clone gfonts
 
@@ -1234,7 +1232,7 @@ OS integration is done exclusively through the [nw], [fs] and [time] modules,
 everything else being portable Lua code or portable C code. Even text shaping,
 a task usually delegated to the OS, is done with 100% portable code.
 The [nw] library itself has a frontend/backend split since it already
-supports multiple platforms, so porting [ui] to a new platform may end-up
-being only a matter of adding a new backend to [nw] (not to imply that this
+supports multiple platforms, so porting [ui] to a new platform may be
+only a matter of adding a new backend to [nw] (not to imply that this
 is easy, but at least it's contained).
 
