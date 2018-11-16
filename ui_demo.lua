@@ -554,6 +554,11 @@ local function test_widgets_flex()
 	win.view.grid_col_gap = 20
 	win.view.grid_row_gap = 20
 
+	ui:button{
+		parent = win,
+		text = 'Imma button',
+	}
+
 	ui:checkbox{
 		parent = win,
 		label =  {text = 'Check me', nowrap = false},
@@ -584,6 +589,11 @@ local function test_widgets_flex()
 		step_labels = {Low = 0, Medium = 5, High = 10},
 		step = 2,
 	}
+
+	ui:editbox{
+		parent = win,
+	}
+
 end
 
 --test_css()
