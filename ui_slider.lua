@@ -171,9 +171,9 @@ end
 
 function pin:move(cx)
 	local duration = not self.animate and 0 or nil
-	--self:transition('cx', cx, duration)
+	self:transition('cx', cx, duration)
 	if self.animate then
-		--self.slider.tip:settag(':visible', true)
+		self.slider.tip:settag(':visible', true)
 	end
 end
 
@@ -271,11 +271,9 @@ function slider:after_sync_layout()
 
 	t.x = p.w / 2
 
-	local s = string.format(t.format,
+	local text = string.format(t.format,
 		p.dragging and self:nearest_position(p.position) or self.position)
-	t:transition('text', s)
-
-	do return end
+	t:transition('text', text)
 
 	if self.step_labels then
 		local h = s.y + math.floor(s.h - (self:step_lines_visible() and 0 or 10))
