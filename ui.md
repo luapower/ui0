@@ -1240,7 +1240,11 @@ on the next frame, in a specific order, in multiple passes through the layer
 hierarchy: on a first pass, styles are applied (if any tags were added or
 removed; this can result in new transitions being created), then transitions
 are updated (if there are any in progress) and finished transitions are
-discarded. Layouts are then updated on a second pass.
+discarded. This is done via `sync()` which also calls `sync()` recursively
+on the layer's children (hence the top-down call order).
+
+Layouts are updated on a second pass by calling `sync_layout()` on the
+window's view layer.
 
 #### Layout synchronization
 
