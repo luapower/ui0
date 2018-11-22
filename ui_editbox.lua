@@ -237,7 +237,6 @@ function editbox:after_set_multiline(multiline)
 		end
 		self.clip_content = false --enable real (strict) bounding box
 		self.layout = 'textbox'
-		self.scrollable = true
 	else
 		self.layout = false
 		self.nowrap = true

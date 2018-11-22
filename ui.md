@@ -459,9 +459,8 @@ __behavior__
 `visible`                            `true`             visible and occupies space in the layout
 `enabled`                            `true`             looks enabled and can receive input
 `activable`                          `true`             can be clicked and hovered (set as hot)
-`vscrollable`                        `false`            enable mouse wheel when hot and not focused
-`hscrollable`                        `false`            enable mouse horiz. wheel when hot and not focused
-`scrollable`                         `false`            can be hit for vscroll or hscroll
+`vscrollable`                        `false`            enable mouse wheel when hot
+`hscrollable`                        `false`            enable mouse horiz. wheel when hot
 `focusable`                          `false`            can be focused
 `draggable`                          `true`             can be dragged (still needs to respond to `start_drag()`)
 `background_hittable`                `true`             background area receives mouse input even when there's no background

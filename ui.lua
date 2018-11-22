@@ -2303,9 +2303,8 @@ ui.layer = layer
 layer.visible = true
 layer._enabled = true
 layer.activable = true --can be clicked and set as hot
-layer.vscrollable = false --enable mouse wheel when hot and not focused
-layer.hscrollable = false --enable mouse horiz. wheel when hot and not focused
-layer.scrollable = false --can be hit for vscroll or hscroll
+layer.vscrollable = false --enable mouse wheel when hot
+layer.hscrollable = false --enable mouse horiz. wheel when hot
 layer.focusable = false --can be focused
 layer.draggable = true --can be dragged (still needs to respond to start_drag())
 layer.mousedown_activate = false --activate/deactivate on left mouse down/up
@@ -3882,8 +3881,8 @@ function layer:hit_test(x, y, reason)
 	local self_allowed =
 		   (reason == 'activate' and self.activable)
 		or (reason == 'drop' and self.tags[':drop_target'])
-		or (reason == 'vscroll' and (self.vscrollable or self.scrollable or self.focused))
-		or (reason == 'hscroll' and (self.hscrollable or self.scrollable or self.focused))
+		or (reason == 'vscroll' and self.vscrollable)
+		or (reason == 'hscroll' and self.hscrollable)
 
 	local cr = self.window.cr
 	local x, y = self:from_parent_to_box(x, y)
