@@ -1523,6 +1523,20 @@ function window:override_init(inherited, ui, t)
 		self:free()
 	end)
 
+	self:on('activated', function(self)
+		if self.focused_widget then
+			self.focused_widget:settag(':window_active', true)
+			self.focused_widget:fire'window_activated'
+		end
+	end)
+
+	self:on('deactivated', function(self)
+		if self.focused_widget then
+			self.focused_widget:settag(':window_active', false)
+			self.focused_widget:fire'window_deactivated'
+		end
+	end)
+
 	win:on({'changed', self}, function(win, _, state)
 		self:settag(':active', state.active)
 		self:settag(':fullscreen', state.fullscreen)
@@ -2831,9 +2845,9 @@ function layer:canfocus()
 end
 
 function window:unfocus_focused_widget()
-	if self.focused_widget then
-		self.focused_widget:unfocus()
-	end
+	local fw = self.focused_widget
+	if not fw then return end
+	fw:unfocus()
 end
 
 function layer:unfocus()
@@ -2841,6 +2855,7 @@ function layer:unfocus()
 	self.window.focused_widget = false
 	self:fire'lostfocus'
 	self:settag(':focused', false)
+	self:settag(':window_active', false)
 	local parent = self.parent
 	while parent and not parent.iswindow do
 		parent:settag(':child_focused', false)
@@ -2857,6 +2872,7 @@ function layer:focus(focus_children)
 			self.window:unfocus_focused_widget()
 			self:fire'gotfocus'
 			self:settag(':focused', true)
+			self:settag(':window_active', self.window.active)
 			local parent = self.parent
 			while parent and not parent.iswindow do
 				parent:settag(':child_focused', true)
@@ -3564,7 +3580,7 @@ layer.font_size   = false
 layer.nowrap      = false
 layer.text_dir    = false
 layer.text_color = '#fff'
-layer.line_spacing = 1
+layer.line_spacing = 1.2
 layer.paragraph_spacing = 2
 layer.text_dir = 'auto' --auto, rtl, ltr
 layer.nowrap = false
@@ -3660,6 +3676,9 @@ function layer:sync_text_align()
 		self._text_ha = ha
 		self._text_va = va
 		segs:align(0, 0, cw, ch, ha, va)
+		if self.clip_content == true then
+			segs:clip()
+		end
 	end
 	return segs
 end
@@ -3776,7 +3795,7 @@ end
 --layer drawing & hit testing ------------------------------------------------
 
 layer.opacity = 1
-layer.clip_content = false --'padding'/true, 'background', false
+layer.clip_content = false --true, 'background', false
 
 function layer:draw_content(cr) --called in own content space
 	self:draw_children(cr)
@@ -3817,12 +3836,12 @@ function layer:draw(cr) --called in parent's content space; child intf.
 	if clip then
 		cr:save()
 		cr:new_path()
-		self:background_path(cr) --'background' clipping is implicit in 'padding'
+		self:background_path(cr) --'background' clipping is implicit here
 		cr:clip()
 		if bg then
 			self:paint_background(cr)
 		end
-		if cc == 'padding' or cc == true then
+		if cc == true then
 			cr:new_path()
 			cr:rectangle(self:padding_rect())
 			cr:clip()
@@ -3914,8 +3933,8 @@ function layer:hit_test(x, y, reason)
 
 	--hit content's clip area
 	local in_cc
-	if cc and in_bg then --'background' clipping is implicit in 'padding'
-		if cc == 'padding' or cc == true then
+	if cc and in_bg then --'background' clipping is implicit here
+		if cc == true then
 			cr:new_path()
 			cr:rectangle(self:padding_rect())
 			if cr:in_fill(x, y) then
@@ -3952,7 +3971,7 @@ function layer:bounding_box(strict) --child interface
 		x, y, w, h = self:content_bounding_box(strict)
 		if cc then
 			x, y, w, h = box2d.clip(x, y, w, h, self:background_rect())
-			if cc == 'padding' or cc == true then
+			if cc == true then
 				x, y, w, h = box2d.clip(x, y, w, h, self:padding_rect())
 			end
 		end
