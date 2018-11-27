@@ -20,6 +20,8 @@ editbox.iswidget = true
 
 editbox.password = false
 editbox.maxlen = 4096
+editbox.park_eos = false
+editbox.park_bos = false
 
 --metrics & colors
 
@@ -109,6 +111,7 @@ editbox:stored_property'insert_mode'
 editbox:instance_only'insert_mode'
 
 function editbox:after_set_insert_mode(value)
+	self.selection.cursor1.insert_mode = value
 	self:settag(':insert_mode', value)
 end
 
@@ -281,22 +284,22 @@ function editbox:get_caret_w()
 end
 
 function editbox:caret_rect()
-	local x, y = self:text_to_mask(self.selection.cursor1:pos())
-	local w, h, dir = self.selection.cursor1:size()
+	local x, y, w, h, rtl = self.selection.cursor1:rect()
 	if self.password then
-		w = self:password_char_advance_x() * (w > 0 and 1 or -1)
+		x, y = self:text_to_mask(x, y)
+		w = self.insert_mode and self:password_char_advance_x() or 1
+		if rtl then
+			x = x - w
+		end
 	end
-	if not self.insert_mode then
-		w = w > 0 and 1 or -1
-	end
-	return snap(x), snap(y), w, h, dir
+	return snap(x), snap(y), w, h, rtl
 end
 
 function editbox:caret_scroll_rect()
 	local x, y, w, h = self:caret_rect()
 	--enlarge the caret rect to contain the line spacing.
 	local c1 = self.selection.cursor1
-	local line = c1:line()
+	local line = c1.seg.line
 	local y = y + line.ascent - line.spacing_ascent
 	local h = line.spacing_ascent - line.spacing_descent
 	return x, y, w, h
@@ -403,6 +406,8 @@ function editbox:save_state(state)
 	state.cursor2_seg_i = self.selection.cursor2.seg.index
 	state.cursor1_i = self.selection.cursor1.i
 	state.cursor2_i = self.selection.cursor2.i
+	state.cursor1_x = self.selection.cursor1.x
+	state.cursor2_x = self.selection.cursor2.x
 	state.text = self.text
 	return state
 end
@@ -415,6 +420,8 @@ function editbox:load_state(state)
 	self.selection.cursor2.seg = assert(segs[state.cursor2_seg_i])
 	self.selection.cursor1.i = state.cursor1_i
 	self.selection.cursor2.i = state.cursor2_i
+	self.selection.cursor1.x = state.cursor1_x
+	self.selection.cursor2.x = state.cursor2_x
 	self:invalidate()
 end
 
@@ -491,14 +498,14 @@ function editbox:keypress(key)
 
 	if key == 'right' or key == 'left' then
 		self:undo_group()
-		local what = ctrl and 'next_word' or 'next_pos'
-		local delta = key == 'right' and 1 or -1
+		local dir = key == 'right' and 'next' or 'prev'
+		local mode = ctrl and 'word' or 'pos'
 		if shift then
-			return self.selection.cursor1:move(what, delta)
+			return self.selection.cursor1:move('rel_cursor', dir, nil, mode)
 		else
 			local c1, c2 = self.selection:cursors()
 			if self.selection:empty() then
-				if c1:move(what, delta) then
+				if c1:move('rel_cursor', dir, nil, mode) then
 					c2:set(c1)
 					return true
 				end
@@ -517,20 +524,25 @@ function editbox:keypress(key)
 	then
 		local what, by
 		if key == 'up' then
-			what, by = 'next_line', -1
+			what, by = 'rel_line', -1
 		elseif key == 'down' then
-			what, by = 'next_line', 1
+			what, by = 'rel_line', 1
 		elseif key == 'pageup' then
-			what, by = 'next_page', -1
+			what, by = 'rel_page', -1
 		elseif key == 'pagedown' then
-			what, by = 'next_page', 1
+			what, by = 'rel_page', 1
 		elseif key == 'home' then
-			what, by = 'next_line', -1/0
+			what, by = 'offset', 0
 		elseif key == 'end' then
-			what, by = 'next_line', 1/0
+			what, by = 'offset', 1/0
 		end
 		self:undo_group()
-		local moved = self.selection.cursor1:move(what, by)
+		local moved = self.selection.cursor1:move(what, by,
+			nil,
+			not self.park_bos, not self.park_eos,
+			true, true,
+			self.park_bos, self.park_eos
+		)
 		if not shift then
 			self.selection.cursor2:set(self.selection.cursor1)
 		end
@@ -604,23 +616,19 @@ end
 editbox.cursor_text = 'text'
 editbox.cursor_selection = 'arrow'
 
-function editbox:hit_test_selection(x, y)
-	if not self.selection then return end
-	x, y = self:mask_to_text(x, y)
-	if self.selection:hit_test(x, y) then
-		return self, 'selection'
-	elseif self.selection.segments:hit_test(x, y) then
-		return self, 'text'
-	end
-end
-
 function editbox:override_hit_test_content(inherited, x, y, reason)
 	local widget, area = inherited(self, x, y, reason)
 	if widget then
 		return widget, area
 	end
+	if not self.selection then return end
 	if reason == 'activate' and self.activable then
-		return self:hit_test_selection(x, y)
+		local x, y = self:mask_to_text(x, y)
+		if self.selection:hit_test(x, y) then
+			return self, 'selection'
+		else
+			return self, 'text'
+		end
 	end
 end
 
