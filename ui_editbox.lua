@@ -945,9 +945,10 @@ if not ... then require('ui_demo')(function(ui, win)
 		x = x, y = y, parent = win,
 		h = 200,
 		parent = win,
-		font = 'Amiri,16',
+		font = 'Amiri,22',
 		unique_offsets = false,
-		text = 'Hello Hello Hello World! ال  ( مف ) اتيح ABC',
+		line_spacing = .9,
+		text = 'As-salāmu ʿalaykum! ال [( مف )] اتيح Hello Hello Hello Hello World! 123 السَّلَامُ عَلَيْكُمْ',
 		multiline = true,
 		cue = 'Type text here...',
 	}
