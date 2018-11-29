@@ -837,6 +837,7 @@ if not ... then require('ui_demo')(function(ui, win)
 
 	win.x = 500
 	win.w = 300
+	win.h = 900
 
 	ui:add_font_file('media/fonts/FSEX300.ttf', 'fixedsys')
 	local x, y = 10, 10
@@ -899,6 +900,15 @@ if not ... then require('ui_demo')(function(ui, win)
 	}
 	xy()
 
+	--invalid font
+	ui:editbox{
+		x = x, y = y, parent = win,
+		font = 'Invalid Font,20',
+	}
+	xy()
+
+	ui:add_font_file('media/fonts/amiri-regular.ttf', 'Amiri')
+
 	--rtl
 	ui:editbox{
 		x = x, y = y, parent = win,
@@ -919,7 +929,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	}
 	xy()
 
-	--multiline
+	--multiline rtl
 	ui:editbox{
 		x = x, y = y, parent = win,
 		h = 100,
@@ -930,15 +940,14 @@ if not ... then require('ui_demo')(function(ui, win)
 	}
 	xy()
 
-	--multiline rtl
 	ui:add_font_file('media/fonts/amiri-regular.ttf', 'Amiri')
 	ui:editbox{
 		x = x, y = y, parent = win,
-		h = 100,
+		h = 200,
 		parent = win,
 		font = 'Amiri,16',
 		unique_offsets = false,
-		text = 'HelloHelloHelloWorld! مفاتيح ABC',--\nLine2 Par\u{2029}NextPar', --(('Hello World!! '):rep(2)..'Enter \n'):rep(1),
+		text = 'Hello Hello Hello World! ال  ( مف ) اتيح ABC',
 		multiline = true,
 		cue = 'Type text here...',
 	}
