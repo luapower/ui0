@@ -117,14 +117,14 @@ for name, default in pairs(editbox.forwarded_cursor_properties) do
 		if not self.selection then --class default or invalid font
 			self[priv] = val
 		else
-			self.cursor[name] = val
+			self.selection.cursor2[name] = val
 		end
 	end
 	editbox['get_'..name] = function(self, val)
 		if not self.selection then
 			return self[priv]
 		else
-			return self.cursor[name]
+			return self.selection.cursor2[name]
 		end
 	end
 end
@@ -148,7 +148,7 @@ editbox:stored_property'insert_mode'
 editbox:instance_only'insert_mode'
 
 function editbox:after_set_insert_mode(value)
-	self.cursor.insert_mode = value
+	self.selection.cursor2.insert_mode = value
 	self:settag(':insert_mode', value)
 end
 
@@ -175,7 +175,7 @@ function editbox:set_text(s)
 	self:clear_undo_stack()
 	self.selection:select_all()
 	self:replace_selection(s, nil, false)
-	self.cursor:move('offset', 0)
+	self.selection.cursor2:move('offset', 0)
 	self.selection:reset()
 end
 
@@ -215,7 +215,6 @@ function editbox:after_init(ui, t)
 	--obeys maxlen and triggers a changed event.
 	self.multiline = t.multiline
 	self.selection = self:sync_text_shape():selection() or false
-	self.cursor = self.selection and self.selection.cursor2
 	self:sync_cursor()
 	self.text = t.text
 
@@ -235,7 +234,7 @@ function editbox:after_init(ui, t)
 		end
 
 		--scroll to view the caret and fire the `caret_moved` event.
-		function self.cursor.changed()
+		function self.selection.cursor2.changed()
 			self:scroll_to_view_caret()
 			self:fire'caret_moved'
 		end
