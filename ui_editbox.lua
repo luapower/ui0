@@ -20,8 +20,6 @@ editbox.iswidget = true
 
 editbox.password = false
 editbox.maxlen = 4096
-editbox.park_eos = false
-editbox.park_bos = false
 
 --metrics & colors
 
@@ -103,6 +101,45 @@ ui:style([[
 	transition_duration_border_color = .5,
 })
 
+--forwarded cursor properties (see `tr` for meaning)
+
+editbox.forwarded_cursor_properties = {
+	park_home = true,
+	park_end = true,
+	unique_offsets = false,
+	wrapped_space = true,
+}
+
+for name, default in pairs(editbox.forwarded_cursor_properties) do
+	local priv = '_'..name
+	editbox[priv] = default
+	editbox['set_'..name] = function(self, val)
+		if not self.selection then --class default or invalid font
+			self[priv] = val
+		else
+			self.cursor[name] = val
+		end
+	end
+	editbox['get_'..name] = function(self, val)
+		if not self.selection then
+			return self[priv]
+		else
+			return self.cursor[name]
+		end
+	end
+end
+
+function editbox:sync_cursor()
+	if not self.selection then return end
+	--forward properties
+	local c1 = self.selection.cursor1
+	local c2 = self.selection.cursor2
+	for prop in pairs(self.forwarded_cursor_properties) do
+		c1[prop] = self['_'..prop]
+		c2[prop] = self['_'..prop]
+	end
+end
+
 --insert_mode property
 
 editbox.insert_mode = false
@@ -111,7 +148,7 @@ editbox:stored_property'insert_mode'
 editbox:instance_only'insert_mode'
 
 function editbox:after_set_insert_mode(value)
-	self.selection.cursor1.insert_mode = value
+	self.cursor.insert_mode = value
 	self:settag(':insert_mode', value)
 end
 
@@ -138,6 +175,8 @@ function editbox:set_text(s)
 	self:clear_undo_stack()
 	self.selection:select_all()
 	self:replace_selection(s, nil, false)
+	self.cursor:move('offset', 0)
+	self.selection:reset()
 end
 
 editbox:instance_only'text'
@@ -176,6 +215,8 @@ function editbox:after_init(ui, t)
 	--obeys maxlen and triggers a changed event.
 	self.multiline = t.multiline
 	self.selection = self:sync_text_shape():selection() or false
+	self.cursor = self.selection and self.selection.cursor2
+	self:sync_cursor()
 	self.text = t.text
 
 	if self.selection then
@@ -194,7 +235,7 @@ function editbox:after_init(ui, t)
 		end
 
 		--scroll to view the caret and fire the `caret_moved` event.
-		function self.selection.cursor1.changed()
+		function self.cursor.changed()
 			self:scroll_to_view_caret()
 			self:fire'caret_moved'
 		end
@@ -279,27 +320,23 @@ function editbox:text_visible()
 	return true --always sync, even for the empty string.
 end
 
-function editbox:get_caret_w()
-	return (self.selection.cursor1:size())
-end
-
 function editbox:caret_rect()
-	local x, y, w, h, rtl = self.selection.cursor1:rect()
+	local cursor = self.selection.cursor2
+	local x, y, w, h = cursor:rect()
 	if self.password then
 		x, y = self:text_to_mask(x, y)
 		w = self.insert_mode and self:password_char_advance_x() or 1
-		if rtl then
+		if cursor:rtl() then
 			x = x - w
 		end
 	end
-	return snap(x), snap(y), w, h, rtl
+	return snap(x), snap(y), w, h
 end
 
 function editbox:caret_scroll_rect()
 	local x, y, w, h = self:caret_rect()
 	--enlarge the caret rect to contain the line spacing.
-	local c1 = self.selection.cursor1
-	local line = c1.seg.line
+	local line = self.selection.cursor2.seg.line
 	local y = y + line.ascent - line.spacing_ascent
 	local h = line.spacing_ascent - line.spacing_descent
 	return x, y, w, h
@@ -499,13 +536,13 @@ function editbox:keypress(key)
 	if key == 'right' or key == 'left' then
 		self:undo_group()
 		local dir = key == 'right' and 'next' or 'prev'
-		local mode = ctrl and 'word' or 'pos'
+		local mode = ctrl and 'word' or nil
 		if shift then
-			return self.selection.cursor1:move('rel_cursor', dir, nil, mode)
+			return self.selection.cursor2:move('rel_cursor', dir, mode)
 		else
 			local c1, c2 = self.selection:cursors()
 			if self.selection:empty() then
-				if c1:move('rel_cursor', dir, nil, mode) then
+				if c1:move('rel_cursor', dir, mode) then
 					c2:set(c1)
 					return true
 				end
@@ -537,14 +574,9 @@ function editbox:keypress(key)
 			what, by = 'offset', 1/0
 		end
 		self:undo_group()
-		local moved = self.selection.cursor1:move(what, by,
-			nil,
-			not self.park_bos, not self.park_eos,
-			true, true,
-			self.park_bos, self.park_eos
-		)
+		local moved = self.selection.cursor2:move(what, by)
 		if not shift then
-			self.selection.cursor2:set(self.selection.cursor1)
+			self.selection.cursor1:set(self.selection.cursor2)
 		end
 		return moved
 	elseif key_only and key == 'insert' then
@@ -553,11 +585,8 @@ function editbox:keypress(key)
 	elseif key_only and (key == 'delete' or key == 'backspace') then
 		self:undo_group'delete'
 		if self.selection:empty() then
-			if key == 'delete' then --remove the char after the cursor
-				self.selection.cursor1:move('next_offset', 1)
-			else --remove the char before the cursor
-				self.selection.cursor1:move('next_offset', -1)
-			end
+			self.selection.cursor2:move('rel_cursor',
+				key == 'delete' and 'next' or 'prev', 'char')
 		end
 		return self:replace_selection('', true)
 	elseif ctrl and key == 'A' then
@@ -597,8 +626,13 @@ end
 function editbox:gotfocus()
 	if not self.selection then return end
 	if not self.active then
-		self.selection:select_all()
-		self.caret_visible = self.selection:empty()
+		if not self.multiline then
+			self.selection:select_all()
+			self.caret_visible = self.selection:empty()
+		else
+			self.selection:reset()
+			self.caret_visible = true
+		end
 	else
 		self.caret_visible = true
 	end
@@ -607,7 +641,9 @@ end
 function editbox:lostfocus()
 	if not self.selection then return end
 	self.caret_visible = false
-	self.selection.cursor1:move('offset', 0)
+	if not self.multiline then
+		self.selection.cursor2:move('offset', 0)
+	end
 	self.selection:reset()
 end
 
@@ -642,19 +678,25 @@ end
 
 function editbox:tripleclick(x, y)
 	if not self.selection then return end
-	self.selection:select_all()
+	if not self.multiline then
+		self.selection:select_all()
+	else
+		self.selection:select_line()
+	end
 end
 
 function editbox:mousedown(x, y)
 	if not self.selection then return end
-	self.selection.cursor1:move('pos', self:mask_to_text(x, y))
+	if not self.ui:key'shift' then
+		self.selection.cursor2:move('pos', self:mask_to_text(x, y))
+	end
 	self.selection:reset()
 end
 
 function editbox:mousemove(x, y)
 	if not self.selection then return end
 	if not self.active then return end
-	self.selection.cursor1:move('pos', self:mask_to_text(x, y))
+	self.selection.cursor2:move('pos', self:mask_to_text(x, y))
 end
 
 --password mask drawing & hit testing
@@ -793,6 +835,7 @@ end
 
 if not ... then require('ui_demo')(function(ui, win)
 
+	win.x = 500
 	win.w = 300
 
 	ui:add_font_file('media/fonts/FSEX300.ttf', 'fixedsys')
@@ -882,6 +925,20 @@ if not ... then require('ui_demo')(function(ui, win)
 		h = 100,
 		parent = win,
 		text = 'HelloHelloHelloWorld! Enter\nLine2 Par\u{2029}NextPar', --(('Hello World!! '):rep(2)..'Enter \n'):rep(1),
+		multiline = true,
+		cue = 'Type text here...',
+	}
+	xy()
+
+	--multiline rtl
+	ui:add_font_file('media/fonts/amiri-regular.ttf', 'Amiri')
+	ui:editbox{
+		x = x, y = y, parent = win,
+		h = 100,
+		parent = win,
+		font = 'Amiri,16',
+		unique_offsets = false,
+		text = 'HelloHelloHelloWorld! مفاتيح ABC',--\nLine2 Par\u{2029}NextPar', --(('Hello World!! '):rep(2)..'Enter \n'):rep(1),
 		multiline = true,
 		cue = 'Type text here...',
 	}
