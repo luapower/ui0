@@ -308,11 +308,6 @@ function editbox:after_set_multiline(multiline)
 	end
 end
 
-function editbox:scroll_to_view_caret()
-	if not self.scrollbox then return end
-	self.scrollbox:scroll_to_view(self:caret_scroll_rect())
-end
-
 --sync'ing
 
 function editbox:text_visible()
@@ -336,25 +331,18 @@ function editbox:caret_scroll_rect()
 	local x, y, w, h = self:caret_rect()
 	--enlarge the caret rect to contain the line spacing.
 	local line = self.selection.cursor2.seg.line
-	local y = y + line.ascent - line.spacing_ascent
-	local h = line.spacing_ascent - line.spacing_descent
+	local y = y + line.ascent - line.spaced_ascent
+	local h = line.spaced_ascent - line.spaced_descent
 	return x, y, w, h
 end
 
-function editbox:override_sync_text_align(inherited)
-	if self.password then
-		self.text_align_x = 'left' --only left-alignment supported!
-	end
-	local segs = inherited(self)
-	if not self.selection then
-		return segs
-	end
-	if self.password then
-		self:sync_password_mask(segs)
-	end
-
-	--move the text behind the editbox such that the caret remains visible.
-	if not self.multiline then
+--move the text behind the editbox such that the caret remains visible.
+function editbox:scroll_to_view_caret()
+	if not self.selection then return end
+	if self.multiline then
+		self.scrollbox:scroll_to_view(self:caret_scroll_rect())
+	else
+		local segs = self.selection.segments
 		local line_w
 		if self.password then
 			local t = segs.lines.pw_cursor_xs
@@ -364,8 +352,9 @@ function editbox:override_sync_text_align(inherited)
 		end
 		local x, _, w = self:caret_rect()
 		local view_w = self.cw - w
-		local sx = segs.lines.x
+		local lines_x = segs.lines.x
 		if line_w > view_w then
+			local sx = segs.lines.x
 			local ax = segs.lines[1].x --alignment x.
 			local sx = sx + ax --text offset relative to the editbox.
 			x = x - sx
@@ -381,8 +370,10 @@ function editbox:override_sync_text_align(inherited)
 			--reset the x-offset in order to use the default alignment from `tr`.
 			segs.lines.x = 0 + adjustment
 		end
+		if segs.lines.x ~= lines_x then
+			segs.clip_valid = false
+		end
 	end
-	return segs
 end
 
 --drawing cursor & selection
@@ -708,7 +699,9 @@ end
 --rectangles. We also need to translate back to text space for hit-testing.
 
 --compute the text-space to mask-space mappings on each text sync.
-function editbox:sync_password_mask(segs)
+function editbox:sync_password_mask()
+	if not self.selection then return end
+	local segs = self.selection.segments
 	if segs.lines.pw_cursor_is then return end
 	segs.lines.pw_cursor_is = {}
 	segs.lines.pw_cursor_xs = {}
@@ -758,7 +751,7 @@ function editbox:draw_password_char(cr, i, w, h)
 	cr:fill()
 end
 
-function editbox:draw_password_mask(cr, segs)
+function editbox:draw_password_mask(cr)
 	local w = self:password_char_advance_x()
 	local h = self.ch
 	local segs = self.selection.segments
@@ -774,10 +767,15 @@ end
 
 function editbox:override_draw_text(inherited, cr)
 	if self.password then
-		local segs = self:sync_text_shape()
-		self:draw_password_mask(cr, segs)
+		self:draw_password_mask(cr)
 	else
 		inherited(self, cr)
+	end
+end
+
+function editbox:after_sync_text_align()
+	if self.password then
+		self:sync_password_mask()
 	end
 end
 
@@ -866,6 +864,22 @@ if not ... then require('ui_demo')(function(ui, win)
 	}
 	xy()
 
+	--right align
+	ui:editbox{
+		x = x, y = y, parent = win,
+		text = 'Hello World!',
+		text_align_x = 'right',
+	}
+	xy()
+
+	--center align
+	ui:editbox{
+		x = x, y = y, parent = win,
+		text = 'Hello World!',
+		text_align_x = 'center',
+	}
+	xy()
+
 	--scrolling, left align
 	ui:editbox{
 		x = x, y = y, parent = win,
@@ -885,6 +899,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	ui:editbox{
 		x = x, y = y, parent = win,
 		text = s,
+		text_align_x = 'center',
 	}
 	xy()
 

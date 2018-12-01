@@ -3667,9 +3667,6 @@ function layer:sync_text_align()
 		self._text_ha = ha
 		self._text_va = va
 		segs:align(0, 0, cw, ch, ha, va)
-		if self.clip_content == true then
-			segs:clip()
-		end
 	end
 	return segs
 end
@@ -3685,7 +3682,10 @@ function layer:draw_text(cr)
 	if not self:text_visible() then return end
 	self._text_tree.color    = self.text_color
 	self._text_tree.operator = self.text_operator
-	self._text_segments:paint(cr)
+	local segs = self._text_segments
+	local x1, y1, x2, y2 = cr:clip_extents()
+	segs:clip(x1, y1, x2-x1, y2-y1)
+	segs:paint(cr)
 end
 
 function layer:text_bounding_box()
@@ -4180,7 +4180,7 @@ function textbox:sync_layout()
 	self.cw = max(segs:min_w(), self.min_cw)
 	self:sync_text_wrap()
 	self.cw = max(segs.lines.max_ax, self.min_cw)
-	self.ch = max(self.min_ch, segs.lines.spacing_h)
+	self.ch = max(self.min_ch, segs.lines.spaced_h)
 	if not self.floating then
 		self.x, self.w = snap_xw(self.x, self.w)
 		self.y, self.h = snap_xw(self.y, self.h)
@@ -4208,7 +4208,7 @@ function textbox:sync_min_h(other_axis_synced)
 	local min_ch
 	if other_axis_synced or self.nowrap then
 		local segs = self._text_segments
-		min_ch = segs and segs.lines.spacing_h or 0
+		min_ch = segs and segs.lines.spaced_h or 0
 	else
 		--height-in-width-out parent layout with wrapping text not supported
 		min_ch = 0
