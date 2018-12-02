@@ -59,11 +59,6 @@ ui:style('editbox_scrollbox > scrollbox_view', {
 	padding_right = 5,
 })
 
---TODO: :child_hot
-ui:style('editbox :hot, editbox_scrollbox :child_hot', {
-	border_color = '#999',
-})
-
 ui:style('editbox standalone :focused, editbox_scrollbox standalone :child_focused', {
 	border_color = '#fff',
 	shadow_blur = 2,
@@ -117,6 +112,7 @@ for name, default in pairs(editbox.forwarded_cursor_properties) do
 		if not self.selection then --class default or invalid font
 			self[priv] = val
 		else
+			self.selection.cursor1[name] = val
 			self.selection.cursor2[name] = val
 		end
 	end
@@ -129,14 +125,12 @@ for name, default in pairs(editbox.forwarded_cursor_properties) do
 	end
 end
 
-function editbox:sync_cursor()
+function editbox:sync_cursors()
 	if not self.selection then return end
-	--forward properties
-	local c1 = self.selection.cursor1
-	local c2 = self.selection.cursor2
+	--forward properties to cursor objects
 	for prop in pairs(self.forwarded_cursor_properties) do
-		c1[prop] = self['_'..prop]
-		c2[prop] = self['_'..prop]
+		self.selection.cursor1[prop] = self['_'..prop]
+		self.selection.cursor2[prop] = self['_'..prop]
 	end
 end
 
@@ -194,7 +188,7 @@ end
 
 --filtering & truncating the input text.
 
---filter text by replacing newlines and ASCII control chars with spaces.
+--filter newlines and ASCII control chars from the text.
 function editbox:filter_text(s)
 	if not self.multiline then
 		return
@@ -215,7 +209,7 @@ function editbox:after_init(ui, t)
 	--obeys maxlen and triggers a changed event.
 	self.multiline = t.multiline
 	self.selection = self:sync_text_shape():selection() or false
-	self:sync_cursor()
+	self:sync_cursors()
 	self.text = t.text
 
 	if self.selection then
@@ -270,16 +264,6 @@ function editbox:create_scrollbox()
 		w = self.w,
 		h = self.h,
 	}, self.scrollbox)
-end
-
---enlarge the text bounding box to include space for the caret at the end
---of line and for the full caret height for at least one line.
-function editbox:override_text_bounding_box(inherited, ...)
-	local x, y, w, h = inherited(self, ...)
-	local _, _, cw, ch = self:caret_rect()
-	--w = w + cw
-	--h = math.max(h, ch) --TODO: use line height instead!
-	return x, y, w, h
 end
 
 function editbox:after_set_multiline(multiline)
