@@ -1,3 +1,9 @@
+PRIORITY ---------------------------------------------------------------------
+
+- BUG: editbox: scroll_to_view first time before sync'ing.
+- REVIEW: dropdown!
+- REWRITE: colorpicker with grid/flexbox.
+
 LOW-LEVEL --------------------------------------------------------------------
 
 - finish libpng
@@ -11,6 +17,14 @@ NW ---------------------------------------------------------------------------
 - FEAT get a window's children in z-order so we can forward mouse wheel events
 to non-activable children.
 - BUG background doesn't get cleared anymore when there's no repaint handler.
+
+TR ---------------------------------------------------------------------------
+
+- tr: store paragraph base direction for all paragraphs.
+	- align(align_x = 'auto') <- use detected/stored par_base_dir.
+			- text_run.align_x <- override for all enclosed lines/paragraphs.
+		- text_align_x: 'auto' (use par_base_dir).
+		- editbox: text_align_x: 'auto' by default instead of 'left'.
 
 UI ---------------------------------------------------------------------------
 

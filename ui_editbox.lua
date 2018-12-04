@@ -26,8 +26,8 @@ editbox.maxlen = 4096
 editbox.text_align_x = 'left'
 editbox.align_y = 'center'
 editbox.padding = 4
-editbox.padding_left = 6
-editbox.padding_right = 6
+editbox.padding_left = 0
+editbox.padding_right = 1
 editbox.min_ch = 16
 editbox.w = 180
 editbox.h = 24
@@ -40,8 +40,15 @@ editbox.selection_color = '#66f6'
 editbox.tags = 'standalone'
 
 ui:style('editbox standalone, editbox_scrollbox standalone', {
-	border_width = 1,
 	border_color = '#333',
+})
+
+ui:style('editbox standalone', {
+	border_width_bottom = 1,
+})
+
+ui:style('editbox_scrollbox standalone', {
+	border_width = 1,
 })
 
 --keep the same padding for the multiline editbox.
@@ -59,11 +66,24 @@ ui:style('editbox_scrollbox > scrollbox_view', {
 	padding_right = 5,
 })
 
-ui:style('editbox standalone :focused, editbox_scrollbox standalone :child_focused', {
+ui:style([[
+	editbox standalone :focused,
+	editbox_scrollbox standalone :child_focused
+]], {
 	border_color = '#fff',
-	shadow_blur = 2,
-	shadow_color = '#666',
 	background_color = '#040404', --to cover the shadow
+})
+
+ui:style('editbox standalone :focused', {
+	shadow_blur = 1,
+	shadow_y = 4,
+	shadow_color = '#111',
+})
+
+ui:style('editbox_scrollbox standalone :child_focused', {
+	shadow_blur = 2,
+	shadow_y = 0,
+	shadow_color = '#666',
 })
 
 ui:style('editbox :insert_mode', {
@@ -151,7 +171,7 @@ end
 --tell ui:sync_text_shape() to stop checking the `text` property to decide
 --if the text needs reshaping. reshaping is done by selection:replace() now.
 --this is to skip utf8-encoding the entire text on every key stroke.
-editbox.text_editabe = true
+editbox.text_editable = true
 
 --NOTE: the editbox text property is never `false` like in a normal layer.
 editbox._text = ''
@@ -192,8 +212,8 @@ end
 function editbox:filter_text(s)
 	if not self.multiline then
 		return
-			s:gsub(tr.PS, ' ')
-			 :gsub(tr.LS, ' ')
+			s:gsub('\u{2029}', ' ') --PS
+			 :gsub('\u{2028}', ' ') --LS
 			 :gsub('[%z\1-\31\127]', '')
 	else
 		return s:gsub('[%z\1-\8\11\12\14-\31\127]', '') --allow \t \n \r
@@ -279,7 +299,7 @@ function editbox:after_set_multiline(multiline)
 	else
 		self.layout = false
 		self.nowrap = true
-		self.clip_content = true
+		self.clip_content = false
 		if self.scrollbox then
 			self:settag('multiline', false)
 			if self.scrollbox.tags.standalone then
@@ -334,8 +354,8 @@ function editbox:scroll_to_view_caret()
 		else
 			line_w = segs.lines[1].advance_x
 		end
-		local x, _, w = self:caret_rect()
-		local view_w = self.cw - w
+		local x = self:caret_rect()
+		local view_w = self.cw
 		local lines_x = segs.lines.x
 		if line_w > view_w then
 			local sx = segs.lines.x
@@ -349,10 +369,8 @@ function editbox:scroll_to_view_caret()
 			--apply the scroll offset.
 			segs.lines.x = sx - ax
 		else
-			--make the cursor visible when the text is right-aligned.
-			local adjustment = self.text_align_x == 'right' and -w or 0
 			--reset the x-offset in order to use the default alignment from `tr`.
-			segs.lines.x = 0 + adjustment
+			segs.lines.x = 0
 		end
 		if segs.lines.x ~= lines_x then
 			segs.clip_valid = false

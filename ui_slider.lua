@@ -4,7 +4,6 @@
 
 local ui = require'ui'
 local glue = require'glue'
-local box2d = require'box2d'
 
 local snap = glue.snap
 local clamp = glue.clamp

@@ -1,6 +1,7 @@
 --go @ luajit -jp=a *
 
 local ui = require'ui'
+local Q = require'utf8quot'
 local time = require'time'
 local win = ui:window{x = 700, y = 100, cw = 1200, ch = 700, visible = false, autoquit=true}
 function win:keyup(key) if key == 'esc' then self:close() end end
@@ -412,7 +413,7 @@ local function test_text()
 		local cr = self.window.cr
 		cr:rgb(1, 1, 1)
 		cr:line_width(1)
-		cr:rectangle(self:text_bounding_box())
+		cr:rectangle(self:text_bbox())
 		cr:stroke()
 	end
 
@@ -605,27 +606,66 @@ local function test_widgets_flex()
 		},
 	}
 
-	local s = [[
-Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi maluisset sea ut. Utroque apeirian maluisset cum ut. Nihil appellantur at his, fugit noluisse eu vel, mazim mandamus ex quo.
+	local s = Q[[
+Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi maluisset sea ut.&ps;Utroque apeirian maluisset cum ut. Nihil appellantur at his, fugit noluisse eu vel, mazim mandamus ex quo.&ls;Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie atomorum, pro iudico facilisi et, sea elitr partiendo at. An has fugit assum accumsan.&ps;Ne mea nobis scaevola partiendo, sit ei accusamus expetendis. Omnium repudiandae intellegebat ad eos, qui ad erant luptatum, nec an wisi atqui adipiscing. Mei ad ludus semper timeam, ei quas phaedrum liberavisse his, dolorum fierent nominavi an nec. Quod summo novum eam et, ullum choro soluta nec ex. Soleat conceptam pro ut, enim audire definiebas ad nec. Vis an equidem torquatos, at erat voluptatibus eam.]]
 
-Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie atomorum, pro iudico facilisi et, sea elitr partiendo at. An has fugit assum accumsan.
+	local fl_class = ui.layer:subclass('focusable_layer', {
+		clip_content = true,
+		text_align_x = 'left',
+		text_align_y = 'top',
+		text = s,
 
-Ne mea nobis scaevola partiendo, sit ei accusamus expetendis. Omnium repudiandae intellegebat ad eos, qui ad erant luptatum, nec an wisi atqui adipiscing. Mei ad ludus semper timeam, ei quas phaedrum liberavisse his, dolorum fierent nominavi an nec. Quod summo novum eam et, ullum choro soluta nec ex. Soleat conceptam pro ut, enim audire definiebas ad nec. Vis an equidem torquatos, at erat voluptatibus eam.]]
+		text_selectable = true,
+		--focusable = true,
+	})
 
-	local sb = ui:scrollbox{
+	fl_class(ui, {
 		parent = win,
-		auto_w = true,
+	})
+
+	fl_class(ui, {
+		parent = win,
+		focusable = true,
+		clip_content = false,
+	})
+
+	ui:style('focusable_layer :focused', {
+		border_width = 1,
+		border_offset = 1,
+	})
+
+	ui:scrollbox{
+		parent = win,
+		--auto_w = true,
 		content = {
-			layout = 'textbox',
-			text_align_x = 'left',
-			text_align_y = 'top',
-			text = s,
+			w = 500,
+			h = 600,
+			{
+				x = 50,
+				y = 50,
+				w = 400,
+				h = 300,
+				focusable = true,
+				clip_content = true,
+				border_width = 1,
+				text_align_x = 'left',
+				text_align_y = 'top',
+				text = s,
+				text_selectable = true,
+			},
 		},
+	}
+
+	--[[
+	ui:editbox{
+		parent = win,
 	}
 
 	ui:editbox{
 		parent = win,
+		multiline = true,
 	}
+	]]
 
 	local rows = {}
 	for i = 1,20 do table.insert(rows, {i, i}) end
@@ -643,17 +683,12 @@ Ne mea nobis scaevola partiendo, sit ei accusamus expetendis. Omnium repudiandae
 		--editable = true,
 	}
 
-	ui:editbox{
-		parent = win,
-		multiline = true,
-	}
-
-	--[==[
+	--[[
 	ui:dropdown{
 		parent = win,
 		picker = {rows = {'Row 1', 'Row 2', 'Row 3'}},
 	}
-	]==]
+	]]
 
 end
 

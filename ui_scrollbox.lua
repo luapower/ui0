@@ -485,32 +485,17 @@ end
 
 --scroll API
 
-scrollbox.scroll_margin = 0
-scrollbox.scroll_margin_left = false
-scrollbox.scroll_margin_right = false
-scrollbox.scroll_margin_top = false
-scrollbox.scroll_margin_bottom = false
-
-function scrollbox:scroll_to_view(x, y, w, h) --x, y is in content's content space.
-	local m = self.scroll_margin
-	local mw1 = self.scroll_margin_left or m
-	local mw2 = self.scroll_margin_right or m
-	local mh1 = self.scroll_margin_top or m
-	local mh2 = self.scroll_margin_bottom or m
-	x = x - mw1
-	y = y - mh1
-	w = w + mw1 + mw2
-	h = h + mh1 + mh2
+--x, y is in content's content space.
+function scrollbox:scroll_to_view(x, y, w, h)
 	x, y = self.content:from_content(x, y)
 	self.hscrollbar:scroll_to_view(x, w)
 	self.vscrollbar:scroll_to_view(y, h)
 end
 
---clipping API
-
-function scrollbox:view_rect() --view rect in content's content space.
-	local x, y = self.view:to_other(self.content, 0, 0)
-	return x, y, self.view:client_size()
+--x, y, w, h is in own content space.
+function scrollbox:make_visible(x, y, w, h)
+	x, y = self:to_other(self.content, x, y)
+	self:scroll_to_view(x, y, w, h)
 end
 
 --demo -----------------------------------------------------------------------

@@ -2105,8 +2105,13 @@ function window:_key_event(event_name, key)
 		if widget:fire(event_name, key) ~= nil then
 			return true
 		end
-		if widget.iswindow and widget.parent then
+		if widget.iswindow then
 			break --don't forward key presses from a child window to its parent.
+		end
+		if event_name == 'keypress' then
+			if widget:keypress_text(key) ~= nil then
+				return true
+			end
 		end
 		widget = widget.parent
 	until not widget
@@ -2309,8 +2314,10 @@ ui:style('layer !:enabled', {
 layer.cursor = false  --false or cursor name from nw
 
 layer.drag_threshold = 0 --moving distance before start dragging
-layer.max_click_chain = 1 --2 for getting doubleclick events etc.
-layer.hover_delay = 1 --TODO: hover event delay
+--2 for doubleclick events, 3 for tripleclicks, 4 for quadrupleclicks.
+layer.max_click_chain        = 1
+layer.max_click_chain_middle = 1
+layer.max_click_chain_right  = 1
 
 function layer:override_init(inherited, ui, t)
 	if ui and (ui.islayer or ui.iswindow) then --ui is actually the parent
@@ -2480,6 +2487,22 @@ function layer:from_other(widget, x, y)
 	return widget:to_other(self, x, y)
 end
 
+--bounding box of a list of points in another layer's content box.
+function layer:bbox_in(other, ...)
+	local n = select('#', ...)
+	assert(n >= 2 and n % 2 == 0)
+	local x1, y1, x2, y2 = 1/0, 1/0, -1/0, -1/0
+	for i = 1, n, 2 do
+		local x, y = select(i, ...)
+		local x, y = self:to_other(other, x, y)
+		x1 = min(x1, x)
+		y1 = min(y1, y)
+		x2 = max(x2, x)
+		y2 = max(y2, y)
+	end
+	return x1, y1, x2-x1, y2-y1
+end
+
 --layer parent property & child list -----------------------------------------
 
 layer._parent = false
@@ -2591,6 +2614,8 @@ end
 
 --mouse event handling -------------------------------------------------------
 
+layer.text_active = false
+
 function layer:mouse_pos()
 	if not self.window.mouse_x then
 		return false, false
@@ -2608,6 +2633,7 @@ end
 function layer:_mousemove(mx, my, area)
 	local mx, my = self:from_window(mx, my)
 	self:fire('mousemove', mx, my, area)
+	self:mousemove_text(mx, my)
 	self.ui:_widget_mousemove(self, mx, my, area)
 end
 
@@ -2639,6 +2665,8 @@ function layer:_mousedown(button, mx, my, area)
 	self:fire(event, mx, my, area)
 	if self.mousedown_activate then
 		self.active = true
+	else
+		self:mousedown_text(mx, my)
 	end
 	self.ui:_widget_mousedown(self, button, mx, my, area)
 end
@@ -2647,10 +2675,17 @@ function layer:_mouseup(button, mx, my, area)
 	local mx, my = self:from_window(mx, my)
 	local event = button == 'left' and 'mouseup' or button..'mouseup'
 	self:fire(event, mx, my, area)
-	if self.ui and self.active and self.mousedown_activate then
+	if self.ui and self.active
+		and (self.mousedown_activate or self.text_active)
+	then
 		self.active = false
+		if self.text_active then
+			self.text_active = false
+		end
 	end
 end
+
+layer.max_click_chain_text = 3
 
 function layer:_click(button, count, mx, my, area)
 	local mx, my = self:from_window(mx, my)
@@ -2661,8 +2696,14 @@ function layer:_click(button, count, mx, my, area)
 		or count == 4 and 'quadrupleclick'
 	local event = button == 'left' and event or button..event
 	self:fire(event, mx, my, area)
-	local max_click_chain = self['max_'..button..'_click_chain']
-		or self.max_click_chain
+	if event == 'doubleclick' then
+		self:doubleclick_text(mx, my)
+	elseif event == 'tripleclick' then
+		self:tripleclick_text(mx, my)
+	end
+	local area = self.ui.hot_area
+	local event = (button == 'left' and '' or button)..'max_click_chain'
+	local max_click_chain = (area and self[event..'_'..area]) or self[event]
 	if count >= max_click_chain then
 		return true --stop the click chain
 	end
@@ -2848,6 +2889,7 @@ function layer:unfocus()
 		parent:settag(':child_focused', false)
 		parent = parent.parent
 	end
+	self:unfocus_text()
 	self.window:fire('lostfocus', self)
 	self.ui:fire('lostfocus', self)
 	self:invalidate()
@@ -2865,6 +2907,7 @@ function layer:focus(focus_children)
 				parent:settag(':child_focused', true)
 				parent = parent.parent
 			end
+			self:focus_text()
 			self.window.focused_widget = self
 			self.window:fire('widget_gotfocus', self)
 			self.ui:fire('gotfocus', self)
@@ -2966,11 +3009,11 @@ end
 
 --layers geometry, drawing and hit testing -----------------------------------
 
-function layer:children_bounding_box(strict)
+function layer:children_bbox(strict)
 	local x, y, w, h = 0, 0, 0, 0
 	for _,layer in ipairs(self) do
 		x, y, w, h = box2d.bounding_box(x, y, w, h,
-			layer:bounding_box(strict))
+			layer:bbox(strict))
 	end
 	return x, y, w, h
 end
@@ -3556,7 +3599,7 @@ function layer:draw_shadow(cr)
 	cr:translate(-sx, -sy)
 end
 
---text geometry and drawing --------------------------------------------------
+--text geometry & drawing ----------------------------------------------------
 
 layer.text = false
 layer.font = 'Open Sans,14'
@@ -3580,10 +3623,6 @@ function layer:text_visible()
 	return self.text and self.text ~= '' and true or false
 end
 
---editable text is not sync'ed based on changes to the `text` property.
---see editbox implementation for details.
-layer.text_editabe = false
-
 --parsing of '<align_x> <align_y>' property strings
 
 layer:stored_property'text_align_x'
@@ -3600,12 +3639,16 @@ layer:enum_property('text_align_y', {
 layer._text_tree = false
 layer._text_segments = false
 
+--editable text is not sync'ed based on changes to the `text` property.
+--see editbox implementation for details.
+layer.text_editable = false
+
 function layer:sync_text_shape()
 	if not self:text_visible() then
 		return
 	end
 	if not self._text_tree
-		or (not self.text_editabe and self.text ~= self._text_tree[1])
+		or (not self.text_editable and self.text ~= self._text_tree[1])
 		or self.font        ~= self._text_tree.font
 		or self.font_name   ~= self._text_tree.font_name
 		or self.font_weight ~= self._text_tree.font_weight
@@ -3668,6 +3711,9 @@ function layer:sync_text_align()
 		self._text_va = va
 		segs:align(0, 0, cw, ch, ha, va)
 	end
+	if not self.text_selection then
+		self.text_selection = self:create_text_selection(segs)
+	end
 	return segs
 end
 
@@ -3679,20 +3725,302 @@ function layer:get_baseline()
 end
 
 function layer:draw_text(cr)
-	if not self:text_visible() then return end
+	local segs = self._text_segments
+	if not segs then return end
 	self._text_tree.color    = self.text_color
 	self._text_tree.operator = self.text_operator
-	local segs = self._text_segments
 	local x1, y1, x2, y2 = cr:clip_extents()
 	segs:clip(x1, y1, x2-x1, y2-y1)
 	segs:paint(cr)
+	self:draw_text_selection(cr)
+	self:draw_caret(cr)
 end
 
-function layer:text_bounding_box()
+function layer:text_bbox()
 	if not self:text_visible() then
 		return 0, 0, 0, 0
 	end
-	return self._text_segments:bounding_box()
+	return self._text_segments:bbox()
+end
+
+--text caret & selection drawing ---------------------------------------------
+
+layer.caret_color = '#fff'
+layer.caret_opacity = 1
+
+layer.text_selectable = false
+layer.text_selection = false --selection object
+layer.text_selection_color = '#66f6'
+
+--hiding the caret and dimming the selection while the window is inactive.
+ui:style('layer !:window_active', {
+	caret_opacity = 0,
+	text_selection_color = '#66f3',
+})
+
+--blinking the caret.
+ui:style('layer :focused !:insert_mode :window_active', {
+	caret_opacity = 0,
+	transition_caret_opacity = true,
+	transition_delay_caret_opacity = function(self)
+		return self.ui.caret_blink_time
+	end,
+	transition_times_caret_opacity = 1/0, --blink indefinitely
+	transition_blend_caret_opacity = 'restart',
+})
+
+function layer:create_text_selection(segs)
+	if not self.text_selectable then return end
+	local sel = segs:selection()
+
+	--reset the caret blinking whenever a cursor is being acted upon,
+	--regardles of whether it changes position or not.
+	local c1, c2 = sel:cursors()
+	local set = c1.set
+	function c1.set(...)
+		self:blink_caret()
+		return set(...)
+	end
+	local set = c2.set
+	function c2.set(...)
+		self:blink_caret()
+		return set(...)
+	end
+
+	--scroll to view the caret and fire the `caret_moved` event.
+	function sel.cursor2.changed()
+		self:make_visible_caret()
+		self:fire'caret_moved'
+	end
+
+	self:_sync_text_cursor_props(sel)
+
+	return sel
+end
+
+function layer:blink_caret()
+	if not self.focused then return end
+	self.caret_visible = true
+	self:transition{
+		attr = 'caret_opacity',
+		val = self:end_value'caret_opacity',
+	}
+	self:invalidate()
+end
+
+function layer:caret_rect()
+	local x, y, w, h = self.text_selection.cursor2:rect()
+	local x, w = snap_xw(x, w, self.snap_x)
+	local y, h = snap_xw(y, h, self.snap_y)
+	return x, y, w, h
+end
+
+function layer:draw_caret(cr)
+	if not self.focused then return end
+	if not self.caret_visible then return end
+	local x, y, w, h = self:caret_rect()
+	local r, g, b, a = self.ui:rgba(self.caret_color)
+	a = a * self.caret_opacity
+	cr:rgba(r, g, b, a)
+	cr:new_path()
+	cr:rectangle(x, y, w, h)
+	cr:fill()
+end
+
+local function draw_sel_rect(x, y, w, h, cr, self)
+	cr:rectangle(x, y, w, h)
+	cr:fill()
+end
+function layer:draw_text_selection(cr)
+	local sel = self.text_selection
+	if not sel then return end
+	if sel:empty() then return end
+	cr:rgba(self.ui:rgba(self.text_selection_color))
+	cr:new_path()
+	sel:rectangles(draw_sel_rect, cr, self)
+end
+
+function layer:make_visible_caret()
+	if not self.text_selection then return end
+	if not self.clip_content then return end
+	local segs = self._text_segments
+	local lines = segs and segs.lines
+	local sx, sy = lines.x, lines.y
+	local cw, ch = self:client_size()
+	local x, y, w, h = self:caret_rect()
+	lines.x, lines.y = box2d.scroll_to_view(x-sx, y-sy, w, h, cw, ch, sx, sy)
+	self:make_visible(self:caret_rect())
+end
+
+--text mouse interaction (moving the caret & drag-selecting) -----------------
+
+layer.cursor_text = 'text'
+layer.cursor_selection = 'arrow'
+
+function layer:hit_test_text(x, y, reason)
+	if not self.text_selection then return end
+	if reason == 'activate' and self.activable then
+		if self.text_selection:hit_test(x, y) then
+			return self, 'selection'
+		elseif self._text_segments:hit_test(x, y) then
+			return self, 'text'
+		end
+	end
+end
+
+function layer:doubleclick_text(x, y)
+	if not self.text_selection then return end
+	self.text_selection:select_word()
+end
+
+function layer:tripleclick_text(x, y)
+	if not self.text_selection then return end
+	self.text_selection:select_line()
+end
+
+function layer:mousedown_text(x, y)
+	if not self.text_selection then return end
+	if not self.ui:key'shift' then
+		self.text_selection.cursor2:move('pos', x, y)
+	end
+	self.text_selection:reset()
+	self.active = true
+	self.text_active = true
+end
+
+function layer:mousemove_text(x, y)
+	if not self.text_active then return end
+	self.text_selection.cursor2:move('pos', x, y)
+end
+
+--text keyboard interaction (moving the caret, selecting and editing) --------
+
+function layer:focus_text()
+	if not self.text_selection then return end
+	if not self.active then
+		self.text_selection:select_all()
+		self.caret_visible = self.text_selection:empty()
+	else
+		self.caret_visible = true
+	end
+end
+
+function layer:unfocus_text()
+	if not self.text_selection then return end
+	self.caret_visible = false
+	self.text_selection.cursor2:move('offset', 0)
+	self.text_selection:reset()
+end
+
+function layer:undo_group() end --stub
+
+function layer:keypress_text(key)
+	local sel = self.text_selection
+	if not sel then return end
+
+	local shift = self.ui:key'shift'
+	local ctrl = self.ui:key'ctrl'
+	local shift_ctrl = shift and ctrl
+	local shift_only = shift and not ctrl
+	local ctrl_only = ctrl and not shift
+	local key_only = not ctrl and not shift
+
+	if key == 'right' or key == 'left' then
+		self:undo_group()
+		local dir = key == 'right' and 'next' or 'prev'
+		local mode = ctrl and 'word' or nil
+		if shift then
+			return sel.cursor2:move('rel_cursor', dir, mode)
+		else
+			local c1, c2 = sel:cursors()
+			if sel:empty() then
+				if c1:move('rel_cursor', dir, mode) then
+					c2:set(c1)
+					return true
+				end
+			else
+				local c1, c2 = c1, c2
+				if key == 'left' then
+					c1, c2 = c2, c1
+				end
+				return c1:set(c2)
+			end
+		end
+	elseif
+		key == 'up' or key == 'down'
+		or key == 'pageup' or key == 'pagedown'
+		or key == 'home' or key == 'end'
+	then
+		local what, by
+		if key == 'up' then
+			what, by = 'rel_line', -1
+		elseif key == 'down' then
+			what, by = 'rel_line', 1
+		elseif key == 'pageup' then
+			what, by = 'rel_page', -1
+		elseif key == 'pagedown' then
+			what, by = 'rel_page', 1
+		elseif key == 'home' then
+			what, by = 'offset', 0
+		elseif key == 'end' then
+			what, by = 'offset', 1/0
+		end
+		self:undo_group()
+		local moved = self.text_selection.cursor2:move(what, by)
+		if not shift then
+			sel.cursor1:set(sel.cursor2)
+		end
+		return moved
+	elseif ctrl and key == 'A' then
+		self:undo_group()
+		return sel:select_all()
+	elseif ctrl and key == 'C' then
+		if not sel:empty() then
+			self.ui:setclipboard(sel:string(), 'text')
+			return true
+		end
+	end
+end
+
+--forwarded text cursor properties (see `tr` for meaning) --------------------
+
+local text_cursor_properties = {
+	park_home = true,
+	park_end = true,
+	unique_offsets = false,
+	wrapped_space = true,
+}
+
+for name, default in pairs(text_cursor_properties) do
+	local prop = 'text_cursor_'..name
+	local priv = '_'..prop
+	layer[priv] = default
+	layer['set_'..prop] = function(self, val)
+		local sel = self.text_selection
+		if not sel then --class default or invalid font
+			self[priv] = val
+		else
+			sel.cursor1[name] = val
+			sel.cursor2[name] = val
+		end
+	end
+	layer['get_'..prop] = function(self, val)
+		local sel = self.text_selection
+		if not sel then
+			return self[priv]
+		else
+			return sel.cursor2[name]
+		end
+	end
+end
+
+--forward text_cursor_* properties to cursor objects.
+function layer:_sync_text_cursor_props(sel)
+	for name in pairs(text_cursor_properties) do
+		local priv = '_text_cursor_'..name
+		sel.cursor1[name] = self[priv]
+		sel.cursor2[name] = self[priv]
+	end
 end
 
 --content-box geometry, drawing and hit testing ------------------------------
@@ -3789,17 +4117,21 @@ layer.opacity = 1
 layer.clip_content = false --true, 'background', false
 
 function layer:draw_content(cr) --called in own content space
-	self:draw_children(cr)
 	self:draw_text(cr)
+	self:draw_children(cr)
 end
 
 function layer:hit_test_content(x, y, reason) --called in own content space
-	return self:hit_test_children(x, y, reason)
+	local widget, area = self:hit_test_children(x, y, reason)
+	if not widget then
+		return self:hit_test_text(x, y, reason)
+	end
+	return widget, area
 end
 
-function layer:content_bounding_box(strict)
-	local x, y, w, h = self:children_bounding_box(strict)
-	return box2d.bounding_box(x, y, w, h, self:text_bounding_box())
+function layer:content_bbox(strict)
+	local x, y, w, h = self:children_bbox(strict)
+	return box2d.bounding_box(x, y, w, h, self:text_bbox())
 end
 
 function layer:draw(cr) --called in parent's content space; child intf.
@@ -3952,14 +4284,14 @@ function layer:hit_test(x, y, reason)
 	end
 end
 
-function layer:bounding_box(strict) --child interface
+function layer:bbox(strict) --child interface
 	if not self.visible then
 		return 0, 0, 0, 0
 	end
 	local x, y, w, h = 0, 0, 0, 0
 	local cc = self.clip_content
 	if strict or not cc then
-		x, y, w, h = self:content_bounding_box(strict)
+		x, y, w, h = self:content_bbox(strict)
 		if cc then
 			x, y, w, h = box2d.clip(x, y, w, h, self:background_rect())
 			if cc == true then
@@ -4054,6 +4386,16 @@ function layer:get_floating() --layer is floating, i.e. not part of layout
 	return t and (t.x or t.y or t.w or t.h) and true or false
 end
 
+--layer scrolling ------------------------------------------------------------
+
+function window:make_visible(x, y, w, h) end --not asking window's parent
+
+function layer:make_visible(x, y, w, h)
+	if not self.parent then return end
+	local bx, by, bw, bh = self:bbox_in(self.parent, x, y, x + w, y + h)
+	self.parent:fire('make_visible', bx, by, bw, bh)
+end
+
 --layouting ------------------------------------------------------------------
 
 layer.layout = false --false/'null', 'textbox', 'flexbox', 'grid'
@@ -4122,8 +4464,8 @@ end
 function null_layout:sync_layout()
 	if not self.visible then return end
 	if not self.floating then
-		self.x, self.w = snap_xw(self.x, self.w)
-		self.y, self.h = snap_xw(self.y, self.h)
+		self.x, self.w = snap_xw(self.x, self.w, self.snap_x)
+		self.y, self.h = snap_xw(self.y, self.h, self.snap_y)
 	end
 	if self:sync_text_shape() then
 		self:sync_text_wrap()
@@ -4182,8 +4524,8 @@ function textbox:sync_layout()
 	self.cw = max(segs.lines.max_ax, self.min_cw)
 	self.ch = max(self.min_ch, segs.lines.spaced_h)
 	if not self.floating then
-		self.x, self.w = snap_xw(self.x, self.w)
-		self.y, self.h = snap_xw(self.y, self.h)
+		self.x, self.w = snap_xw(self.x, self.w, self.snap_x)
+		self.y, self.h = snap_xw(self.y, self.h, self.snap_y)
 	end
 	self:sync_text_align()
 	self:sync_layout_children()
