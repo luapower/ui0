@@ -616,7 +616,6 @@ Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi malui
 		text = s,
 
 		text_selectable = true,
-		--focusable = true,
 	})
 
 	fl_class(ui, {
@@ -626,12 +625,13 @@ Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi malui
 	fl_class(ui, {
 		parent = win,
 		focusable = true,
-		clip_content = false,
+		text_editable = true,
+		--clip_content = false,
 	})
 
 	ui:style('focusable_layer :focused', {
 		border_width = 1,
-		border_offset = 1,
+		border_color = '#fff3',
 	})
 
 	ui:scrollbox{

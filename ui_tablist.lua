@@ -287,6 +287,10 @@ ui:style('tab :selected', {
 	transition_duration = 0,
 })
 
+ui:style('tab :focused', {
+	border_color = '#666',
+})
+
 ui:style('tab :dragging', {
 	opacity = .5,
 })

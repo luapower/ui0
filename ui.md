@@ -466,7 +466,7 @@ __behavior__
 `background_hittable`                `true`             background area receives mouse input even when there's no background
 `mousedown_activate`                 `false`            activate/deactivate on left mouse down/up
 `drag_threshold`                     `0`                moving distance before start dragging
-`[button]max_click_chain`            `1`                2 for getting doubleclick events, etc.
+`[button]click_chain`                `1`                2 for getting doubleclick events, etc.
 `tabgroup`                           `0`                tab group, for tab-based navigation
 `tabindex`                           `0`                tab order in tab group, for tab-based navigation
 `taborder_algorithm`                 `'xy'`             tab order algorithm: `'xy'`, `'yx'`
@@ -666,7 +666,7 @@ method        `bbox_in(parent,x1,y1,...) -> x,y,w,h`  bounding box of a list of 
   * while a layer is `active`, it continues to be `hot` and receive
   `mousemove` events even when the mouse is outside its hit-test area or
   outside the window even (that is, the mouse is captured).
-  * `max_click_chain` controls how many repeated clicks are to be taken
+  * `click_chain` controls how many repeated clicks are to be taken
   as one single click chain (a double-click, triple-click or quadruple-click).
   if set to 1 for instance, double-clicks are never received.
 
@@ -727,6 +727,7 @@ event         `[button]doubleclick(x, y, area)`            mouse button double-c
 event         `[button]tripleclick(x, y, area)`            mouse button triple-click
 event         `[button]quadrupleclick(x, y, area)`         mouse button quadruple-click
 event         `mousewheel(delta, x, y, area, pdelta)`      mouse wheel moved `delta` notches
+event         `<event>_<area>(...)`                        mouse event over area (all except mouseenter and mouseleave)
 r/o property  `mouse_x, mouse_y`                           mouse coords from the last mouse event
               __focused state__
 r/o property  `focused`                                    layer has keyboard focus

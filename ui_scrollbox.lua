@@ -354,7 +354,6 @@ function scrollbox:after_init(ui, t)
 		self.content = self.content_class(self.ui, {
 			tags = 'scrollbox_content',
 			parent = self.view,
-			clip_content = true, --for faster bounding box computation
 		}, self.content)
 	elseif self.content then
 		self.content.parent = self.view
@@ -373,6 +372,14 @@ function scrollbox:mousewheel(delta)
 end
 
 --drawing
+
+scrollbox:forward_properties('view', 'view_', {
+	padding=1,
+	padding_left=1,
+	padding_right=1,
+	padding_top=1,
+	padding_bottom=1,
+})
 
 --stretch content to the view size to avoid scrolling on that dimension.
 scrollbox.auto_h = false
@@ -397,7 +404,7 @@ function scrollbox:after_sync_layout()
 	local sw = vs.h + vs_margin
 	local sh = hs.h + hs_margin
 
-	--for `auto_w`, lay out the content with min_w set to view's cw, and then
+	--for `auto_w`, lay out the content with `min_w` set to view's cw, and then
 	--get its size. if the content overflows vertically, another layout pass
 	--is necessary, this time with a smaller `min_w`, making room for the
 	--needed vertical scrollbar, under the assumption that the content will
@@ -496,6 +503,39 @@ end
 function scrollbox:make_visible(x, y, w, h)
 	x, y = self:to_other(self.content, x, y)
 	self:scroll_to_view(x, y, w, h)
+end
+
+--multi-line editbox ---------------------------------------------------------
+
+local textarea = scrollbox:subclass'textarea'
+ui.textarea = textarea
+
+textarea.auto_w = true
+textarea.view_padding_left = 0
+textarea.view_padding_right = 6
+
+local editbox = ui.layer:subclass'textarea_content'
+textarea.content_class = editbox
+
+editbox.layout = 'textbox'
+editbox.text_align_x = 'left'
+editbox.text_align_y = 'top'
+editbox.focusable = true
+editbox.text_selectable = true
+editbox.text_editable = true
+editbox.clip_content = false
+
+function textarea:get_text() return self.editbox.text end
+function textarea:set_text(text) self.editbox.text = text end
+
+function textarea:get_value() return self.editbox.value end
+function textarea:set_value(val) self.editbox.value = val end
+
+textarea:init_ignore{text=1}
+
+function textarea:after_init(ui, t)
+	self.editbox = self.content
+	self.text = t.text
 end
 
 --demo -----------------------------------------------------------------------
@@ -654,6 +694,13 @@ Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie 
 			text_align_y = 'top',
 			text = s,
 		},
+	}
+	xy()
+
+	ui:textarea{
+		parent = win,
+		x = x, y = y, w = 180, h = 180,
+		text = s,
 	}
 	xy()
 

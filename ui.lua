@@ -106,7 +106,7 @@ end
 
 --install event handlers in object which forward events to self.
 function object:forward_events(object, event_names)
-	for _,event in ipairs(event_names) do
+	for event in pairs(event_names) do
 		object:on({event, self}, function(object, ...)
 			return self:fire(event, ...)
 		end)
@@ -114,6 +114,31 @@ function object:forward_events(object, event_names)
 	function self:before_free()
 		for _,event in ipairs(event_names) do
 			object:off{event, self}
+		end
+	end
+end
+
+--create properties in self which read/write properties from/to a sub-component.
+function object:forward_properties(component_name, prefix, props)
+	for prop, writable in pairs(props) do
+		local self_prop = prefix and prefix..prop or prop
+		self['get_'..self_prop] = function(self)
+			return self[component_name][prop]
+		end
+		if writable == 1 then
+			self['set_'..self_prop] = function(self, value)
+				self[component_name][prop] = value
+			end
+		end
+		self:instance_only(self_prop)
+	end
+	--copy default values over to the component.
+	function self:after_init(ui, t)
+		for prop, writable in pairs(props) do
+			if writable == 1 and rawget(t, prop) == nil then
+				local self_prop = prefix and prefix..prop or prop
+				self[component_name][prop] = t[self_prop]
+			end
 		end
 	end
 end
@@ -242,11 +267,11 @@ function ui:after_init()
 	self.app = nw:app()
 
 	self:forward_events(self.app, {
-		'quitting',
-		'activated', 'deactivated', 'wakeup',
-		'hidden', 'unhidden',
-		'displays_changed',
-		})
+		quitting=1,
+		activated=1, deactivated=1, wakeup=1,
+		hidden=1, unhidden=1,
+		displays_changed=1,
+	})
 end
 
 function ui:before_free()
@@ -1351,18 +1376,18 @@ function window:override_init(inherited, ui, t)
 	inherited(self, ui, t)
 
 	self:forward_events(win, {
-		'activated', 'deactivated', 'wakeup',
-		'shown', 'hidden',
-		'minimized', 'unminimized',
-		'maximized', 'unmaximized',
-		'entered_fullscreen', 'exited_fullscreen',
-		'changed',
-		'sizing',
-		'frame_rect_changed', 'frame_moved', 'frame_resized',
-		'client_moved', 'client_resized',
-		'magnets',
-		'free_cairo', 'free_bitmap',
-		'scalingfactor_changed',
+		activated=1, deactivated=1, wakeup=1,
+		shown=1, hidden=1,
+		minimized=1, unminimized=1,
+		maximized=1, unmaximized=1,
+		entered_fullscreen=1, exited_fullscreen=1,
+		changed=1,
+		sizing=1,
+		frame_rect_changed=1, frame_moved=1, frame_resized=1,
+		client_moved=1, client_resized=1,
+		magnets=1,
+		free_cairo=1, free_bitmap=1,
+		scalingfactor_changed=1,
 		--TODO: dispatch to widgets: 'dropfiles', 'dragging',
 	})
 
@@ -1936,10 +1961,8 @@ end
 function ui:_window_mousemove(window, mx, my)
 	window:fire('mousemove', mx, my)
 
-	--TODO: hovering with delay
-
 	if self.active_widget then
-		self.active_widget:_mousemove(mx, my)
+		self.active_widget:_mousemove(mx, my, self.hot_area)
 	else
 		local hit_widget, hit_area = window:hit_test(mx, my, 'activate')
 		self:_set_hot_widget(window, hit_widget, mx, my, hit_area)
@@ -2028,7 +2051,7 @@ function ui:_window_click(window, button, count, mx, my)
 	self.last_click_button = button
 	count = reset_click_count and 1 or count
 	if self.active_widget then
-		return self.active_widget:_click(button, count, mx, my)
+		return self.active_widget:_click(button, count, mx, my, self.hot_area)
 	elseif self.hot_widget then
 		return
 			self.hot_widget:_click(button, count, mx, my, self.hot_area)
@@ -2070,11 +2093,8 @@ function ui:_window_mouseup(window, button, mx, my, click_count)
 		self:_reset_drag_state()
 	end
 
-	if self.active_widget then
-		self.active_widget:_mouseup(button, mx, my)
-	elseif self.hot_widget then
-		self.hot_widget:_mouseup(button, mx, my, self.hot_area)
-	end
+	local widget = self.active_widget or self.hot_widget
+	widget:_mouseup(button, mx, my, self.hot_area)
 end
 
 function ui:_window_mousewheel(window, delta, mx, my, pdelta)
@@ -2102,20 +2122,25 @@ end
 function window:_key_event(event_name, key)
 	local widget = self.focused_widget or self.view
 	repeat
-		if widget:fire(event_name, key) ~= nil then
+		if widget:fire(event_name, key) then
 			return true
 		end
 		if widget.iswindow then
 			break --don't forward key presses from a child window to its parent.
 		end
 		if event_name == 'keypress' then
-			if widget:keypress_text(key) ~= nil then
+			if widget:keypress_text(key) then
+				return true
+			end
+		elseif event_name == 'keychar' then
+			if widget:keychar_text(key) then
 				return true
 			end
 		end
 		widget = widget.parent
 	until not widget
 end
+
 
 --window rendering -----------------------------------------------------------
 
@@ -2309,15 +2334,15 @@ layer.mousedown_activate = false --activate/deactivate on left mouse down/up
 ui:style('layer !:enabled', {
 	background_color = '#222',
 	text_color = '#666',
+	text_selection_color = '#6663',
 })
 
 layer.cursor = false  --false or cursor name from nw
 
 layer.drag_threshold = 0 --moving distance before start dragging
---2 for doubleclick events, 3 for tripleclicks, 4 for quadrupleclicks.
-layer.max_click_chain        = 1
-layer.max_click_chain_middle = 1
-layer.max_click_chain_right  = 1
+layer.click_chain       = 1 --2 for doubleclick events, etc.
+layer.rightclick_chain  = 1 --2 for rightdoubleclick events, etc.
+layer.middleclick_chain = 1 --2 for middledoubleclick events, etc.
 
 function layer:override_init(inherited, ui, t)
 	if ui and (ui.islayer or ui.iswindow) then --ui is actually the parent
@@ -2633,16 +2658,14 @@ end
 function layer:_mousemove(mx, my, area)
 	local mx, my = self:from_window(mx, my)
 	self:fire('mousemove', mx, my, area)
-	self:mousemove_text(mx, my)
+	self:fire('mousemove_'..area, mx, my)
 	self.ui:_widget_mousemove(self, mx, my, area)
 end
 
 function layer:_mouseenter(mx, my, area)
 	local mx, my = self:from_window(mx, my)
 	self:settag(':hot', true)
-	if area then
-		self:settag(':hot_'..area, true)
-	end
+	self:settag(':hot_'..area, true)
 	self:fire('mouseenter', mx, my, area)
 	self.window:_settooltip(self.tooltip)
 	self:invalidate()
@@ -2653,21 +2676,18 @@ function layer:_mouseleave()
 	self:fire'mouseleave'
 	local area = self.ui.hot_area
 	self:settag(':hot', false)
-	if area then
-		self:settag(':hot_'..area, false)
-	end
+	self:settag(':hot_'..area, false)
 	self:invalidate()
 end
 
 function layer:_mousedown(button, mx, my, area)
 	local mx, my = self:from_window(mx, my)
 	local event = button == 'left' and 'mousedown' or button..'mousedown'
-	self:fire(event, mx, my, area)
 	if self.mousedown_activate then
 		self.active = true
-	else
-		self:mousedown_text(mx, my)
 	end
+	self:fire(event, mx, my, area)
+	self:fire(event..'_'..area, mx, my)
 	self.ui:_widget_mousedown(self, button, mx, my, area)
 end
 
@@ -2675,17 +2695,13 @@ function layer:_mouseup(button, mx, my, area)
 	local mx, my = self:from_window(mx, my)
 	local event = button == 'left' and 'mouseup' or button..'mouseup'
 	self:fire(event, mx, my, area)
-	if self.ui and self.active
-		and (self.mousedown_activate or self.text_active)
-	then
+	self:fire(event..'_'..area, mx, my)
+	if self.ui and self.active and self.mousedown_activate then
 		self.active = false
-		if self.text_active then
-			self.text_active = false
-		end
 	end
 end
 
-layer.max_click_chain_text = 3
+layer.click_chain_text = 3
 
 function layer:_click(button, count, mx, my, area)
 	local mx, my = self:from_window(mx, my)
@@ -2696,21 +2712,18 @@ function layer:_click(button, count, mx, my, area)
 		or count == 4 and 'quadrupleclick'
 	local event = button == 'left' and event or button..event
 	self:fire(event, mx, my, area)
-	if event == 'doubleclick' then
-		self:doubleclick_text(mx, my)
-	elseif event == 'tripleclick' then
-		self:tripleclick_text(mx, my)
-	end
-	local area = self.ui.hot_area
-	local event = (button == 'left' and '' or button)..'max_click_chain'
-	local max_click_chain = (area and self[event..'_'..area]) or self[event]
-	if count >= max_click_chain then
+	self:fire(event..'_'..area, mx, my)
+	local cc1 = (button == 'left' and '' or button)..'click_chain'
+	local cc2 = area and cc1..'_'..area
+	local click_chain = cc2 and self[cc2] or self[cc1]
+	if count >= click_chain then
 		return true --stop the click chain
 	end
 end
 
 function layer:_mousewheel(delta, mx, my, area, pdelta)
 	self:fire('mousewheel', delta, mx, my, area, pdelta)
+	self:fire('mousewheel_'..area, delta, mx, my, pdelta)
 end
 
 --called on a potential drop target widget to accept the dragged widget.
@@ -3599,430 +3612,6 @@ function layer:draw_shadow(cr)
 	cr:translate(-sx, -sy)
 end
 
---text geometry & drawing ----------------------------------------------------
-
-layer.text = false
-layer.font = 'Open Sans,14'
-layer.font_name   = false
-layer.font_weight = false
-layer.font_slant  = false
-layer.font_size   = false
-layer.nowrap      = false
-layer.text_dir    = false
-layer.text_color = '#fff'
-layer.line_spacing = 1.2
-layer.hardline_spacing = 1.5
-layer.paragraph_spacing = 2.5
-layer.text_dir = 'auto' --auto, rtl, ltr
-layer.nowrap = false
-layer.text_operator = 'over'
-layer.text_align_x = 'center'
-layer.text_align_y = 'center'
-
-function layer:text_visible()
-	return self.text and self.text ~= '' and true or false
-end
-
---parsing of '<align_x> <align_y>' property strings
-
-layer:stored_property'text_align_x'
-layer:stored_property'text_align_y'
-layer:enum_property('text_align_x', {
-	left = 'left', center = 'center', right = 'right',
-	l = 'left', c = 'center', r = 'right',
-})
-layer:enum_property('text_align_y', {
-	top = 'top', center = 'center', bottom = 'bottom',
-	t = 'top', c = 'center', b = 'bottom',
-})
-
-layer._text_tree = false
-layer._text_segments = false
-
---editable text is not sync'ed based on changes to the `text` property.
---see editbox implementation for details.
-layer.text_editable = false
-
-function layer:sync_text_shape()
-	if not self:text_visible() then
-		return
-	end
-	if not self._text_tree
-		or (not self.text_editable and self.text ~= self._text_tree[1])
-		or self.font        ~= self._text_tree.font
-		or self.font_name   ~= self._text_tree.font_name
-		or self.font_weight ~= self._text_tree.font_weight
-		or self.font_slant  ~= self._text_tree.font_slant
-		or self.font_size   ~= self._text_tree.font_size
-		or self.nowrap      ~= self._text_tree.nowrap
-		or self.text_dir    ~= self._text_tree.text_dir
-	then
-		self._text_tree = self._text_tree or {}
-		self._text_tree[1]          = self.text
-		self._text_tree.font        = self.font
-		self._text_tree.font_name   = self.font_name
-		self._text_tree.font_weight = self.font_weight
-		self._text_tree.font_slant  = self.font_slant
-		self._text_tree.font_size   = self.font_size
-		self._text_tree.nowrap      = self.nowrap
-		self._text_tree.text_dir    = self.text_dir
-		self._text_segments = self.ui.tr:shape(self._text_tree)
-		self._text_w = false --invalidate wrap
-		self._text_h = false --invalidate align
-	end
-	return self._text_segments
-end
-
-function layer:sync_text_wrap()
-	local segs = self._text_segments
-	if not segs then return nil end
-	local cw = self:client_size()
-	local ls = self.line_spacing
-	local hs = self.hardline_spacing
-	local ps = self.paragraph_spacing
-	if    cw ~= self._text_w
-		or ls ~= self._text_tree.line_spacing
-		or hs ~= self._text_tree.hardline_spacing
-		or ps ~= self._text_tree.paragraph_spacing
-	then
-		self._text_w = cw
-		self._text_tree.line_spacing = ls
-		self._text_tree.hardline_spacing = hs
-		self._text_tree.paragraph_spacing = ps
-		segs:wrap(cw)
-		self._text_h = false --invalidate align
-	end
-	return segs
-end
-
-function layer:sync_text_align()
-	local segs = self._text_segments
-	if not segs then return nil end
-	local cw, ch = self:client_size()
-	local ha = self._text_align_x
-	local va = self._text_align_y
-	if    ch ~= self._text_h
-		or ha ~= self._text_ha
-		or va ~= self._text_va
-	then
-		self._text_w  = cw
-		self._text_h  = ch
-		self._text_ha = ha
-		self._text_va = va
-		segs:align(0, 0, cw, ch, ha, va)
-	end
-	if not self.text_selection then
-		self.text_selection = self:create_text_selection(segs)
-	end
-	return segs
-end
-
-function layer:get_baseline()
-	local segs = self._text_segments
-	if not segs then return 0 end
-	local lines = segs.lines
-	return lines.y + lines.baseline
-end
-
-function layer:draw_text(cr)
-	local segs = self._text_segments
-	if not segs then return end
-	self._text_tree.color    = self.text_color
-	self._text_tree.operator = self.text_operator
-	local x1, y1, x2, y2 = cr:clip_extents()
-	segs:clip(x1, y1, x2-x1, y2-y1)
-	segs:paint(cr)
-	self:draw_text_selection(cr)
-	self:draw_caret(cr)
-end
-
-function layer:text_bbox()
-	if not self:text_visible() then
-		return 0, 0, 0, 0
-	end
-	return self._text_segments:bbox()
-end
-
---text caret & selection drawing ---------------------------------------------
-
-layer.caret_color = '#fff'
-layer.caret_opacity = 1
-
-layer.text_selectable = false
-layer.text_selection = false --selection object
-layer.text_selection_color = '#66f6'
-
---hiding the caret and dimming the selection while the window is inactive.
-ui:style('layer !:window_active', {
-	caret_opacity = 0,
-	text_selection_color = '#66f3',
-})
-
---blinking the caret.
-ui:style('layer :focused !:insert_mode :window_active', {
-	caret_opacity = 0,
-	transition_caret_opacity = true,
-	transition_delay_caret_opacity = function(self)
-		return self.ui.caret_blink_time
-	end,
-	transition_times_caret_opacity = 1/0, --blink indefinitely
-	transition_blend_caret_opacity = 'restart',
-})
-
-function layer:create_text_selection(segs)
-	if not self.text_selectable then return end
-	local sel = segs:selection()
-
-	--reset the caret blinking whenever a cursor is being acted upon,
-	--regardles of whether it changes position or not.
-	local c1, c2 = sel:cursors()
-	local set = c1.set
-	function c1.set(...)
-		self:blink_caret()
-		return set(...)
-	end
-	local set = c2.set
-	function c2.set(...)
-		self:blink_caret()
-		return set(...)
-	end
-
-	--scroll to view the caret and fire the `caret_moved` event.
-	function sel.cursor2.changed()
-		self:make_visible_caret()
-		self:fire'caret_moved'
-	end
-
-	self:_sync_text_cursor_props(sel)
-
-	return sel
-end
-
-function layer:blink_caret()
-	if not self.focused then return end
-	self.caret_visible = true
-	self:transition{
-		attr = 'caret_opacity',
-		val = self:end_value'caret_opacity',
-	}
-	self:invalidate()
-end
-
-function layer:caret_rect()
-	local x, y, w, h = self.text_selection.cursor2:rect()
-	local x, w = snap_xw(x, w, self.snap_x)
-	local y, h = snap_xw(y, h, self.snap_y)
-	return x, y, w, h
-end
-
-function layer:draw_caret(cr)
-	if not self.focused then return end
-	if not self.caret_visible then return end
-	local x, y, w, h = self:caret_rect()
-	local r, g, b, a = self.ui:rgba(self.caret_color)
-	a = a * self.caret_opacity
-	cr:rgba(r, g, b, a)
-	cr:new_path()
-	cr:rectangle(x, y, w, h)
-	cr:fill()
-end
-
-local function draw_sel_rect(x, y, w, h, cr, self)
-	cr:rectangle(x, y, w, h)
-	cr:fill()
-end
-function layer:draw_text_selection(cr)
-	local sel = self.text_selection
-	if not sel then return end
-	if sel:empty() then return end
-	cr:rgba(self.ui:rgba(self.text_selection_color))
-	cr:new_path()
-	sel:rectangles(draw_sel_rect, cr, self)
-end
-
-function layer:make_visible_caret()
-	if not self.text_selection then return end
-	if not self.clip_content then return end
-	local segs = self._text_segments
-	local lines = segs and segs.lines
-	local sx, sy = lines.x, lines.y
-	local cw, ch = self:client_size()
-	local x, y, w, h = self:caret_rect()
-	lines.x, lines.y = box2d.scroll_to_view(x-sx, y-sy, w, h, cw, ch, sx, sy)
-	self:make_visible(self:caret_rect())
-end
-
---text mouse interaction (moving the caret & drag-selecting) -----------------
-
-layer.cursor_text = 'text'
-layer.cursor_selection = 'arrow'
-
-function layer:hit_test_text(x, y, reason)
-	if not self.text_selection then return end
-	if reason == 'activate' and self.activable then
-		if self.text_selection:hit_test(x, y) then
-			return self, 'selection'
-		elseif self._text_segments:hit_test(x, y) then
-			return self, 'text'
-		end
-	end
-end
-
-function layer:doubleclick_text(x, y)
-	if not self.text_selection then return end
-	self.text_selection:select_word()
-end
-
-function layer:tripleclick_text(x, y)
-	if not self.text_selection then return end
-	self.text_selection:select_line()
-end
-
-function layer:mousedown_text(x, y)
-	if not self.text_selection then return end
-	if not self.ui:key'shift' then
-		self.text_selection.cursor2:move('pos', x, y)
-	end
-	self.text_selection:reset()
-	self.active = true
-	self.text_active = true
-end
-
-function layer:mousemove_text(x, y)
-	if not self.text_active then return end
-	self.text_selection.cursor2:move('pos', x, y)
-end
-
---text keyboard interaction (moving the caret, selecting and editing) --------
-
-function layer:focus_text()
-	if not self.text_selection then return end
-	if not self.active then
-		self.text_selection:select_all()
-		self.caret_visible = self.text_selection:empty()
-	else
-		self.caret_visible = true
-	end
-end
-
-function layer:unfocus_text()
-	if not self.text_selection then return end
-	self.caret_visible = false
-	self.text_selection.cursor2:move('offset', 0)
-	self.text_selection:reset()
-end
-
-function layer:undo_group() end --stub
-
-function layer:keypress_text(key)
-	local sel = self.text_selection
-	if not sel then return end
-
-	local shift = self.ui:key'shift'
-	local ctrl = self.ui:key'ctrl'
-	local shift_ctrl = shift and ctrl
-	local shift_only = shift and not ctrl
-	local ctrl_only = ctrl and not shift
-	local key_only = not ctrl and not shift
-
-	if key == 'right' or key == 'left' then
-		self:undo_group()
-		local dir = key == 'right' and 'next' or 'prev'
-		local mode = ctrl and 'word' or nil
-		if shift then
-			return sel.cursor2:move('rel_cursor', dir, mode)
-		else
-			local c1, c2 = sel:cursors()
-			if sel:empty() then
-				if c1:move('rel_cursor', dir, mode) then
-					c2:set(c1)
-					return true
-				end
-			else
-				local c1, c2 = c1, c2
-				if key == 'left' then
-					c1, c2 = c2, c1
-				end
-				return c1:set(c2)
-			end
-		end
-	elseif
-		key == 'up' or key == 'down'
-		or key == 'pageup' or key == 'pagedown'
-		or key == 'home' or key == 'end'
-	then
-		local what, by
-		if key == 'up' then
-			what, by = 'rel_line', -1
-		elseif key == 'down' then
-			what, by = 'rel_line', 1
-		elseif key == 'pageup' then
-			what, by = 'rel_page', -1
-		elseif key == 'pagedown' then
-			what, by = 'rel_page', 1
-		elseif key == 'home' then
-			what, by = 'offset', 0
-		elseif key == 'end' then
-			what, by = 'offset', 1/0
-		end
-		self:undo_group()
-		local moved = self.text_selection.cursor2:move(what, by)
-		if not shift then
-			sel.cursor1:set(sel.cursor2)
-		end
-		return moved
-	elseif ctrl and key == 'A' then
-		self:undo_group()
-		return sel:select_all()
-	elseif ctrl and key == 'C' then
-		if not sel:empty() then
-			self.ui:setclipboard(sel:string(), 'text')
-			return true
-		end
-	end
-end
-
---forwarded text cursor properties (see `tr` for meaning) --------------------
-
-local text_cursor_properties = {
-	park_home = true,
-	park_end = true,
-	unique_offsets = false,
-	wrapped_space = true,
-}
-
-for name, default in pairs(text_cursor_properties) do
-	local prop = 'text_cursor_'..name
-	local priv = '_'..prop
-	layer[priv] = default
-	layer['set_'..prop] = function(self, val)
-		local sel = self.text_selection
-		if not sel then --class default or invalid font
-			self[priv] = val
-		else
-			sel.cursor1[name] = val
-			sel.cursor2[name] = val
-		end
-	end
-	layer['get_'..prop] = function(self, val)
-		local sel = self.text_selection
-		if not sel then
-			return self[priv]
-		else
-			return sel.cursor2[name]
-		end
-	end
-end
-
---forward text_cursor_* properties to cursor objects.
-function layer:_sync_text_cursor_props(sel)
-	for name in pairs(text_cursor_properties) do
-		local priv = '_text_cursor_'..name
-		sel.cursor1[name] = self[priv]
-		sel.cursor2[name] = self[priv]
-	end
-end
-
 --content-box geometry, drawing and hit testing ------------------------------
 
 layer.padding = 0
@@ -4386,7 +3975,7 @@ function layer:get_floating() --layer is floating, i.e. not part of layout
 	return t and (t.x or t.y or t.w or t.h) and true or false
 end
 
---layer scrolling ------------------------------------------------------------
+--layer scrolling.
 
 function window:make_visible(x, y, w, h) end --not asking window's parent
 
@@ -4394,6 +3983,646 @@ function layer:make_visible(x, y, w, h)
 	if not self.parent then return end
 	local bx, by, bw, bh = self:bbox_in(self.parent, x, y, x + w, y + h)
 	self.parent:fire('make_visible', bx, by, bw, bh)
+end
+
+--text property --------------------------------------------------------------
+
+layer._text = false
+layer._text_valid = true
+
+function layer:get_text()
+	if not self._text_valid then
+		self._text = self._text_segments.text_runs:string()
+		self._text_valid = true
+	end
+	return self._text
+end
+
+function layer:set_text(s)
+	self:clear_undo_stack()
+	if not s then
+		self._text_tree = false
+		self._text_segments = false
+		self.text_selection = false
+	elseif self.text_selection then
+		self.text_selection:select_all()
+		self.text_selection:replace(s) --does reshaping & relayouting
+	elseif self._text_segments then
+		self._text_segments:replace(0, 1/0, s) --does reshaping & relayouting
+	end
+	self._text = s
+	self._text_valid = true
+	self:invalidate()
+end
+
+layer:track_changes'text'
+layer:instance_only'text'
+
+layer:init_priority{text=1/0}
+
+--related `selected_text` property
+
+function layer:get_selected_text(s)
+	local sel = self.text_selection
+	return sel and sel:string()
+end
+
+function layer:set_selected_text(s)
+	if self.text_selection:replace(s) then --does reshaping & relayouting
+		self._text_valid = false
+		self:invalidate()
+		self:fire'text_changed'
+	end
+end
+
+--value property when used as a grid cell.
+function layer:get_value() return self.text end
+function layer:set_value(val) self.text = val end
+
+--text geometry & drawing ----------------------------------------------------
+
+layer.font = 'Open Sans,14'
+layer.font_name   = false
+layer.font_weight = false
+layer.font_slant  = false
+layer.font_size   = false
+layer.nowrap      = false
+layer.text_dir    = false
+layer.text_color = '#fff'
+layer.line_spacing = 1.2
+layer.hardline_spacing = 1.5
+layer.paragraph_spacing = 2.5
+layer.text_dir = 'auto' --auto, rtl, ltr
+layer.nowrap = false
+layer.text_operator = 'over'
+layer.text_align_x = 'center'
+layer.text_align_y = 'center'
+
+function layer:text_visible()
+	return self._text and true or false
+end
+
+--parsing of '<align_x> <align_y>' property strings
+
+layer:stored_property'text_align_x'
+layer:stored_property'text_align_y'
+layer:enum_property('text_align_x', {
+	left = 'left', center = 'center', right = 'right',
+	l = 'left', c = 'center', r = 'right',
+})
+layer:enum_property('text_align_y', {
+	top = 'top', center = 'center', bottom = 'bottom',
+	t = 'top', c = 'center', b = 'bottom',
+})
+
+layer._text_tree = false
+layer._text_segments = false
+
+function layer:sync_text_shape()
+	if not self:text_visible() then
+		return
+	end
+	if not self._text_tree
+		or self.font        ~= self._text_tree.font
+		or self.font_name   ~= self._text_tree.font_name
+		or self.font_weight ~= self._text_tree.font_weight
+		or self.font_slant  ~= self._text_tree.font_slant
+		or self.font_size   ~= self._text_tree.font_size
+		or self.nowrap      ~= self._text_tree.nowrap
+		or self.text_dir    ~= self._text_tree.text_dir
+	then
+		self._text_tree = self._text_tree or {}
+		self._text_tree[1]          = self.text
+		self._text_tree.font        = self.font
+		self._text_tree.font_name   = self.font_name
+		self._text_tree.font_weight = self.font_weight
+		self._text_tree.font_slant  = self.font_slant
+		self._text_tree.font_size   = self.font_size
+		self._text_tree.nowrap      = self.nowrap
+		self._text_tree.text_dir    = self.text_dir
+		self._text_segments = self.ui.tr:shape(self._text_tree)
+		self._text_w = false --invalidate wrap
+		self._text_h = false --invalidate align
+		self.text_selection = false --invalidate selection
+	end
+	return self._text_segments
+end
+
+function layer:sync_text_wrap()
+	local segs = self._text_segments
+	if not segs then return nil end
+	local cw = self:client_size()
+	local ls = self.line_spacing
+	local hs = self.hardline_spacing
+	local ps = self.paragraph_spacing
+	if    cw ~= self._text_w
+		or ls ~= self._text_tree.line_spacing
+		or hs ~= self._text_tree.hardline_spacing
+		or ps ~= self._text_tree.paragraph_spacing
+	then
+		self._text_w = cw
+		self._text_tree.line_spacing = ls
+		self._text_tree.hardline_spacing = hs
+		self._text_tree.paragraph_spacing = ps
+		segs:wrap(cw)
+		self._text_h = false --invalidate align
+	end
+	return segs
+end
+
+function layer:sync_text_align()
+	local segs = self._text_segments
+	if not segs then return nil end
+	local cw, ch = self:client_size()
+	local ha = self._text_align_x
+	local va = self._text_align_y
+	if    ch ~= self._text_h
+		or ha ~= self._text_ha
+		or va ~= self._text_va
+	then
+		self._text_w  = cw
+		self._text_h  = ch
+		self._text_ha = ha
+		self._text_va = va
+		segs:align(0, 0, cw, ch, ha, va)
+	end
+	if self.text_selectable and not self.text_selection then
+		self.text_selection = self:create_text_selection(segs)
+	end
+	return segs
+end
+
+function layer:get_baseline()
+	local segs = self._text_segments
+	if not segs then return 0 end
+	local lines = segs.lines
+	return lines.y + lines.baseline
+end
+
+function layer:draw_text(cr)
+	local segs = self._text_segments
+	if not segs then return end
+	self._text_tree.color    = self.text_color
+	self._text_tree.operator = self.text_operator
+	local x1, y1, x2, y2 = cr:clip_extents()
+	segs:clip(x1, y1, x2-x1, y2-y1)
+	segs:paint(cr)
+	self:draw_text_selection(cr)
+	self:draw_caret(cr)
+end
+
+function layer:text_bbox()
+	if not self:text_visible() then
+		return 0, 0, 0, 0
+	end
+	return self._text_segments:bbox()
+end
+
+--text caret & selection drawing ---------------------------------------------
+
+layer.caret_color = '#fff'
+layer.caret_opacity = 1
+
+layer.text_selectable = false
+layer.text_selection = false --selection object
+layer.text_selection_color = '#66f6'
+
+--hiding the caret and dimming the selection while the window is inactive.
+ui:style('layer !:window_active', {
+	caret_opacity = 0,
+	text_selection_color = '#66f3',
+})
+
+--blinking the caret.
+ui:style('layer :focused !:insert_mode :window_active', {
+	caret_opacity = 0,
+	transition_caret_opacity = true,
+	transition_delay_caret_opacity = function(self)
+		return self.ui.caret_blink_time
+	end,
+	transition_times_caret_opacity = 1/0, --blink indefinitely
+	transition_blend_caret_opacity = 'restart',
+})
+
+function layer:create_text_selection(segs)
+	local sel = segs:selection()
+
+	--reset the caret blinking whenever a cursor is being acted upon,
+	--regardles of whether it changes position or not.
+	local c1, c2 = sel:cursors()
+	local set = c1.set
+	function c1.set(...)
+		self:blink_caret()
+		return set(...)
+	end
+	local set = c2.set
+	function c2.set(...)
+		self:blink_caret()
+		return set(...)
+	end
+
+	--scroll to view the caret and fire the `caret_moved` event.
+	function sel.cursor2.changed()
+		self:make_visible_caret()
+		self:fire'caret_moved'
+	end
+
+	self:_sync_text_cursor_props(sel)
+
+	return sel
+end
+
+function layer:blink_caret()
+	if not self.focused then return end
+	self.caret_visible = true
+	self:transition{
+		attr = 'caret_opacity',
+		val = self:end_value'caret_opacity',
+	}
+	self:invalidate()
+end
+
+function layer:caret_rect()
+	local x, y, w, h = self.text_selection.cursor2:rect()
+	local x, w = snap_xw(x, w, self.snap_x)
+	local y, h = snap_xw(y, h, self.snap_y)
+	return x, y, w, h
+end
+
+function layer:caret_visibility_rect()
+	local x, y, w, h = self:caret_rect()
+	--enlarge the caret rect to contain the line spacing.
+	local line = self.text_selection.cursor2.seg.line
+	local y = y + line.ascent - line.spaced_ascent
+	local h = line.spaced_ascent - line.spaced_descent
+	return x, y, w, h
+end
+
+function layer:draw_caret(cr)
+	if not self.focused then return end
+	if not self.caret_visible then return end
+	local x, y, w, h = self:caret_rect()
+	local r, g, b, a = self.ui:rgba(self.caret_color)
+	a = a * self.caret_opacity
+	cr:rgba(r, g, b, a)
+	cr:new_path()
+	cr:rectangle(x, y, w, h)
+	cr:fill()
+end
+
+local function draw_sel_rect(x, y, w, h, cr, self)
+	cr:rectangle(x, y, w, h)
+	cr:fill()
+end
+function layer:draw_text_selection(cr)
+	local sel = self.text_selection
+	if not sel then return end
+	if sel:empty() then return end
+	cr:rgba(self.ui:rgba(self.text_selection_color))
+	cr:new_path()
+	sel:rectangles(draw_sel_rect, cr, self)
+end
+
+function layer:make_visible_caret()
+	local segs = self._text_segments
+	local lines = segs and segs.lines
+	local sx, sy = lines.x, lines.y
+	local cw, ch = self:client_size()
+	local x, y, w, h = self:caret_visibility_rect()
+	if self.clip_content then
+		lines.x, lines.y = box2d.scroll_to_view(x-sx, y-sy, w, h, cw, ch, sx, sy)
+	end
+	self:make_visible(self:caret_visibility_rect())
+end
+
+--insert_mode property
+
+layer.insert_mode = false
+layer:stored_property'insert_mode'
+layer:instance_only'insert_mode'
+
+function layer:after_set_insert_mode(value)
+	self.text_selection.cursor2.insert_mode = value
+	self:settag(':insert_mode', value)
+end
+
+--text mouse interaction (moving the caret & drag-selecting) -----------------
+
+layer.cursor_text = 'text'
+layer.cursor_selection = 'arrow'
+
+function layer:hit_test_text(x, y, reason)
+	if not self.text_selection then return end
+	if reason == 'activate' and self.activable then
+		if self.text_selection:hit_test(x, y) then
+			return self, 'text_selection'
+		elseif self._text_segments:hit_test(x, y) then
+			return self, 'text'
+		end
+	end
+end
+
+function layer:doubleclick_text(x, y)
+	if not self.text_selection then return end
+	self.text_selection:select_word()
+end
+
+function layer:tripleclick_text(x, y)
+	if not self.text_selection then return end
+	self.text_selection:select_line()
+end
+
+function layer:mousedown_text(x, y)
+	if not self.text_selection then return end
+	if not self.ui:key'shift' then
+		self.text_selection.cursor2:move('pos', x, y)
+	end
+	self.text_selection:reset()
+	self.active = true
+end
+
+function layer:mousemove_text(x, y)
+	if not self.active then return end
+	self.text_selection.cursor2:move('pos', x, y)
+end
+
+function layer:mouseup_text()
+	self.active = false
+end
+
+layer.doubleclick_text_selection = layer.doubleclick_text
+layer.tripleclick_text_selection = layer.tripleclick_text
+layer.mousedown_text_selection   = layer.mousedown_text
+layer.mousemove_text_selection   = layer.mousemove_text
+layer.mouseup_text_selection     = layer.mouseup_text
+
+--text keyboard interaction (moving the caret, selecting and editing) --------
+
+layer.text_editable = false
+layer.maxlen = 4096
+
+function layer:filter_input_text(s)
+	return s:gsub('[%z\1-\8\11\12\14-\31\127]', '') --allow \t \n \r
+end
+
+--text length in codepoints.
+function layer:get_text_len()
+	local segs = self:sync_text_shape()
+	return segs and segs.text_runs.len or 0
+end
+
+function layer:_replace_selected_text(s)
+	local maxlen = self.maxlen - self.text_len
+	if self.text_selection:replace(s, nil, nil, maxlen) then
+		--^does reshaping & relayouting
+		self._text_valid = false
+		self:invalidate()
+		self:fire'text_changed'
+		return true
+	end
+end
+
+function layer:focus_text()
+	local sel = self.text_selection
+	if not sel then return end
+	if not self.active then
+		sel:select_all()
+		self.caret_visible = sel:empty()
+	else
+		self.caret_visible = true
+	end
+end
+
+function layer:unfocus_text()
+	local sel = self.text_selection
+	if not sel then return end
+	self.caret_visible = false
+	sel.cursor2:move('offset', 0)
+	sel:reset()
+end
+
+function layer:keychar_text(s)
+	if not self.text_selection then return end
+	if not self.text_editable then return end
+	s = self:filter_input_text(s)
+	if s == '' then return end
+	self:undo_group'typing'
+	self:_replace_selected_text(s)
+end
+
+function layer:keypress_text(key)
+	local sel = self.text_selection
+	if not sel then return end
+
+	local shift = self.ui:key'shift'
+	local ctrl = self.ui:key'ctrl'
+	local shift_ctrl = shift and ctrl
+	local shift_only = shift and not ctrl
+	local ctrl_only = ctrl and not shift
+	local key_only = not ctrl and not shift
+
+	if key == 'right' or key == 'left' then
+		self:undo_group()
+		local dir = key == 'right' and 'next' or 'prev'
+		local mode = ctrl and 'word' or nil
+		if shift then
+			return sel.cursor2:move('rel_cursor', dir, mode)
+		else
+			local c1, c2 = sel:cursors()
+			if sel:empty() then
+				if c1:move('rel_cursor', dir, mode) then
+					c2:set(c1)
+					return true
+				end
+			else
+				local c1, c2 = c1, c2
+				if key == 'left' then
+					c1, c2 = c2, c1
+				end
+				return c1:set(c2)
+			end
+		end
+	elseif
+		key == 'up' or key == 'down'
+		or key == 'pageup' or key == 'pagedown'
+		or key == 'home' or key == 'end'
+	then
+		local what, by
+		if key == 'up' then
+			what, by = 'rel_line', -1
+		elseif key == 'down' then
+			what, by = 'rel_line', 1
+		elseif key == 'pageup' then
+			what, by = 'rel_page', -1
+		elseif key == 'pagedown' then
+			what, by = 'rel_page', 1
+		elseif key == 'home' then
+			what, by = 'offset', 0
+		elseif key == 'end' then
+			what, by = 'offset', 1/0
+		end
+		self:undo_group()
+		local moved = sel.cursor2:move(what, by)
+		if not shift then
+			sel.cursor1:set(sel.cursor2)
+		end
+		return moved
+	elseif key_only and key == 'insert' then
+		self.insert_mode = not self.insert_mode
+		return true
+	elseif key_only and (key == 'delete' or key == 'backspace') then
+		if self.text_editable then
+			self:undo_group'delete'
+			if sel:empty() then
+				sel.cursor2:move('rel_cursor',
+					key == 'delete' and 'next' or 'prev', 'char')
+			end
+			return self:_replace_selected_text''
+		end
+	elseif ctrl and key == 'A' then
+		self:undo_group()
+		return sel:select_all()
+	elseif
+		(ctrl and (key == 'C' or key == 'X'))
+		or (shift_only and key == 'delete') --cut
+		or (ctrl_only and key == 'insert') --paste
+	then
+		if not sel:empty() then
+			local cut = key == 'X' or key == 'delete'
+			if not cut or self.text_editable then
+				self.ui:setclipboard(sel:string(), 'text')
+				if cut then
+					self:undo_group'cut'
+					self:_replace_selected_text''
+				end
+			end
+			return true
+		end
+	elseif (ctrl and key == 'V') or (shift_only and key == 'insert') then
+		if self.text_editable then
+			local s = self.ui:getclipboard'text'
+			s = s and self:filter_input_text(s)
+			if s and s ~= '' then
+				self:undo_group'paste'
+				self:_replace_selected_text(s)
+				return true
+			end
+		end
+	elseif ctrl and key == 'Z' then
+		return self:undo()
+	elseif (ctrl and key == 'Y') or (shift_ctrl and key == 'Z') then
+		return self:redo()
+	end
+end
+
+--forwarded text cursor properties (see `tr` for meaning) --------------------
+
+local text_cursor_properties = {
+	park_home = true,
+	park_end = true,
+	unique_offsets = false,
+	wrapped_space = true,
+}
+
+for name, default in pairs(text_cursor_properties) do
+	local prop = 'text_cursor_'..name
+	local priv = '_'..prop
+	layer[priv] = default
+	layer['set_'..prop] = function(self, val)
+		local sel = self.text_selection
+		if not sel then --class default or invalid font
+			self[priv] = val
+		else
+			sel.cursor1[name] = val
+			sel.cursor2[name] = val
+		end
+	end
+	layer['get_'..prop] = function(self, val)
+		local sel = self.text_selection
+		if not sel then
+			return self[priv]
+		else
+			return sel.cursor2[name]
+		end
+	end
+end
+
+--forward text_cursor_* properties to cursor objects.
+function layer:_sync_text_cursor_props(sel)
+	for name in pairs(text_cursor_properties) do
+		local priv = '_text_cursor_'..name
+		sel.cursor1[name] = self[priv]
+		sel.cursor2[name] = self[priv]
+	end
+end
+
+--text undo/redo -------------------------------------------------------------
+
+function layer:clear_undo_stack()
+	self.undo_stack = false
+	self.redo_stack = false
+end
+
+function layer:save_state(state)
+	local sel = self.text_selection
+	state.cursor1_seg_i = sel.cursor1.seg.index
+	state.cursor2_seg_i = sel.cursor2.seg.index
+	state.cursor1_i = sel.cursor1.i
+	state.cursor2_i = sel.cursor2.i
+	state.cursor1_x = sel.cursor1.x
+	state.cursor2_x = sel.cursor2.x
+	state.text = self.text
+	return state
+end
+
+function layer:load_state(state)
+	local sel = self.text_selection
+	sel:select_all()
+	self:_replace_selected_text(state.text)
+	local segs = self.selection.segments
+	sel.cursor1.seg = assert(segs[state.cursor1_seg_i])
+	sel.cursor2.seg = assert(segs[state.cursor2_seg_i])
+	sel.cursor1.i = state.cursor1_i
+	sel.cursor2.i = state.cursor2_i
+	sel.cursor1.x = state.cursor1_x
+	sel.cursor2.x = state.cursor2_x
+	self:invalidate()
+end
+
+function layer:_undo_redo(undo_stack, redo_stack)
+	if not undo_stack then return end
+	local state = pop(undo_stack)
+	if not state then return end
+	push(redo_stack, self:save_state{type = 'undo'})
+	self:load_state(state)
+	return true
+end
+
+function layer:undo()
+	return self:_undo_redo(self.undo_stack, self.redo_stack)
+end
+
+function layer:redo()
+	return self:_undo_redo(self.redo_stack, self.undo_stack)
+end
+
+function layer:undo_group(type)
+	if not type then
+		--cursor moved, force an undo group on the next editing operation.
+		self.force_undo_group = true
+		return
+	end
+	local top = self.undo_stack and self.undo_stack[#self.undo_stack]
+	if not top or top.type ~= type or self.force_undo_group then
+		self.undo_stack = self.undo_stack or {}
+		self.redo_stack = self.redo_stack or {}
+		push(self.undo_stack, self:save_state{type = type})
+		self.force_undo_group = false
+	end
+end
+
+function layer:get_text_modified()
+	return self.undo_stack and #self.undo_stack > 0
 end
 
 --layouting ------------------------------------------------------------------
@@ -5501,13 +5730,14 @@ end
 ui:autoload{
 	scrollbar    = 'ui_scrollbox',
 	scrollbox    = 'ui_scrollbox',
+	teaxtarea    = 'ui_scrollbox',
+	editbox      = 'ui_editbox',
 	button       = 'ui_button',
 	checkbox     = 'ui_button',
 	radiobutton  = 'ui_button',
 	choicebutton = 'ui_button',
 	slider       = 'ui_slider',
 	toggle       = 'ui_slider',
-	editbox      = 'ui_editbox',
 	tab          = 'ui_tablist',
 	tablist      = 'ui_tablist',
 	menuitem     = 'ui_menu',
