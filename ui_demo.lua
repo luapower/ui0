@@ -29,6 +29,10 @@ win.native_window:on('repaint', function(self)
 	self:title(string.format('%d fps', fps()))
 end)
 
+ui:runevery(1, function()
+	win:invalidate()
+end)
+
 if ... == 'ui_demo' and not DEMO then --loaded via require()
 	return function(test)
 		test(ui, win)
@@ -648,12 +652,18 @@ Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi malui
 				focusable = true,
 				clip_content = true,
 				border_width = 1,
+				border_color = '#fff3',
 				text_align_x = 'left',
 				text_align_y = 'top',
 				text = s,
 				text_selectable = true,
 			},
 		},
+	}
+
+	ui:textarea{
+		parent = win,
+		value = s,
 	}
 
 	--[[
@@ -667,6 +677,7 @@ Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi malui
 	}
 	]]
 
+	--[[
 	local rows = {}
 	for i = 1,20 do table.insert(rows, {i, i}) end
 	ui:grid{
@@ -682,6 +693,7 @@ Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi malui
 		--cell_class = ui.editbox,
 		--editable = true,
 	}
+	]]
 
 	--[[
 	ui:dropdown{

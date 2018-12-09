@@ -154,7 +154,7 @@ scrollbar:stored_property'content_length'
 scrollbar:stored_property'view_length'
 scrollbar:stored_property'offset'
 
-function scrollbar:clamp_offset(offset)
+function scrollbar:clamp_and_snap_offset(offset)
 	local max_offset = self.content_length - self.view_length
 	offset = clamp(offset, 0, math.max(max_offset, 0))
 	return snap_offset(offset, self.step)
@@ -162,9 +162,9 @@ end
 
 function scrollbar:set_offset(offset)
 	local old_offset = self._offset
-	offset = self:clamp_offset(offset)
+	offset = self:clamp_and_snap_offset(offset)
 	self._offset = offset
-	self:settag(':empty', self:empty())
+	self:settag(':empty', self:empty(), true)
 	if offset ~= old_offset then
 		self:fire('offset_changed', offset, old_offset)
 	end
@@ -210,7 +210,8 @@ function scrollbar:scroll_to(offset, duration)
 		self:sync()
 		self:settag(':near', false)
 	end
-	offset = self:clamp_offset(offset) --we want to animate the clamped length!
+	offset = self:clamp_and_snap_offset(offset)
+		--^we want to animate the clamped length!
 	self:transition('offset', offset, duration)
 end
 
@@ -292,13 +293,13 @@ end
 
 --drawing: sync grip geometry; sync :near tag.
 
-function scrollbar:after_sync()
+function scrollbar:before_sync_layout_children()
 	local g = self.grip
 	g.x, g.y, g.w, g.h = self:grip_rect()
 
 	local visible = self:check_visible()
 	if visible ~= 'hit_test' then
-		self:settag(':near', visible)
+		self:settag(':near', visible, true)
 	end
 end
 
@@ -385,7 +386,7 @@ scrollbox:forward_properties('view', 'view_', {
 scrollbox.auto_h = false
 scrollbox.auto_w = false
 
-function scrollbox:after_sync_layout()
+function scrollbox:sync_layout_children()
 
 	local vs = self.vscrollbar
 	local hs = self.hscrollbar
@@ -488,6 +489,12 @@ function scrollbox:after_sync_layout()
 	hs.y = view.h - (hs_nospace and sh or 0)
 	vs.y = vs_margin
 	hs.x = hs_margin
+
+	for _,layer in ipairs(self) do
+		if layer ~= content then
+			layer:sync_layout() --recurse
+		end
+	end
 end
 
 --scroll API
@@ -510,6 +517,8 @@ end
 local textarea = scrollbox:subclass'textarea'
 ui.textarea = textarea
 
+textarea.tags = 'standalone'
+
 textarea.auto_w = true
 textarea.view_padding_left = 0
 textarea.view_padding_right = 6
@@ -525,26 +534,26 @@ editbox.text_selectable = true
 editbox.text_editable = true
 editbox.clip_content = false
 
-function textarea:get_text() return self.editbox.text end
-function textarea:set_text(text) self.editbox.text = text end
-
 function textarea:get_value() return self.editbox.value end
 function textarea:set_value(val) self.editbox.value = val end
+textarea:instance_only'value'
 
-textarea:init_ignore{text=1}
+textarea:init_ignore{value=1}
 
 function textarea:after_init(ui, t)
 	self.editbox = self.content
-	self.text = t.text
+	self.value = t.value
 end
 
 --demo -----------------------------------------------------------------------
 
 if not ... then require('ui_demo')(function(ui, win)
 
+	win.w = 240
+
 	ui:style('scrollbox', {
-		border_width = 1,
-		border_color = '#f00',
+		--border_width = 1,
+		--border_color = '#f00',
 	})
 
 	local function mkcontent(w, h)
@@ -569,6 +578,13 @@ if not ... then require('ui_demo')(function(ui, win)
 			y = y + 200
 		end
 	end
+
+	local s = [[
+Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi maluisset sea ut. Utroque apeirian maluisset cum ut. Nihil appellantur at his, fugit noluisse eu vel, mazim mandamus ex quo.
+
+Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie atomorum, pro iudico facilisi et, sea elitr partiendo at. An has fugit assum accumsan.]]
+
+	--[==[
 
 	--not autohide, custom bar metrics
 	ui:scrollbox{
@@ -679,11 +695,6 @@ if not ... then require('ui_demo')(function(ui, win)
 	xy()
 
 	--auto_w
-	local s = [[
-Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi maluisset sea ut. Utroque apeirian maluisset cum ut. Nihil appellantur at his, fugit noluisse eu vel, mazim mandamus ex quo.
-
-Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie atomorum, pro iudico facilisi et, sea elitr partiendo at. An has fugit assum accumsan.]]
-
 	ui:scrollbox{
 		parent = win,
 		x = x, y = y, w = 180, h = 180,
@@ -697,10 +708,12 @@ Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie 
 	}
 	xy()
 
+	]==]
+
 	ui:textarea{
 		parent = win,
 		x = x, y = y, w = 180, h = 180,
-		text = s,
+		value = s,
 	}
 	xy()
 

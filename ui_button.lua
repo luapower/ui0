@@ -29,7 +29,8 @@ button.tags = 'standalone'
 ui:style('button', {
 	transition_background_color = true,
 	transition_border_color = true,
-	transition_duration = .5,
+	transition_duration_background_color = .5,
+	transition_duration_border_color = .5,
 })
 
 ui:style('button :default', {
@@ -120,13 +121,9 @@ function button:press()
 	end
 end
 
-function button:get_text()
-	return self._text
-end
-
-function button:set_text(s)
+function button:override_set_text(inherited, s)
+	if not inherited(self, s) then return end
 	if s == '' or not s then s = false end
-	if self._text == s then return end
 	if not s then
 		self._text = false
 		self.underline_pos = false
@@ -257,8 +254,10 @@ checkbox.align_lines = 'center'
 
 --checked property
 
+checkbox.checked = false
 checkbox:stored_property'checked'
 function checkbox:after_set_checked(checked)
+	self.button.text = self.checked and self.button.text_checked
 	self:settag(':checked', checked)
 	self:fire(checked and 'was_checked' or 'was_unchecked')
 end
@@ -292,6 +291,7 @@ cbutton.font = 'Ionicons,16'
 cbutton.text_checked = '\u{f2bc}'
 
 cbutton.fr = 0
+cbutton.layout = false
 cbutton.min_cw = 20
 cbutton.padding_top = 0
 cbutton.padding_bottom = 0
@@ -306,10 +306,6 @@ ui:style('checkbox_button :hot', {
 ui:style('checkbox_button :active :over', {
 	background_color = '#888',
 })
-
-function cbutton:after_sync()
-	self.text = self.checkbox.checked and self.text_checked
-end
 
 function cbutton:override_hit_test(inherited, mx, my, reason)
 	local widget, area = inherited(self, mx, my, reason)
@@ -364,13 +360,14 @@ function checkbox:create_label()
 	}, self.label)
 end
 
-checkbox:init_ignore{align=1}
+checkbox:init_ignore{align=1, checked=1}
 
 function checkbox:after_init(ui, t)
 	self.button = self:create_button()
 	self.label = self:create_label()
 	self.align = t.align
 	self.button:settag('standalone', false)
+	self.checked = t.checked
 end
 
 --radio button ---------------------------------------------------------------
@@ -420,12 +417,12 @@ rbutton.circle_radius = 0
 
 ui:style('radiobutton_button', {
 	transition_circle_radius = true,
-	transition_duration = .2,
+	transition_duration_circle_radius = .2,
 })
 
 ui:style('radiobutton :checked > radiobutton_button', {
 	circle_radius = .45,
-	transition_duration = .2,
+	transition_duration_circle_radius = .2,
 })
 
 function rbutton:before_draw_content(cr)
@@ -651,7 +648,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		id = 'CB1',
 		parent = win,
 		x = 300, y = 100, min_cw = 200,
-		label =  {text = 'Check me.\nI\'m multiline.'},
+		label =  {text = 'Check me.\nI\'m multiline.', line_spacing = .5},
 		checked = true,
 		--enabled = false,
 	}
@@ -659,7 +656,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local cb2 = ui:checkbox{
 		id = 'CB2',
 		parent = win,
-		x = 300, y = 140,
+		x = 300, y = 180,
 		label =  {text = 'Check me too', nowrap = true},
 		align = 'right',
 		--enabled = false,
@@ -668,7 +665,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local rb1 = ui:radiobutton{
 		id = 'RB1',
 		parent = win,
-		x = 300, y = 180,
+		x = 300, y = 220,
 		label =  {text = 'Radio me', nowrap = true},
 		checked = true,
 		radio_group = 1,
@@ -678,7 +675,7 @@ if not ... then require('ui_demo')(function(ui, win)
 	local rb2 = ui:radiobutton{
 		id = 'RB2',
 		parent = win,
-		x = 300, y = 220,
+		x = 300, y = 240,
 		label =  {text = 'Radio me too', nowrap = true},
 		radio_group = 1,
 		align = 'right',

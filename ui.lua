@@ -48,7 +48,7 @@ local function encode_nil(x) return x == nil and nilkey or x end
 local function decode_nil(x) if x == nilkey then return nil end; return x; end
 
 local function snap(x, enable)
-	return enable and floor(x) or x
+	return enable and floor(x + .5) or x
 end
 
 local function snap_xw(x, w, enable)
@@ -656,7 +656,7 @@ ui.transition = tran
 tran.interpolate = {}
 	--^ {attr_type -> func(self, d, x1, x2, xout) -> xout}
 
-function tran:interpolate_function(elem, attr)
+function tran:interpolate_function(attr)
 	local atype = self.ui:attr_type(attr)
 	return self.interpolate[atype]
 end
@@ -685,7 +685,7 @@ function tran:after_init(ui, t, ...)
 		assert(self.from ~= nil, 'transition from nil value for "%s"', self.attr)
 	end
 	assert(self.to ~= nil, 'transition to nil value for "%s"', self.attr)
-	self.interpolate = self:interpolate_function(self.elem, self.attr)
+	self.interpolate = self:interpolate_function(self.attr)
 	self.end_value = self.to --store it for later
 
 	--set the element value to a copy to avoid overwritting the original value
@@ -707,8 +707,7 @@ function tran:update(clock)
 	else --running, set to interpolated value
 		self.elem[self.attr] = self:value_at(t)
 	end
-	local alive = t <= 1
-	if not alive and self.times > 1 then --repeat in opposite direction
+	if t > 1 and self.times > 1 then --repeat in opposite direction
 		self.times = self.times - 1
 		self.start = clock + self.delay
 		self.from, self.to = self.to, self.from
@@ -716,9 +715,9 @@ function tran:update(clock)
 			self.to = self.backval
 			self.repeated = true
 		end
-		alive = true
+		return self:update(clock)
 	end
-	return alive
+	return t
 end
 
 function tran:get_end_clock()
@@ -950,20 +949,20 @@ function element:init_tags(t)
 	end
 end
 
-function element:settag(tag, op)
+function element:settag(tag, op, next_frame)
 	local had_tag = self.tags[tag]
 	if op == '~' then
 		self.tags[tag] = not had_tag
 		self._styles_valid = false
-		self:invalidate()
+		self:invalidate(next_frame)
 	elseif op and not had_tag then
 		self.tags[tag] = true
 		self._styles_valid = false
-		self:invalidate()
+		self:invalidate(next_frame)
 	elseif not op and had_tag then
 		self.tags[tag] = false
 		self._styles_valid = false
-		self:invalidate()
+		self:invalidate(next_frame)
 	end
 end
 
@@ -1053,13 +1052,13 @@ element.blend_transition = {}
 
 function element.blend_transition:replace(
 	tran, attr, cur_val, end_val, cur_end_val,
-	duration, ease, delay, times, backval, start_val
+	duration, ease, delay, times, backval, start_val, clock
 )
 	if duration <= 0 and delay <= 0 then
 		--instant transition: set the value immediately.
 		if end_val ~= cur_val then
 			self[attr] = end_val
-			self:invalidate()
+			self:invalidate(true)
 		end
 		return nil --stop the current transition if any.
 	elseif end_val == cur_end_val then
@@ -1072,14 +1071,14 @@ function element.blend_transition:replace(
 		return self.ui:transition{
 			elem = self, attr = attr, to = end_val,
 			duration = duration, ease = ease, delay = delay,
-			times = times, backval = backval, from = start_val,
+			times = times, backval = backval, from = start_val, clock = clock,
 		}
 	end
 end
 
 function element.blend_transition:replace_value(
 	tran, attr, cur_val, end_val, cur_end_val,
-	duration, ease, delay, times, backval, start_val
+	duration, ease, delay, times, backval, start_val, clock
 )
 	if tran then
 		--update the current transition.
@@ -1090,7 +1089,7 @@ function element.blend_transition:replace_value(
 		--instant transition: set the value immediately.
 		if end_val ~= cur_val then
 			self[attr] = end_val
-			self:invalidate()
+			self:invalidate(true)
 		end
 		return nil --stop the current transition if any.
 	else
@@ -1100,14 +1099,14 @@ function element.blend_transition:replace_value(
 		return self.ui:transition{
 			elem = self, attr = attr, to = end_val,
 			duration = duration, ease = ease, delay = delay,
-			times = times, backval = backval, from = start_val,
+			times = times, backval = backval, from = start_val, clock = clock,
 		}
 	end
 end
 
 function element.blend_transition:restart(
 	tran, attr, cur_val, end_val, cur_end_val,
-	duration, ease, delay, times, backval, start_val
+	duration, ease, delay, times, backval, start_val, clock
 )
 	if duration <= 0 and delay <= 0 then
 		--instant transition: set the value immediately.
@@ -1123,14 +1122,14 @@ function element.blend_transition:restart(
 		return self.ui:transition{
 			elem = self, attr = attr, to = end_val,
 			duration = duration, ease = ease, delay = delay,
-			times = times, backval = backval, from = start_val,
+			times = times, backval = backval, from = start_val, clock = clock,
 		}
 	end
 end
 
 function element.blend_transition:wait(
 	tran, attr, cur_val, end_val, cur_end_val,
-	duration, ease, delay, times, backval, start_val
+	duration, ease, delay, times, backval, start_val, clock
 )
 	if end_val == cur_end_val then
 		--same end value: continue with the current transition if any.
@@ -1139,7 +1138,7 @@ function element.blend_transition:wait(
 		local new_tran = self.ui:transition{
 			elem = self, attr = attr, to = end_val,
 			duration = duration, ease = ease, delay = delay,
-			times = times, backval = backval, from = cur_end_val,
+			times = times, backval = backval, from = cur_end_val, clock = clock,
 		}
 		if tran then
 			tran.next_transition = new_tran
@@ -1160,7 +1159,7 @@ element.transition_speed = 1
 
 local function transition_args(t,
 	attr, val, duration, ease, delay,
-	times, backval, blend, speed, from
+	times, backval, blend, speed, from, clock
 )
 	return
 	  t.attr or attr
@@ -1173,15 +1172,16 @@ local function transition_args(t,
 	, t.blend or blend
 	, t.speed or speed
 	, t.from or from
+	, t.clock or clock
 end
 
 function element:transition(
 	attr, val, duration, ease, delay,
-	times, backval, blend, speed, from
+	times, backval, blend, speed, from, clock
 )
 	if type(attr) == 'table' then
 		attr, val, duration, ease, delay,
-		times, backval, blend, speed, from =
+		times, backval, blend, speed, from, clock =
 			transition_args(attr)
 	end
 
@@ -1231,7 +1231,7 @@ function element:transition(
 	local blend_func = self.blend_transition[blend]
 	local tran = blend_func(self,
 		cur_tran, attr, cur_val, val, cur_end_val,
-		duration, ease, delay, times, backval, from
+		duration, ease, delay, times, backval, from, clock
 	)
 
 	if tran then
@@ -1244,22 +1244,26 @@ function element:transition(
 	end
 
 	if tran ~= cur_tran then
-		self:invalidate()
+		self:invalidate(true)
 	end
 end
 
 function element:sync_transitions()
 	local tr = rawget(self, 'transitions')
 	if not tr or not next(tr) then return end
-	local clock = self.frame_clock
-	if not clock then return end --not inside repaint
 	for attr, tran in pairs(tr) do
-		local alive = tran:update(clock)
-		if not alive then
-			tran = tran.next_transition
+		local t = tran:update(self.clock)
+		if t < 0 then --not started, wait for it
+			self:invalidate(tran.start)
+		elseif t > 1 then --finished, replace it
+			local tran = tran.next_transition
 			tr[attr] = tran
+			if tran then
+				self:invalidate(tran.start)
+			end
+		else --running, invalidate the next frame!
+			self:invalidate(true)
 		end
-		self:invalidate(tran and tran.start)
 	end
 end
 
@@ -1391,25 +1395,33 @@ function window:override_init(inherited, ui, t)
 		--TODO: dispatch to widgets: 'dropfiles', 'dragging',
 	})
 
+	self.clock = self.ui:clock()
+
 	self.mouse_x = win:mouse'x' or false
 	self.mouse_y = win:mouse'y' or false
 
 	local function setcontext()
+		self.clock = self.ui:clock()
 		self.bitmap = win:bitmap()
 		self.cr = self.bitmap:cairo()
 	end
 
 	local function setmouse(mx, my)
 		setcontext()
-		self.mouse_x = mx
-		self.mouse_y = my
+		local moved = self.mouse_x ~= mx or self.mouse_y ~= my
+		if moved then
+			self.mouse_x = mx
+			self.mouse_y = my
+		end
+		return moved
 	end
 
 	if win:frame() == 'none' then
 
 		win:on({'hittest', self}, function(win, mx, my, where)
-			setmouse(mx, my)
-			self.ui:_window_mousemove(self, mx, my)
+			if setmouse(mx, my) then
+				self.ui:_window_mousemove(self, mx, my)
+			end
 			local hw = self.ui.hot_widget
 			if hw and hw ~= self.view then
 				return false --cancel test
@@ -1420,8 +1432,10 @@ function window:override_init(inherited, ui, t)
 	else
 
 		win:on({'mousemove', self}, function(win, mx, my)
-			setmouse(mx, my)
-			self.ui:_window_mousemove(self, mx, my)
+
+			if setmouse(mx, my) then
+				self.ui:_window_mousemove(self, mx, my)
+			end
 		end)
 
 	end
@@ -1437,9 +1451,7 @@ function window:override_init(inherited, ui, t)
 	end)
 
 	win:on({'mousedown', self}, function(win, button, mx, my, click_count)
-		local moved = self.mouse_x ~= mx or self.mouse_y ~= my
-		setmouse(mx, my)
-		if moved then
+		if setmouse(mx, my) then
 			self.ui:_window_mousemove(self, mx, my)
 		end
 		self['mouse_'..button] = true
@@ -1451,9 +1463,7 @@ function window:override_init(inherited, ui, t)
 	end)
 
 	win:on({'mouseup', self}, function(win, button, mx, my, click_count)
-		local moved = self.mouse_x ~= mx or self.mouse_y ~= my
-		setmouse(mx, my)
-		if moved then
+		if setmouse(mx, my) then
 			self.ui:_window_mousemove(self, mx, my)
 		end
 		self['mouse_'..button] = false
@@ -1481,9 +1491,7 @@ function window:override_init(inherited, ui, t)
 			end
 		end
 
-		local moved = self.mouse_x ~= mx or self.mouse_y ~= my
-		setmouse(mx, my)
-		if moved then
+		if setmouse(mx, my) then
 			self.ui:_window_mousemove(self, mx, my)
 		end
 		self.ui:_window_mousewheel(self, delta, mx, my, pdelta)
@@ -1509,21 +1517,17 @@ function window:override_init(inherited, ui, t)
 		self:_key_event('keychar', s)
 	end)
 
+	win:on({'sync', self}, function(win)
+		setcontext()
+		self:sync()
+	end)
+
 	win:on({'repaint', self}, function(win)
 		setcontext()
+		self:draw(self.cr)
 		if self.mouse_x then
 			self.ui:_window_mousemove(self, self.mouse_x, self.mouse_y)
 		end
-		self.frame_clock = ui:clock()
-		self:draw(self.cr)
-		self.frame_clock = false
-	end)
-
-	win:on({'sync', self}, function(win)
-		setcontext()
-		self.frame_clock = ui:clock()
-		self:sync()
-		self.frame_clock = false
 	end)
 
 	win:on({'client_rect_changed', self}, function(win, cx, cy, cw, ch)
@@ -1531,8 +1535,8 @@ function window:override_init(inherited, ui, t)
 		setcontext()
 		self._cw = cw
 		self._ch = ch
-		self:fire('client_rect_changed', cx, cy, cw, ch)
 		self:invalidate()
+		self:fire('client_rect_changed', cx, cy, cw, ch)
 	end)
 
 	self._cw, self._ch = win:client_size()
@@ -1836,13 +1840,14 @@ for prop, writable in pairs(props) do
 			return self[priv]
 		end
 	end
-	window['set_'..prop] = function(self, value)
-		if self:isinstance() then
-			assert(writable == 1, 'read-only property')
-			local nwin = self.native_window
-			nwin[prop](nwin, value)
-		else
-			self[priv] = value
+	if writable == 1 then
+		window['set_'..prop] = function(self, value)
+			if self:isinstance() then
+				local nwin = self.native_window
+				nwin[prop](nwin, value)
+			else
+				self[priv] = value
+			end
 		end
 	end
 end
@@ -2094,7 +2099,9 @@ function ui:_window_mouseup(window, button, mx, my, click_count)
 	end
 
 	local widget = self.active_widget or self.hot_widget
-	widget:_mouseup(button, mx, my, self.hot_area)
+	if widget then
+		widget:_mouseup(button, mx, my, self.hot_area)
+	end
 end
 
 function ui:_window_mousewheel(window, delta, mx, my, pdelta)
@@ -2142,21 +2149,19 @@ function window:_key_event(event_name, key)
 end
 
 
---window rendering -----------------------------------------------------------
+--window sync'ing & rendering ------------------------------------------------
+
+function window:sync()
+	self.syncing = true
+	self.cr:save()
+	self.cr:new_path()
+	self.view:sync()
+	self.cr:restore()
+	self.syncing = false
+	self:check(not self:invalid(), 'invalid after sync()')
+end
 
 function window:draw(cr)
-	local exp = self._frame_expire_clock
-	if exp and exp > self.frame_clock then
-		--TODO: this still does blitting at 60fps when there are only in-delay
-		--transitions, even if we skip drawing the screen.
-		self.native_window:invalidate()
-		return
-	end
-	self._frame_expire_clock = false
-	cr:save()
-	cr:new_path()
-	self.view:sync()
-	cr:restore()
 	cr:save()
 	cr:new_path()
 	self.view:draw(cr)
@@ -2166,26 +2171,26 @@ function window:draw(cr)
 	end
 end
 
-function window:sync()
-	local exp = self._frame_expire_clock
-	if exp and exp > self.frame_clock then
-		self.native_window:invalidate()
-		return
+function window:invalidate(invalid_clock) --element interface; window intf.
+	if invalid_clock == true then --animation
+		invalid_clock = self.clock + 1/1000
 	end
-	self._frame_expire_clock = false
-	self.cr:save()
-	self.cr:new_path()
-	self.view:sync()
-	self.cr:restore()
+	if self.syncing then
+		if (invalid_clock or -1/0) < self.clock then
+			self:warn'invalidate() called inside sync()'
+			print(debug.traceback())
+		end
+	end
+	--print(debug.traceback())
+	self.native_window:invalidate(invalid_clock)
 end
 
-function window:invalidate(clock) --element interface; window intf.
-	local invalidated = self._frame_expire_clock
-	self._frame_expire_clock = clock
-		and min(self._frame_expire_clock or 1/0, clock) or -1/0
-	if not invalidated then
-		self.native_window:invalidate()
-	end
+function window:invalid()
+	return self.native_window:invalid(self.clock)
+end
+
+function window:validate()
+	self.native_window:validate(self.clock)
 end
 
 --ui colors, gradients, images -----------------------------------------------
@@ -2412,11 +2417,16 @@ layer.scale_cy = 0
 layer.snap_x = true --snap to pixels on x-axis
 layer.snap_y = true --snap to pixels on y-axis
 
+function layer:snapx(x) return snap(x, self.snap_x) end
+function layer:snapy(y) return snap(y, self.snap_y) end
+function layer:snapxw(x, w) return snap_xw(x, w, self.snap_x) end
+function layer:snapyh(y, h) return snap_xw(y, h, self.snap_y) end
+function layer:snapcx(cx) return snap(cx-self.cx, self.snap_x)+self.cx end
+function layer:snapcy(cy) return snap(cy-self.cy, self.snap_y)+self.cy end
+
 local mt = cairo.matrix()
 function layer:rel_matrix() --box matrix relative to parent's content space
-	mt:reset():translate(
-		snap(self.x, self.snap_x),
-		snap(self.y, self.snap_y))
+	mt:reset():translate(self:snapx(self.x), self:snapy(self.y))
 	local rot = self.rotation
 	if rot ~= 0 then
 		mt:rotate_around(self.rotation_cx, self.rotation_cy, math.rad(rot))
@@ -2668,7 +2678,6 @@ function layer:_mouseenter(mx, my, area)
 	self:settag(':hot_'..area, true)
 	self:fire('mouseenter', mx, my, area)
 	self.window:_settooltip(self.tooltip)
-	self:invalidate()
 end
 
 function layer:_mouseleave()
@@ -2677,7 +2686,6 @@ function layer:_mouseleave()
 	local area = self.ui.hot_area
 	self:settag(':hot', false)
 	self:settag(':hot_'..area, false)
-	self:invalidate()
 end
 
 function layer:_mousedown(button, mx, my, area)
@@ -2745,14 +2753,12 @@ function layer:accept_drop_widget(widget, area) return true; end
 function layer:_enter_drop_target(widget, area)
 	self:settag(':dropping', true)
 	self:fire('enter_drop_target', widget, area)
-	self:invalidate()
 end
 
 --called on the dragged widget once upon leaving a drop target.
 function layer:_leave_drop_target(widget)
 	self:fire('leave_drop_target', widget)
 	self:settag(':dropping', false)
-	self:invalidate()
 end
 
 layer.dragging = false
@@ -2763,7 +2769,6 @@ function layer:_started_dragging()
 	self.ui.dragged_widget = self
 	self:settag(':dragging', true)
 	self:fire'started_dragging'
-	self:invalidate()
 end
 
 --called on the dragged widget when dragging ends.
@@ -2772,7 +2777,6 @@ function layer:_ended_dragging()
 	self.ui.dragged_widget = false
 	self:settag(':dragging', false)
 	self:fire'ended_dragging'
-	self:invalidate()
 end
 
 --called on drag_start_widget to initiate a drag operation.
@@ -2802,13 +2806,11 @@ function layer:start_drag(button, mx, my, area) end
 function layer:_end_drag() --called on the drag_start_widget
 	self:settag(':drag_source', false)
 	self:fire('end_drag', self.ui.drag_widget)
-	self:invalidate()
 end
 
 function layer:_drop(widget, mx, my, area) --called on the drop target
 	local mx, my = self:from_window(mx, my)
 	self:fire('drop', widget, mx, my, area)
-	self:invalidate()
 end
 
 function layer:_drag(mx, my) --called on the dragged widget
@@ -2816,7 +2818,6 @@ function layer:_drag(mx, my) --called on the dragged widget
 	pmx, pmy = self.parent:from_window(mx, my)
 	dmx, dmy = self:to_parent(self.ui.drag_mx, self.ui.drag_my)
 	self:fire('drag', pmx - dmx, pmy - dmy)
-	self:invalidate()
 end
 
 --default behavior: drag the widget from the initial grabbing point.
@@ -2905,7 +2906,6 @@ function layer:unfocus()
 	self:unfocus_text()
 	self.window:fire('lostfocus', self)
 	self.ui:fire('lostfocus', self)
-	self:invalidate()
 end
 
 function layer:focus(focus_children)
@@ -2924,7 +2924,6 @@ function layer:focus(focus_children)
 			self.window.focused_widget = self
 			self.window:fire('widget_gotfocus', self)
 			self.ui:fire('gotfocus', self)
-			self:invalidate()
 		end
 		return true
 	elseif focus_children and self.visible and self.enabled then
@@ -3902,14 +3901,18 @@ end
 
 --element interface
 
-function layer:get_frame_clock()
-	return self.window.frame_clock
+function layer:get_clock()
+	return self.window.clock
 end
 
-function layer:invalidate(delay)
-	if self.window then
-		self.window:invalidate(delay)
-	end
+function layer:invalidate(invalid_clock)
+	if not self.window then return end
+	self.window:invalidate(invalid_clock)
+end
+
+function layer:validate()
+	if not self.window then return end
+	self.window:validate()
 end
 
 --layer.hot property which is managed by the window
@@ -3942,7 +3945,6 @@ function layer:set_active(active)
 		self.ui:fire('activated', self)
 		self:focus(false)
 	end
-	self:invalidate()
 end
 
 function layer:activate()
@@ -4006,12 +4008,14 @@ function layer:set_text(s)
 		self.text_selection = false
 	elseif self.text_selection then
 		self.text_selection:select_all()
-		self.text_selection:replace(s) --does reshaping & relayouting
+		self.text_selection:replace(s)
 	elseif self._text_segments then
-		self._text_segments:replace(0, 1/0, s) --does reshaping & relayouting
+		self._text_segments:replace(0, 1/0, s)
 	end
 	self._text = s
 	self._text_valid = true
+	self._text_w = false --invalidate wrap
+	self._text_h = false --invalidate align
 	self:invalidate()
 end
 
@@ -4019,6 +4023,22 @@ layer:track_changes'text'
 layer:instance_only'text'
 
 layer:init_priority{text=1/0}
+
+--text typing
+
+layer.maxlen = 4096
+
+function layer:type_text(s, use_maxlen)
+	local maxlen = use_maxlen ~= false and self.maxlen - self.text_len or nil
+	if self.text_selection:replace(s, nil, nil, maxlen) then
+		self._text_valid = false
+		self._text_w = false --invalidate wrap
+		self._text_h = false --invalidate align
+		self:invalidate()
+		self:fire'text_changed'
+		return true
+	end
+end
 
 --related `selected_text` property
 
@@ -4028,11 +4048,7 @@ function layer:get_selected_text(s)
 end
 
 function layer:set_selected_text(s)
-	if self.text_selection:replace(s) then --does reshaping & relayouting
-		self._text_valid = false
-		self:invalidate()
-		self:fire'text_changed'
-	end
+	self:type_text(s, false)
 end
 
 --value property when used as a grid cell.
@@ -4049,6 +4065,7 @@ layer.font_size   = false
 layer.nowrap      = false
 layer.text_dir    = false
 layer.text_color = '#fff'
+layer.text_opacity = 1
 layer.line_spacing = 1.2
 layer.hardline_spacing = 1.5
 layer.paragraph_spacing = 2.5
@@ -4163,6 +4180,7 @@ function layer:draw_text(cr)
 	local segs = self._text_segments
 	if not segs then return end
 	self._text_tree.color    = self.text_color
+	self._text_tree.opacity  = self.text_opacity
 	self._text_tree.operator = self.text_operator
 	local x1, y1, x2, y2 = cr:clip_extents()
 	segs:clip(x1, y1, x2-x1, y2-y1)
@@ -4180,6 +4198,7 @@ end
 
 --text caret & selection drawing ---------------------------------------------
 
+layer.caret_width = 1
 layer.caret_color = '#fff'
 layer.caret_opacity = 1
 
@@ -4193,10 +4212,16 @@ ui:style('layer !:window_active', {
 	text_selection_color = '#66f3',
 })
 
+ui:style('layer :insert_mode', {
+	caret_color = '#fff6',
+})
+
 --blinking the caret.
 ui:style('layer :focused !:insert_mode :window_active', {
 	caret_opacity = 0,
-	transition_caret_opacity = true,
+	transition_caret_opacity = function(self)
+		return self.text_editable
+	end,
 	transition_delay_caret_opacity = function(self)
 		return self.ui.caret_blink_time
 	end,
@@ -4222,9 +4247,15 @@ function layer:create_text_selection(segs)
 	end
 
 	--scroll to view the caret and fire the `caret_moved` event.
-	function sel.cursor2.changed()
-		self:make_visible_caret()
-		self:fire'caret_moved'
+	function sel.changed(sel, cursor)
+		self:fire('selection_changed', cursor)
+		self:invalidate()
+		if cursor == sel.cursor2 then
+			self:run_after_layout(function()
+				self:make_visible_caret()
+				self:fire'caret_moved'
+			end)
+		end
 	end
 
 	self:_sync_text_cursor_props(sel)
@@ -4234,18 +4265,20 @@ end
 
 function layer:blink_caret()
 	if not self.focused then return end
-	self.caret_visible = true
+	if not self.caret_visible then
+		self.caret_visible = true
+		self:invalidate()
+	end
 	self:transition{
 		attr = 'caret_opacity',
 		val = self:end_value'caret_opacity',
 	}
-	self:invalidate()
 end
 
 function layer:caret_rect()
-	local x, y, w, h = self.text_selection.cursor2:rect()
-	local x, w = snap_xw(x, w, self.snap_x)
-	local y, h = snap_xw(y, h, self.snap_y)
+	local x, y, w, h = self.text_selection.cursor2:rect(self.caret_width)
+	local x, w = self:snapxw(x, w)
+	local y, h = self:snapyh(y, h)
 	return x, y, w, h
 end
 
@@ -4285,7 +4318,7 @@ end
 
 function layer:make_visible_caret()
 	local segs = self._text_segments
-	local lines = segs and segs.lines
+	local lines = segs.lines
 	local sx, sy = lines.x, lines.y
 	local cw, ch = self:client_size()
 	local x, y, w, h = self:caret_visibility_rect()
@@ -4312,12 +4345,18 @@ layer.cursor_text = 'text'
 layer.cursor_selection = 'arrow'
 
 function layer:hit_test_text(x, y, reason)
-	if not self.text_selection then return end
 	if reason == 'activate' and self.activable then
-		if self.text_selection:hit_test(x, y) then
-			return self, 'text_selection'
-		elseif self._text_segments:hit_test(x, y) then
-			return self, 'text'
+		if self.text_selection then
+			self:validate()
+			if self.text_selection:hit_test(x, y) then
+				return self, 'text_selection'
+			elseif self.text_editable then
+				return self, 'text'
+			elseif self._text_segments:hit_test(x, y) then
+				return self, 'text'
+			end
+		elseif self._text_segments and self._text_segments:hit_test(x, y) then
+			return self, 'static_text'
 		end
 	end
 end
@@ -4335,6 +4374,7 @@ end
 function layer:mousedown_text(x, y)
 	if not self.text_selection then return end
 	if not self.ui:key'shift' then
+		self:validate()
 		self.text_selection.cursor2:move('pos', x, y)
 	end
 	self.text_selection:reset()
@@ -4343,6 +4383,7 @@ end
 
 function layer:mousemove_text(x, y)
 	if not self.active then return end
+	self:validate()
 	self.text_selection.cursor2:move('pos', x, y)
 end
 
@@ -4359,7 +4400,6 @@ layer.mouseup_text_selection     = layer.mouseup_text
 --text keyboard interaction (moving the caret, selecting and editing) --------
 
 layer.text_editable = false
-layer.maxlen = 4096
 
 function layer:filter_input_text(s)
 	return s:gsub('[%z\1-\8\11\12\14-\31\127]', '') --allow \t \n \r
@@ -4369,17 +4409,6 @@ end
 function layer:get_text_len()
 	local segs = self:sync_text_shape()
 	return segs and segs.text_runs.len or 0
-end
-
-function layer:_replace_selected_text(s)
-	local maxlen = self.maxlen - self.text_len
-	if self.text_selection:replace(s, nil, nil, maxlen) then
-		--^does reshaping & relayouting
-		self._text_valid = false
-		self:invalidate()
-		self:fire'text_changed'
-		return true
-	end
 end
 
 function layer:focus_text()
@@ -4407,7 +4436,7 @@ function layer:keychar_text(s)
 	s = self:filter_input_text(s)
 	if s == '' then return end
 	self:undo_group'typing'
-	self:_replace_selected_text(s)
+	self:type_text(s)
 end
 
 function layer:keypress_text(key)
@@ -4477,26 +4506,26 @@ function layer:keypress_text(key)
 				sel.cursor2:move('rel_cursor',
 					key == 'delete' and 'next' or 'prev', 'char')
 			end
-			return self:_replace_selected_text''
+			return self:type_text''
 		end
 	elseif ctrl and key == 'A' then
 		self:undo_group()
 		return sel:select_all()
-	elseif
-		(ctrl and (key == 'C' or key == 'X'))
-		or (shift_only and key == 'delete') --cut
-		or (ctrl_only and key == 'insert') --paste
-	then
-		if not sel:empty() then
-			local cut = key == 'X' or key == 'delete'
-			if not cut or self.text_editable then
-				self.ui:setclipboard(sel:string(), 'text')
-				if cut then
-					self:undo_group'cut'
-					self:_replace_selected_text''
-				end
-			end
+	elseif (ctrl and key == 'C' ) or (ctrl_only and key == 'insert') then
+		local s = sel:string()
+		if s ~= '' then
+			self.ui:setclipboard(s, 'text')
 			return true
+		end
+	elseif (ctrl and key == 'X') or (shift_only and key == 'delete') then
+		if self.text_editable then
+			local s = sel:string()
+			if s ~= '' then
+				self.ui:setclipboard(s, 'text')
+				self:undo_group'cut'
+				self:type_text''
+				return true
+			end
 		end
 	elseif (ctrl and key == 'V') or (shift_only and key == 'insert') then
 		if self.text_editable then
@@ -4504,7 +4533,7 @@ function layer:keypress_text(key)
 			s = s and self:filter_input_text(s)
 			if s and s ~= '' then
 				self:undo_group'paste'
-				self:_replace_selected_text(s)
+				self:type_text(s)
 				return true
 			end
 		end
@@ -4578,8 +4607,8 @@ end
 function layer:load_state(state)
 	local sel = self.text_selection
 	sel:select_all()
-	self:_replace_selected_text(state.text)
-	local segs = self.selection.segments
+	self:type_text(state.text)
+	local segs = self.text_selection.segments
 	sel.cursor1.seg = assert(segs[state.cursor1_seg_i])
 	sel.cursor2.seg = assert(segs[state.cursor2_seg_i])
 	sel.cursor1.i = state.cursor1_i
@@ -4693,8 +4722,8 @@ end
 function null_layout:sync_layout()
 	if not self.visible then return end
 	if not self.floating then
-		self.x, self.w = snap_xw(self.x, self.w, self.snap_x)
-		self.y, self.h = snap_xw(self.y, self.h, self.snap_y)
+		self.x, self.w = self:snapxw(self.x, self.w)
+		self.y, self.h = self:snapyh(self.y, self.h)
 	end
 	if self:sync_text_shape() then
 		self:sync_text_wrap()
@@ -4753,8 +4782,8 @@ function textbox:sync_layout()
 	self.cw = max(segs.lines.max_ax, self.min_cw)
 	self.ch = max(self.min_ch, segs.lines.spaced_h)
 	if not self.floating then
-		self.x, self.w = snap_xw(self.x, self.w, self.snap_x)
-		self.y, self.h = snap_xw(self.y, self.h, self.snap_y)
+		self.x, self.w = self:snapxw(self.x, self.w)
+		self.y, self.h = self:snapyh(self.y, self.h)
 	end
 	self:sync_text_align()
 	self:sync_layout_children()
@@ -5711,7 +5740,7 @@ ui.window_view = view
 window.view_class = view
 
 --screen-wiping options that work with transparent windows
-view.background_color = '#040404'
+view.background_color = '#040404f0'
 view.background_operator = 'source'
 
 --parent layer interface
@@ -5723,6 +5752,24 @@ view.from_window = view.from_parent
 function view:after_sync()
 	self:sync_window_view(self.window:client_size())
 	self:sync_layout()
+	self:run_after_layout_funcs()
+end
+
+function view:run_after_layout_funcs()
+	local funcs = self._after_layout_funcs
+	if not funcs then return end
+	for i=1,funcs.n do
+		funcs[i]()
+	end
+	self._after_layout_funcs.n = 0
+end
+
+function layer:run_after_layout(func)
+	if not self.window then return end
+	local funcs = attr(self.window.view, '_after_layout_funcs')
+	funcs.n = (funcs.n or 0) + 1
+	funcs[funcs.n] = func
+	self:invalidate()
 end
 
 --widgets autoload -----------------------------------------------------------

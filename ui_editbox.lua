@@ -79,21 +79,6 @@ ui:style('editbox standalone :focused', {
 	shadow_color = '#111',
 })
 
-ui:style('editbox_scrollbox standalone :child_focused', {
-	shadow_blur = 2,
-	shadow_y = 0,
-	shadow_color = '#666',
-})
-
-ui:style('editbox :insert_mode', {
-	caret_color = '#fff8',
-})
-
-ui:style('editbox !:window_active', {
-	caret_opacity = 0,
-	selection_color = '#66f3',
-})
-
 --animation
 
 ui:style([[

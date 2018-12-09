@@ -822,7 +822,7 @@ Windows have a top layer in their `view` field. Its size is kept in sync
 with the window's client area and it's configured to clear the window's
 bitmap on every repaint with these settings:
 
-  * `background_color = '#040404'`
+  * `background_color = '#040404f0'`
   * `background_operator = 'source'`
 
 User-created layers must ultimately be attached to the window's view (or to

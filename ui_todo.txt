@@ -1,6 +1,5 @@
 PRIORITY ---------------------------------------------------------------------
 
-- BUG: editbox: scroll_to_view first time before sync'ing.
 - REVIEW: dropdown!
 - REWRITE: colorpicker with grid/flexbox.
 

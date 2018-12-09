@@ -176,13 +176,15 @@ function tab:drag(dx, dy)
 		self.index = self.tablist:tab_index_by_visual_index(vi)
 		self:transition('tab_x', self.tablist:clamp_tab_pos(x), 0)
 		self:transition('tab_w', self.tablist.live_tab_w)
-		self:transition('x', 0, 0)
-		self:transition('y', self.tab_h, 0)
-		self:transition('w', self.tablist.w, 0)
-		self:transition('h', self.tablist.h - self.tablist.tab_h, 0)
+		local x, w = self:snapxw(0, self.tablist.w)
+		local y, h = self:snapyh(self.tab_h, self.tablist.h - self.tablist.tab_h)
+		self:transition('x', x, 0)
+		self:transition('y', y, 0)
+		self:transition('w', w, 0)
+		self:transition('h', h, 0)
 	else
-		local x = self.x + dx
-		local y = self.y + dy
+		local x = self:snapx(self.x + dx)
+		local y = self:snapy(self.y + dy)
 		self:transition('tab_x', self.origin_tab_x, 0)
 		self:transition('x', x, 0)
 		self:transition('y', y, 0)
@@ -683,15 +685,17 @@ function tablist:sync_tabs(...)
 	local vi = 1
 	for i,tab in ipairs(self.tabs) do
 		if tab.visible then
+			local x, w = self:snapxw(0, self.w)
+			local y, h = self:snapyh(self.tab_h, self.h - self.tab_h)
 			if not tab.dragging then
 				tab:transition('tab_x', self:tab_pos_by_visual_index(vi), ...)
 				tab:transition('tab_w', tab_w, ...)
 				tab:transition('tab_h', self.tab_h, ...)
-				tab:transition('x', 0, ...)
-				tab:transition('y', self.tab_h, ...)
+				tab:transition('x', x, ...)
+				tab:transition('y', y, ...)
 			end
-			tab:transition('w', self.w, ...)
-			tab:transition('h', self.h - self.tab_h, ...)
+			tab:transition('w', w, ...)
+			tab:transition('h', h, ...)
 			vi = vi + 1
 			tab:sync_transitions()
 		end
