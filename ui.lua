@@ -1530,13 +1530,10 @@ function window:override_init(inherited, ui, t)
 		end
 	end)
 
-	win:on({'client_rect_changed', self}, function(win, cx, cy, cw, ch)
-		if not cx then return end --hidden or minimized
-		setcontext()
+	win:on({'client_resized', self}, function(win, cw, ch)
+		if not cw then return end --hidden or minimized
 		self._cw = cw
 		self._ch = ch
-		self:invalidate()
-		self:fire('client_rect_changed', cx, cy, cw, ch)
 	end)
 
 	self._cw, self._ch = win:client_size()
@@ -1826,7 +1823,6 @@ local props = {
 	autoquit=1, visible=1, fullscreen=1, enabled=1, edgesnapping=1,
 	topmost=1, title=1,
 	--r/o properties
-	dead=0,
 	closeable=0, activable=0, minimizable=0, maximizable=0, resizeable=0,
 	fullscreenable=0, frame=0, transparent=0, corner_radius=0, sticky=0,
 }
@@ -2181,7 +2177,6 @@ function window:invalidate(invalid_clock) --element interface; window intf.
 			print(debug.traceback())
 		end
 	end
-	--print(debug.traceback())
 	self.native_window:invalidate(invalid_clock)
 end
 

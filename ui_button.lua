@@ -186,6 +186,9 @@ function button:keyup(key)
 		self:settag(':over', false)
 		if press then
 			self:press()
+			if not self.ui then --window closed
+				return true
+			end
 		end
 		self.active = false
 		self.active_by_key = false
