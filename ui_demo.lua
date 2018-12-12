@@ -3,12 +3,15 @@
 local ui = require'ui'
 local Q = require'utf8quot'
 local time = require'time'
-local win = ui:window{x = 700, y = 100, cw = 1200, ch = 700, visible = false, autoquit=true}
+local win = ui:window{
+	x = 600, y = 100, cw = 500, ch = 700,
+	visible = false, autoquit=true, edgesnapping=false,
+}
 function win:keyup(key) if key == 'esc' then self:close() end end
 
 ui.maxfps = 60
 
-local function fps_function()
+	local function fps_function()
 	local count_per_sec = 2
 	local frame_count, last_frame_count, last_time = 0, 0
 	return function()
@@ -29,8 +32,13 @@ win.native_window:on('repaint', function(self)
 	self:title(string.format('%d fps', fps()))
 end)
 
+--keep showing fps in the titlebar every second.
 ui:runevery(1, function()
-	win:invalidate()
+	if win.dead then
+		ui:quit()
+	else
+		win:invalidate()
+	end
 end)
 
 if ... == 'ui_demo' and not DEMO then --loaded via require()
@@ -505,6 +513,34 @@ local function test_flexbox()
 
 end
 
+local function test_flexbox_baseline()
+
+	win.view.layout = 'flexbox'
+
+	local flex = ui:layer{
+		parent = win,
+		layout = 'flexbox',
+		flex_wrap = true,
+		align_main = 'stretch',
+		align_cross = 'baseline',
+		align_lines = 'start',
+		border_width = 20,
+		padding = 20,
+		border_color = '#333',
+	}
+
+	local c = ui.layer:subclass(nil, {
+		border_width = 1,
+		layout = 'textbox',
+		text_selectable = true,
+		text_editable = true,
+		focusable = true,
+	})
+	c(ui, {parent = flex, text = 'Hey there', font_size = 40})
+	c(ui, {parent = flex, text = 'Hey there', font_size = 16})
+
+end
+
 local function test_grid_layout()
 
 	local grid = ui:layer{
@@ -657,6 +693,7 @@ Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi malui
 				text_align_y = 'top',
 				text = s,
 				text_selectable = true,
+				text_editable = true,
 			},
 		},
 	}
@@ -666,15 +703,26 @@ Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi malui
 		value = s,
 	}
 
+	--rtl
+	ui:add_font_file('media/fonts/amiri-regular.ttf', 'Amiri')
+	local ta = ui:textarea{
+		parent = win,
+		content = {
+		},
+	}.content
+	ta.font = 'Amiri,22'
+	ta.padding_right = 1
+	ta.border_width = 1
+	ta.border_color = '#333'
+	ta.wrapped_space = false
+	ta.line_spacing = .9
+	ta.text = 'As-salāmu ʿalaykum! ال [( مف )] اتيح Hello Hello Hello Hello World! 123 السَّلَامُ عَلَيْكُمْ'
+
 	--[[
 	ui:editbox{
 		parent = win,
 	}
 
-	ui:editbox{
-		parent = win,
-		multiline = true,
-	}
 	]]
 
 	--[[
@@ -709,6 +757,7 @@ end
 --test_drag()
 --test_text()
 --test_flexbox()
+--test_flexbox_baseline()
 --test_grid_layout()
 test_widgets_flex()
 win:show()

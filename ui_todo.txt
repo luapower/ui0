@@ -11,11 +11,9 @@ LOW-LEVEL --------------------------------------------------------------------
 
 NW ---------------------------------------------------------------------------
 
-- BUG when dragging the title bar.
 - BUG parent doesn't get repainted right after closing a child popup.
 - FEAT get a window's children in z-order so we can forward mouse wheel events
 to non-activable children.
-- BUG background doesn't get cleared anymore when there's no repaint handler.
 
 TR ---------------------------------------------------------------------------
 

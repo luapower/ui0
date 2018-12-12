@@ -1517,6 +1517,7 @@ function window:override_init(inherited, ui, t)
 		self:_key_event('keychar', s)
 	end)
 
+	self.sync_count = 0
 	win:on({'sync', self}, function(win)
 		setcontext()
 		self:sync()
@@ -2149,6 +2150,7 @@ end
 
 function window:sync()
 	self.syncing = true
+	self.sync_count = self.sync_count + 1
 	self.cr:save()
 	self.cr:new_path()
 	self.view:sync()
@@ -3052,7 +3054,7 @@ layer.corner_radius_top_left    = false
 layer.corner_radius_top_right   = false
 layer.corner_radius_bottom_left = false
 layer.corner_radius_bottom_right = false
-layer.border_color = '#fff'
+layer.border_color = '#888'
 layer.border_color_left   = false
 layer.border_color_right  = false
 layer.border_color_top    = false
@@ -3986,9 +3988,13 @@ end
 
 layer._text = false
 layer._text_valid = true
+layer.maxlen = 4096
 
 function layer:get_text()
 	if not self._text_valid then
+		if not self._text_segments then
+			assert(self:sync_text_shape()) --truncate _text
+		end
 		self._text = self._text_segments.text_runs:string()
 		self._text_valid = true
 	end
@@ -3996,36 +4002,50 @@ function layer:get_text()
 end
 
 function layer:set_text(s)
+	s = s or false
+	if self._text_valid or self._text_segments then
+		if s == self.text then
+			return false
+		end
+	elseif s == self._text then
+		return false
+	end
 	self:clear_undo_stack()
 	if not s then
+		self._text = false
+		self._text_valid = true
 		self._text_tree = false
 		self._text_segments = false
 		self.text_selection = false
 	elseif self.text_selection then
+		self._text = ''
+		self._text_valid = false
 		self.text_selection:select_all()
-		self.text_selection:replace(s)
+		self.text_selection:replace(s, nil, nil, self.maxlen)
 	elseif self._text_segments then
-		self._text_segments:replace(0, 1/0, s)
+		self._text = ''
+		self._text_valid = false
+		self._text_segments:replace(0, 1/0, s, nil, nil, self.maxlen)
+	else
+		self._text = s
+		self._text_valid = false --because we're not truncating it here
 	end
-	self._text = s
-	self._text_valid = true
 	self._text_w = false --invalidate wrap
 	self._text_h = false --invalidate align
 	self:invalidate()
+	self:fire'text_changed'
 end
 
-layer:track_changes'text'
 layer:instance_only'text'
 
 layer:init_priority{text=1/0}
 
 --text typing
 
-layer.maxlen = 4096
-
-function layer:type_text(s, use_maxlen)
-	local maxlen = use_maxlen ~= false and self.maxlen - self.text_len or nil
+function layer:type_text(s)
+	local maxlen = self.maxlen - self.text_len
 	if self.text_selection:replace(s, nil, nil, maxlen) then
+		self._text = ''
 		self._text_valid = false
 		self._text_w = false --invalidate wrap
 		self._text_h = false --invalidate align
@@ -4043,7 +4063,7 @@ function layer:get_selected_text(s)
 end
 
 function layer:set_selected_text(s)
-	self:type_text(s, false)
+	return self:type_text(s)
 end
 
 --value property when used as a grid cell.
@@ -4067,8 +4087,8 @@ layer.paragraph_spacing = 2.5
 layer.text_dir = 'auto' --auto, rtl, ltr
 layer.nowrap = false
 layer.text_operator = 'over'
-layer.text_align_x = 'center'
-layer.text_align_y = 'center'
+layer.text_align_x = 'center' --left, right, center, auto
+layer.text_align_y = 'center' --top, bottom, center
 
 function layer:text_visible()
 	return self._text and true or false
@@ -4079,7 +4099,7 @@ end
 layer:stored_property'text_align_x'
 layer:stored_property'text_align_y'
 layer:enum_property('text_align_x', {
-	left = 'left', center = 'center', right = 'right',
+	left = 'left', center = 'center', right = 'right', auto = 'auto',
 	l = 'left', c = 'center', r = 'right',
 })
 layer:enum_property('text_align_y', {
@@ -4094,25 +4114,33 @@ function layer:sync_text_shape()
 	if not self:text_visible() then
 		return
 	end
-	if not self._text_tree
-		or self.font        ~= self._text_tree.font
-		or self.font_name   ~= self._text_tree.font_name
-		or self.font_weight ~= self._text_tree.font_weight
-		or self.font_slant  ~= self._text_tree.font_slant
-		or self.font_size   ~= self._text_tree.font_size
-		or self.nowrap      ~= self._text_tree.nowrap
-		or self.text_dir    ~= self._text_tree.text_dir
+	local t = self._text_tree
+	if not t
+		or self.maxlen      ~= t.maxlen
+		or self.font        ~= t.font
+		or self.font_name   ~= t.font_name
+		or self.font_weight ~= t.font_weight
+		or self.font_slant  ~= t.font_slant
+		or self.font_size   ~= t.font_size
+		or self.nowrap      ~= t.nowrap
+		or self.text_dir    ~= t.text_dir
 	then
-		self._text_tree = self._text_tree or {}
-		self._text_tree[1]          = self.text
-		self._text_tree.font        = self.font
-		self._text_tree.font_name   = self.font_name
-		self._text_tree.font_weight = self.font_weight
-		self._text_tree.font_slant  = self.font_slant
-		self._text_tree.font_size   = self.font_size
-		self._text_tree.nowrap      = self.nowrap
-		self._text_tree.text_dir    = self.text_dir
-		self._text_segments = self.ui.tr:shape(self._text_tree)
+		if not t then
+			t = {}
+			self._text_tree = t
+		end
+		t[1] = self._text_segments
+			and self.text --truncated
+			or self._text --raw
+		t.maxlen      = self.maxlen
+		t.font        = self.font
+		t.font_name   = self.font_name
+		t.font_weight = self.font_weight
+		t.font_slant  = self.font_slant
+		t.font_size   = self.font_size
+		t.nowrap      = self.nowrap
+		t.text_dir    = self.text_dir
+		self._text_segments = self.ui.tr:shape(t)
 		self._text_w = false --invalidate wrap
 		self._text_h = false --invalidate align
 		self.text_selection = false --invalidate selection
@@ -4165,10 +4193,8 @@ function layer:sync_text_align()
 end
 
 function layer:get_baseline()
-	local segs = self._text_segments
-	if not segs then return 0 end
-	local lines = segs.lines
-	return lines.y + lines.baseline
+	if not self:text_visible() then return end
+	return self._text_segments.lines.baseline
 end
 
 function layer:draw_text(cr)
@@ -4341,8 +4367,8 @@ layer.cursor_selection = 'arrow'
 
 function layer:hit_test_text(x, y, reason)
 	if reason == 'activate' and self.activable then
+		self:validate()
 		if self.text_selection then
-			self:validate()
 			if self.text_selection:hit_test(x, y) then
 				return self, 'text_selection'
 			elseif self.text_editable then
@@ -4395,6 +4421,10 @@ layer.mouseup_text_selection     = layer.mouseup_text
 --text keyboard interaction (moving the caret, selecting and editing) --------
 
 layer.text_editable = false
+
+layer.paragraph_first = true --enter for paragraph, ctrl+enter for newline
+layer.paragraph_separator = '\u{2029}' --PS
+layer.line_separator = false --use OS default from keychar()
 
 function layer:filter_input_text(s)
 	return s:gsub('[%z\1-\8\11\12\14-\31\127]', '') --allow \t \n \r
@@ -4502,6 +4532,17 @@ function layer:keypress_text(key)
 					key == 'delete' and 'next' or 'prev', 'char')
 			end
 			return self:type_text''
+		end
+	elseif key == 'enter' and (key_only or ctrl_only or shift_only) then
+		if self.text_editable then
+			local sep = self.paragraph_first == key_only
+				and self.paragraph_separator
+				or self.line_separator
+			if sep then
+				self:undo_group'typing'
+				self:type_text(sep)
+				return true
+			end
 		end
 	elseif ctrl and key == 'A' then
 		self:undo_group()
@@ -4995,7 +5036,26 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 	local SNAP_X = 'snap_'..X
 	local SNAP_Y = 'snap_'..Y
 
-	local function items_min_h(self, i, j)
+	--special items_min_h() for baseline align.
+	--requires that the children are already sync'ed on y-axis.
+	local function items_min_h_baseline(self, i, j)
+		local max_ascent = -1/0
+		local max_descent = -1/0
+		for i = i, j do
+			local layer = self[i]
+			if layer.visible and not layer.floating then
+				local baseline = layer.baseline or layer.h
+				max_ascent = max(max_ascent, baseline)
+				max_descent = max(max_descent, layer._min_h - baseline)
+			end
+		end
+		return max_ascent + max_descent, max_ascent
+	end
+
+	local function items_min_h(self, i, j, align_baseline)
+		if align_baseline then
+			return items_min_h_baseline(self, i, j)
+		end
 		return items_max(self, i, j, _MIN_H)
 	end
 
@@ -5039,7 +5099,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		end
 	end
 
-	local function min_ch(self, other_axis_synced)
+	local function min_ch(self, other_axis_synced, align_baseline)
 		if not other_axis_synced and self.flex_wrap then
 			--width-in-height-out parent layout requesting min_w on a y-axis
 			--wrapping flexbox (which is a height-in-width-out layout).
@@ -5047,7 +5107,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		end
 		local lines_h = 0
 		for j, i in linewrap(self) do
-			local line_h = items_min_h(self, i, j)
+			local line_h = items_min_h(self, i, j, align_baseline)
 			lines_h = lines_h + line_h
 		end
 		return lines_h
@@ -5091,7 +5151,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 	end
 
 	--align a line of items on the cross-axis.
-	local function align_items_y(self, i, j, line_y, line_h)
+	local function align_items_y(self, i, j, line_y, line_h, line_baseline)
 		local snap_y = self[SNAP_Y]
 		local align = self.align_cross
 		for i = i, j do
@@ -5103,37 +5163,24 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 				else
 					local item_h = layer[_MIN_H]
 					if align == TOP or align == T or align == 'start' then
-						layer[Y], layer[H] =
-							snap_xw(line_y, item_h, snap_y)
+						layer[Y], layer[H] = snap_xw(line_y, item_h, snap_y)
 					elseif align == BOTTOM or align == B or align == 'end' then
-						layer[Y], layer[H] =
-							snap_xw(line_y + line_h - item_h, item_h, snap_y)
+						local item_y = line_y + line_h - item_h
+						layer[Y], layer[H] = snap_xw(item_y, item_h, snap_y)
 					elseif align == 'center' or align == 'c' then
-						layer[Y], layer[H] =
-							snap_xw(line_y + (line_h - item_h) / 2, item_h, snap_y)
+						local item_y = line_y + (line_h - item_h) / 2
+						layer[Y], layer[H] = snap_xw(item_y, item_h, snap_y)
+					elseif line_baseline then
+						local item_y = line_baseline - (layer.baseline or layer.h)
+						layer[Y], layer[H] = snap_xw(item_y, item_h, snap_y)
 					end
-					--[[
-					--TODO: baseline
-					elseif align == 'baseline' and Y == 'y' then
-						local baseline = 0
-						for _,layer in ipairs(self) do
-							if layer.visible and not layer.floating then
-								local segs = layer._text_segments
-								if segs then
-									baseline = max(baseline, segs.lines.baseline or 0)
-								end
-							end
-						end
-						layer.y = lines_y + baseline
-					end
-					]]
 				end
 			end
 		end
 	end
 
 	--stretch or align a flexbox's items on the cross-axis.
-	local function align_y(self, other_axis_synced)
+	local function align_y(self, other_axis_synced, align_baseline)
 		if not other_axis_synced and self.flex_wrap then
 			--trying to lay out the y-axis before knowing the x-axis:
 			--dismiss and wait for the 3rd pass.
@@ -5153,7 +5200,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 			local lines_h = 0
 			local line_count = 0
 			for j, i in linewrap(self) do
-				local line_h = items_min_h(self, i, j)
+				local line_h = items_min_h(self, i, j, align_baseline)
 				lines_h = lines_h + line_h
 				line_count = line_count + 1
 			end
@@ -5162,8 +5209,11 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		end
 		local y = lines_y
 		for j, i in linewrap(self) do
-			local line_h = line_h or items_min_h(self, i, j)
-			align_items_y(self, i, j, y, line_h)
+			local line_h, line_baseline = line_h
+			if not line_h then
+				line_h, line_baseline = items_min_h(self, i, j, align_baseline)
+			end
+			align_items_y(self, i, j, y, line_h, line_baseline)
 			y = y + line_h + line_spacing
 		end
 		return true
@@ -5198,15 +5248,25 @@ end
 
 function flexbox:sync_min_h(other_axis_synced)
 
+	local align_baseline = self.flex_axis == 'x'
+		and self.align_cross == 'baseline'
+
 	--sync all children first (bottom-up sync).
 	for _,layer in ipairs(self) do
 		if layer.visible and not layer.floating then
-			layer:sync_min_h(other_axis_synced) --recurse
+			local item_h = layer:sync_min_h(other_axis_synced) --recurse
+			--for baseline align also layout the children because we need their
+			--baseline. we can do this here because we already know we won't
+			--stretch them beyond their min_h in this case.
+			if align_baseline then
+				layer.y, layer.h = snap_xw(0, item_h, self.snap_y)
+				layer:sync_layout_y(other_axis_synced)
+			end
 		end
 	end
 
 	local min_ch = self.flex_axis == 'x'
-		and self:min_ch_x_axis(other_axis_synced)
+		and self:min_ch_x_axis(other_axis_synced, align_baseline)
 		 or self:min_cw_y_axis(other_axis_synced)
 
 	min_ch = max(min_ch, self.min_ch)
@@ -5233,6 +5293,11 @@ function flexbox:sync_layout_x(other_axis_synced)
 end
 
 function flexbox:sync_layout_y(other_axis_synced)
+
+	if self.flex_axis == 'x' and self.align_cross == 'baseline' then
+		--chilren already sync'ed in sync_min_ch().
+		return self:sync_layout_x_axis_y(other_axis_synced, true)
+	end
 
 	local synced = self.flex_axis == 'y'
 		and self:sync_layout_y_axis_x(other_axis_synced)

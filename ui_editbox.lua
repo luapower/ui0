@@ -16,78 +16,36 @@ local editbox = ui.layer:subclass'editbox'
 ui.editbox = editbox
 editbox.iswidget = true
 
-editbox.focusable = true
-editbox.text_selectable = true
-editbox.text_editable = true
-
 --features
 
 editbox.password = false
 
 --metrics & colors
 
-editbox.text_align_x = 'left'
+editbox.text_align_x = 'auto'
 editbox.align_y = 'center'
-editbox.padding = 4
-editbox.padding_left = 0
-editbox.padding_right = 1
-editbox.min_ch = 16
+editbox.min_ch = 1000
 editbox.w = 180
-editbox.h = 24
-editbox.border_color = '#000'
+editbox.h = 1000
 
 editbox.tags = 'standalone'
 
-ui:style('editbox standalone, editbox_scrollbox standalone', {
-	border_color = '#333',
-})
-
-ui:style('editbox standalone', {
-	border_width_bottom = 1,
-})
-
-ui:style('editbox_scrollbox standalone', {
-	border_width = 1,
-})
-
---keep the same padding for the multiline editbox.
-ui:style('editbox_scrollbox > editbox', {
-	padding = 0,
-	padding_left = 0,
-	padding_right = 0,
-})
-ui:style('editbox_scrollbox', {
-	padding = 1,
-})
-ui:style('editbox_scrollbox > scrollbox_view', {
-	padding = 3,
-	padding_left = 5,
-	padding_right = 5,
-})
-
-ui:style([[
-	editbox standalone :focused,
-	editbox_scrollbox standalone :child_focused
-]], {
-	border_color = '#fff',
-	background_color = '#040404', --to cover the shadow
-})
-
-ui:style('editbox standalone :focused', {
-	shadow_blur = 1,
-	shadow_y = 4,
-	shadow_color = '#111',
+ui:style('editbox standalone > editbox_border', {
+	visible = true,
 })
 
 --animation
 
-ui:style([[
-	editbox standalone, editbox_scrollbox standalone,
-	editbox standalone :hot, editbox_scrollbox standalone :hot
-]], {
+ui:style('editbox standalone, editbox standalone :hot', {
 	transition_border_color = true,
 	transition_duration_border_color = .5,
 })
+
+editbox.focusable = true
+editbox.text_selectable = true
+editbox.text_editable = true
+editbox.nowrap = true
+editbox.clip_content = true
 
 --filtering the input text.
 
@@ -103,93 +61,21 @@ function editbox:override_filter_input_text(inherited, s)
 	end
 end
 
---multiline mode: wrap the editbox in a scrollbox.
+--password mask drawing & hit testing
 
-editbox:stored_property'multiline'
-editbox:instance_only'multiline'
-
-function editbox:get_multiline()
-	return self._multiline and not self.password
-end
-
-ui:style('editbox multiline', {
-	text_align_x = 'left',
-	text_align_y = 'top',
-})
-
-editbox.scrollbox_class = ui.scrollbox
-
-function editbox:create_scrollbox()
-	return self.scrollbox_class(self.parent, {
-		tags = 'editbox_scrollbox',
-		content = self,
-		editbox = self,
-		auto_w = true,
-		min_cw = self.min_cw,
-		min_ch = self.min_ch,
-		x = self.x,
-		y = self.y,
-		w = self.w,
-		h = self.h,
-	}, self.scrollbox)
-end
-
-function editbox:after_set_multiline(multiline)
-	if multiline then
-		self.scrollbox = self:create_scrollbox()
-		self:settag('multiline', true)
-		if self.tags.standalone then
-			self:settag('standalone', false)
-			self.scrollbox:settag('standalone', true)
-		end
-		self.clip_content = false --enable real (strict) bounding box
-		self.layout = 'textbox'
-	else
-		self.layout = false
-		self.nowrap = true
-		self.clip_content = false
-		if self.scrollbox then
-			self:settag('multiline', false)
-			if self.scrollbox.tags.standalone then
-				self:settag('standalone', true)
-			end
-			self.parent = self.scrollbox.parent
-			self.scrollbox:free()
-			self.scrollbox = false
-		end
-	end
-end
-
---sync'ing
-
-function editbox:text_visible()
-	return true --always sync, even for the empty string.
-end
-
-function editbox:caret_rect()
-	local cursor = self.selection.cursor2
-	local x, y, w, h = cursor:rect()
+function editbox:override_caret_rect(inherited)
+	local x, y, w, h = inherited(self)
 	if self.password then
 		x, y = self:text_to_mask(x, y)
 		w = self.insert_mode and self:password_char_advance_x() or 1
 		if cursor:rtl() then
 			x = x - w
 		end
+		x = snap(x)
+		y = snap(y)
 	end
-	return snap(x), snap(y), w, h
-end
-
-function editbox:caret_scroll_rect()
-	local x, y, w, h = self:caret_rect()
-	--enlarge the caret rect to contain the line spacing.
-	local line = self.selection.cursor2.seg.line
-	local y = y + line.ascent - line.spaced_ascent
-	local h = line.spaced_ascent - line.spaced_descent
 	return x, y, w, h
 end
-
-
---password mask drawing & hit testing
 
 --Password masking works by drawing fixed-width dots in place of actual
 --characters. Because cursor placement and hit-testing must continue
@@ -215,7 +101,7 @@ end
 
 function editbox:password_char_advance_x()
 	--TODO: maybe use the min(w, h) of the "M" char here?
-	return self.selection.segments.text_runs[1].font_size * .75
+	return self.text_selection.segments.text_runs[1].font_size * .75
 end
 
 --convert "text space" cursor coordinates to "mask space" coordinates.
@@ -254,7 +140,7 @@ end
 function editbox:draw_password_mask(cr)
 	local w = self:password_char_advance_x()
 	local h = self.ch
-	local segs = self.selection.segments
+	local segs = self.text_selection.segments
 	local x = segs:line_pos(1)
 	cr:save()
 	cr:translate(x, 0)
@@ -277,6 +163,42 @@ function editbox:after_sync_text_align()
 	if self.password then
 		self:sync_password_mask()
 	end
+end
+
+--border layer
+
+local border = ui.layer:subclass'editbox_border'
+editbox.border_layer_class = border
+
+border.border_width_bottom = 1
+border.border_color = '#000'
+
+ui:style('editbox standalone > editbox_border', {
+	border_color = '#333',
+	border_width_bottom = 1,
+})
+
+ui:style('editbox standalone :focused > editbox_border', {
+	border_color = '#fff',
+	background_color = '#040404', --to cover the shadow
+})
+
+ui:style('editbox standalone :focused > editbox_border', {
+	shadow_blur = 1,
+	shadow_y = 4,
+	shadow_color = '#111',
+})
+
+function editbox:create_border_layer()
+	return self.border_layer_class(self.ui, {
+		parent = self,
+		editbox = self,
+		activable = false,
+	}, self.border_layer)
+end
+
+function editbox:after_init(ui, t)
+	self.border_layer = self:create_border_layer()
 end
 
 --cue layer
@@ -310,8 +232,9 @@ function editbox:create_cue_layer()
 
 	function cue_layer:before_sync_layout()
 		local ed = self.editbox
-		self.visible = ed.text_len == 0
-			and (not ed.show_cue_when_focused or ed.focused)
+		self.visible =
+			(not ed.show_cue_when_focused or ed.focused)
+			and ed.text_len == 0
 		if self.visible then
 			self.text_align_x = ed.text_align_x
 			self.text_align_y = ed.text_align_y
@@ -340,8 +263,8 @@ if not ... then require('ui_demo')(function(ui, win)
 	local x, y = 10, 10
 	local function xy()
 		local editbox = win.view[#win.view]
-		y = y + editbox.h + 10
-		if y + editbox.h + 10 > win.ch then
+		y = y + 30 + 10
+		if y + 30 + 10 > win.ch then
 			x = x + editbox.y + 10
 		end
 	end
@@ -405,6 +328,7 @@ if not ... then require('ui_demo')(function(ui, win)
 
 	local s = '0123 4567 8901 2345'
 
+	--[[
 	--password, scrolling, left align (the only alignment supported)
 	ui:editbox{
 		x = x, y = y, parent = win,
@@ -413,6 +337,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		text_align_x = 'right', --overriden!
 	}
 	xy()
+	]]
 
 	--invalid font
 	ui:editbox{
@@ -423,48 +348,11 @@ if not ... then require('ui_demo')(function(ui, win)
 
 	ui:add_font_file('media/fonts/amiri-regular.ttf', 'Amiri')
 
-	--rtl
+	--rtl, align=auto
 	ui:editbox{
 		x = x, y = y, parent = win,
 		font = 'Amiri,20',
 		text = 'السَّلَامُ عَلَيْكُمْ',
-		text_align_x = 'right',
-		text_dir = 'rtl',
-	}
-	xy()
-
-	--multiline
-	ui:editbox{
-		x = x, y = y, parent = win,
-		h = 100,
-		parent = win,
-		text = ('HelloWorldHelloWorldHelloWorld! '):rep(20),
-		multiline = true,
-	}
-	xy()
-
-	--multiline rtl
-	ui:editbox{
-		x = x, y = y, parent = win,
-		h = 100,
-		parent = win,
-		text = 'HelloHelloHelloWorld! Enter\nLine2 Par\u{2029}NextPar', --(('Hello World!! '):rep(2)..'Enter \n'):rep(1),
-		multiline = true,
-		cue = 'Type text here...',
-	}
-	xy()
-
-	ui:add_font_file('media/fonts/amiri-regular.ttf', 'Amiri')
-	ui:editbox{
-		x = x, y = y, parent = win,
-		h = 200,
-		parent = win,
-		font = 'Amiri,22',
-		unique_offsets = false,
-		line_spacing = .9,
-		text = 'As-salāmu ʿalaykum! ال [( مف )] اتيح Hello Hello Hello Hello World! 123 السَّلَامُ عَلَيْكُمْ',
-		multiline = true,
-		cue = 'Type text here...',
 	}
 	xy()
 

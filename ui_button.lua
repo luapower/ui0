@@ -18,6 +18,7 @@ button.padding_left = 8
 button.padding_right = 8
 button.padding_top = 2
 button.padding_bottom = 2
+button.line_spacing = .9
 
 button.background_color = '#444'
 button.border_color = '#888'
@@ -252,7 +253,7 @@ ui.checkbox = checkbox
 
 checkbox.layout = 'flexbox'
 checkbox.min_ch = 16
-checkbox.align_cross = 'top'
+checkbox.align_cross = 'baseline'
 checkbox.align_lines = 'center'
 
 --checked property
@@ -260,7 +261,9 @@ checkbox.align_lines = 'center'
 checkbox.checked = false
 checkbox:stored_property'checked'
 function checkbox:after_set_checked(checked)
-	self.button.text = self.checked and self.button.text_checked
+	self.button.text = self.checked
+		and self.button.text_checked
+		or self.button.text_unchecked
 	self:settag(':checked', checked)
 	self:fire(checked and 'was_checked' or 'was_unchecked')
 end
@@ -292,6 +295,7 @@ checkbox.button_class = cbutton
 
 cbutton.font = 'Ionicons,16'
 cbutton.text_checked = '\u{f2bc}'
+cbutton.text_unchecked = ''
 
 cbutton.fr = 0
 cbutton.layout = false
@@ -313,6 +317,7 @@ ui:style('checkbox_button :active :over', {
 function cbutton:override_hit_test(inherited, mx, my, reason)
 	local widget, area = inherited(self, mx, my, reason)
 	if not widget then
+		self:validate()
 		local lbl = self.checkbox.label
 		widget, area = lbl.super.super.hit_test(lbl, mx, my, reason)
 		if widget then
@@ -344,13 +349,14 @@ local clabel = ui.layer:subclass'checkbox_label'
 checkbox.label_class = clabel
 
 clabel.layout = 'textbox'
+clabel.line_spacing = .6
 
 function clabel:hit_test(mx, my, reason) end --cbutton does it for us
 
-function clabel:after_sync()
+function clabel:after_sync_styles()
 	local align = self.checkbox.align
 	self.text_align_x = align
-	local padding = self.checkbox.button.h / 2
+	local padding = self.checkbox.button.min_ch / 2
 	self.padding_left = align == 'left' and padding or 0
 	self.padding_right = align == 'right' and padding or 0
 end
@@ -370,6 +376,7 @@ function checkbox:after_init(ui, t)
 	self.label = self:create_label()
 	self.align = t.align
 	self.button:settag('standalone', false)
+	self._checked = t --force setting of checked property
 	self.checked = t.checked
 end
 
@@ -383,9 +390,7 @@ radiobutton.radio_group = 'default'
 radiobutton:init_ignore{checked=1}
 
 function radiobutton:after_init(ui, t)
-	if t.checked then
-		self.checked = true
-	end
+	self.label.text_align_y = 'center'
 end
 
 function radiobutton:override_set_checked(inherited, checked)
@@ -410,7 +415,7 @@ radiobutton.button_class = rbutton
 rbutton.padding_left = 0
 rbutton.padding_right = 0
 
-function rbutton:after_sync()
+function rbutton:after_sync_styles()
 	self.corner_radius = self.w
 end
 
@@ -651,7 +656,7 @@ if not ... then require('ui_demo')(function(ui, win)
 		id = 'CB1',
 		parent = win,
 		x = 300, y = 100, min_cw = 200,
-		label =  {text = 'Check me.\nI\'m multiline.', line_spacing = .5},
+		label =  {text = 'Check me.\nI\'m multiline.'},
 		checked = true,
 		--enabled = false,
 	}

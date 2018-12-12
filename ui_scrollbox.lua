@@ -527,7 +527,7 @@ local editbox = ui.layer:subclass'textarea_content'
 textarea.content_class = editbox
 
 editbox.layout = 'textbox'
-editbox.text_align_x = 'left'
+editbox.text_align_x = 'auto'
 editbox.text_align_y = 'top'
 editbox.focusable = true
 editbox.text_selectable = true
