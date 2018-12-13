@@ -1933,9 +1933,13 @@ end
 function ui:_set_hot_widget(window, widget, mx, my, area)
 	if self.hot_widget == widget then
 		if area ~= self.hot_area then
+			if self.hot_area then
+				widget:settag(':hot_'..self.hot_area, false)
+			end
 			self.hot_area = area
 			if widget then
 				window.cursor = widget:getcursor(area)
+				widget:settag(':hot_'..area, true)
 			end
 		end
 		return
@@ -5172,7 +5176,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 						layer[Y], layer[H] = snap_xw(item_y, item_h, snap_y)
 					elseif line_baseline then
 						local item_y = line_baseline - (layer.baseline or layer.h)
-						layer[Y], layer[H] = snap_xw(item_y, item_h, snap_y)
+						layer.y = snap(item_y, snap_y)
 					end
 				end
 			end
@@ -5259,7 +5263,7 @@ function flexbox:sync_min_h(other_axis_synced)
 			--baseline. we can do this here because we already know we won't
 			--stretch them beyond their min_h in this case.
 			if align_baseline then
-				layer.y, layer.h = snap_xw(0, item_h, self.snap_y)
+				layer.h = snap(item_h, self.snap_y)
 				layer:sync_layout_y(other_axis_synced)
 			end
 		end

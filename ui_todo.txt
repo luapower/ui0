@@ -18,10 +18,7 @@ to non-activable children.
 TR ---------------------------------------------------------------------------
 
 - tr: store paragraph base direction for all paragraphs.
-	- align(align_x = 'auto') <- use detected/stored par_base_dir.
-			- text_run.align_x <- override for all enclosed lines/paragraphs.
-		- text_align_x: 'auto' (use par_base_dir).
-		- editbox: text_align_x: 'auto' by default instead of 'left'.
+	- text_run.align_x <- override for all enclosed lines/paragraphs.
 
 UI ---------------------------------------------------------------------------
 
@@ -54,7 +51,6 @@ DROPDOWN ---------------------------------------------------------------------
 
 TABLIST ----------------------------------------------------------------------
 
-- horizontal/bottom
 - vertical left/right
 
 BUTTON -----------------------------------------------------------------------

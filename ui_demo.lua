@@ -4,7 +4,7 @@ local ui = require'ui'
 local Q = require'utf8quot'
 local time = require'time'
 local win = ui:window{
-	x = 600, y = 100, cw = 500, ch = 700,
+	x = 600, y = 100, cw = 1000, ch = 700,
 	visible = false, autoquit=true, edgesnapping=false,
 }
 function win:keyup(key) if key == 'esc' then self:close() end end
@@ -593,6 +593,9 @@ local function test_widgets_flex()
 	win.view.grid_row_gap = 20
 	win.view.grid_rows = {0}
 
+	local s = Q[[
+Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi maluisset sea ut.&ps;Utroque apeirian maluisset cum ut. Nihil appellantur at his, fugit noluisse eu vel, mazim mandamus ex quo.&ls;Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie atomorum, pro iudico facilisi et, sea elitr partiendo at. An has fugit assum accumsan.&ps;Ne mea nobis scaevola partiendo, sit ei accusamus expetendis. Omnium repudiandae intellegebat ad eos, qui ad erant luptatum, nec an wisi atqui adipiscing. Mei ad ludus semper timeam, ei quas phaedrum liberavisse his, dolorum fierent nominavi an nec. Quod summo novum eam et, ullum choro soluta nec ex. Soleat conceptam pro ut, enim audire definiebas ad nec. Vis an equidem torquatos, at erat voluptatibus eam.]]
+
 	ui:button{
 		parent = win,
 		text = 'Imma button',
@@ -644,10 +647,8 @@ local function test_widgets_flex()
 			{title = {text = 'Tab 2-1'}},
 			{title = {text = 'Tab 2-2'}},
 		},
+		tabs_side = 'bottom',
 	}
-
-	local s = Q[[
-Lorem ipsum dolor sit amet, quod oblique vivendum ex sed. Impedit nominavi maluisset sea ut.&ps;Utroque apeirian maluisset cum ut. Nihil appellantur at his, fugit noluisse eu vel, mazim mandamus ex quo.&ls;Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie atomorum, pro iudico facilisi et, sea elitr partiendo at. An has fugit assum accumsan.&ps;Ne mea nobis scaevola partiendo, sit ei accusamus expetendis. Omnium repudiandae intellegebat ad eos, qui ad erant luptatum, nec an wisi atqui adipiscing. Mei ad ludus semper timeam, ei quas phaedrum liberavisse his, dolorum fierent nominavi an nec. Quod summo novum eam et, ullum choro soluta nec ex. Soleat conceptam pro ut, enim audire definiebas ad nec. Vis an equidem torquatos, at erat voluptatibus eam.]]
 
 	local fl_class = ui.layer:subclass('focusable_layer', {
 		clip_content = true,
