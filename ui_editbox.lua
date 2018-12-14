@@ -6,6 +6,7 @@
 local ui = require'ui'
 local tr = require'tr'
 local glue = require'glue'
+local box2d = require'box2d'
 
 local push = table.insert
 local pop = table.remove
@@ -218,7 +219,7 @@ function editbox:after_sync_text_align()
 	end
 end
 
---clip the left and right sides of the box
+--clip the left & right sides of the box without clipping the top & bottom.
 
 function editbox:override_draw_text(inherited, cr)
 	cr:save()
@@ -226,6 +227,13 @@ function editbox:override_draw_text(inherited, cr)
 	cr:clip()
 	inherited(self, cr)
 	cr:restore()
+end
+
+function editbox:override_hit_test_text(inherited, x, y, reason)
+	if not box2d.hit(x, y, 0, 0, self:size()) then --pretend clipping
+		return
+	end
+	return inherited(self, x, y, reason)
 end
 
 function editbox:override_make_visible_caret(inherited)
