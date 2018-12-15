@@ -219,14 +219,39 @@ function editbox:after_sync_text_align()
 	end
 end
 
+--password eye button
+
+function editbox:after_init()
+	if self.password then
+		local no_eye = '\u{f2e8}'
+		local eye = '\u{f2e9}'
+		self.eye_button = self.ui:layer{
+			parent = self,
+			font = 'Ionicons,16',
+			text = no_eye,
+			x = self.w - 10,
+			y = self.h / 2,
+			click = function(btn)
+				self.password = not self.password
+				btn.text = self.password and no_eye or eye
+				self:invalidate()
+			end,
+		}
+		self.padding_right = 20
+	end
+end
+
 --clip the left & right sides of the box without clipping the top & bottom.
 
-function editbox:override_draw_text(inherited, cr)
+function editbox:override_draw_content(inherited, cr)
 	cr:save()
 	cr:rectangle(0, -1000, self.cw, 2000)
 	cr:clip()
-	inherited(self, cr)
+	self:draw_text(cr)
+	self:draw_text_selection(cr)
+	self:draw_caret(cr)
 	cr:restore()
+	self:draw_children(cr)
 end
 
 function editbox:override_hit_test_text(inherited, x, y, reason)
