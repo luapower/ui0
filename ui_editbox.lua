@@ -221,16 +221,25 @@ end
 
 --password eye button
 
+ui:style('editbox_eye_button', {
+	text_color = '#aaa',
+})
+ui:style('editbox_eye_button :hot', {
+	text_color = '#fff',
+})
+
 function editbox:after_init()
 	if self.password then
 		local no_eye = '\u{f2e8}'
 		local eye = '\u{f2e9}'
 		self.eye_button = self.ui:layer{
 			parent = self,
+			tags = 'editbox_eye_button',
 			font = 'Ionicons,16',
 			text = no_eye,
 			x = self.w - 10,
 			y = self.h / 2,
+			cursor = 'hand',
 			click = function(btn)
 				self.password = not self.password
 				btn.text = self.password and no_eye or eye
