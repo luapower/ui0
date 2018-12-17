@@ -38,7 +38,7 @@ editbox.h = 24
 editbox.tags = 'standalone'
 
 ui:style('editbox standalone', {
-	border_width = 1,
+	border_width_bottom = 1,
 })
 
 ui:style('editbox standalone :focused', {

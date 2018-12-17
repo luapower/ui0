@@ -4534,7 +4534,7 @@ function layer:keypress_text(key)
 	elseif key_only and key == 'insert' then
 		self.insert_mode = not self.insert_mode
 		return true
-	elseif key_only and (key == 'delete' or key == 'backspace') then
+	elseif (key_only and key == 'delete') or key == 'backspace' then
 		if self.text_editable then
 			self:undo_group'delete'
 			if sel:empty() then
