@@ -276,7 +276,7 @@ function object:autoload(autoload)
 			require(submodule)
 			return rawget(self, prop)
 		end
-		self[setter] = function(self, val)
+		self[setter] = function(self, val) --prevent "r/o property" error
 			rawset(self, prop, val)
 		end
 	end
@@ -809,7 +809,6 @@ end
 
 local element = ui.object:subclass'element'
 ui.element = element
-ui.element.ui = ui
 
 function element:init_ignore(t) --class method
 	if self._init_ignore == self.super._init_ignore then
@@ -892,11 +891,8 @@ function element:init_fields(t)
 	end
 end
 
-function element:init_l() end
-
 function element:after_init(t)
-	self.ui = self.ui()
-	self:init_l()
+	self.ui = t.ui()
 	self:init_tags(t)
 	self:init_fields(t)
 end
@@ -1331,6 +1327,8 @@ function window:override_init(inherited, t)
 	if parent and parent.iswindow then
 		parent = parent.view
 	end
+
+	self.ui = t.ui()
 
 	if not win then
 		local nt = {}
@@ -2407,7 +2405,7 @@ layer.middleclick_chain = 1 --2 for middledoubleclick events, etc.
 layer:init_ignore{parent=1, layer_index=1, enabled=1, layers=1, class=1}
 layer.tags = ':enabled'
 
-function layer:init_l()
+function layer:before_init_fields()
 	self.l = self.ui.layerlib:layer(nil)
 end
 
