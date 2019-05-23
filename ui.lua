@@ -124,6 +124,7 @@ function object:forward_events(object, event_names)
 	end
 end
 
+--forward method calls to a sub-component.
 function object:forward_methods(component_name, methods)
 	for method, wrap in pairs(methods) do
 		self[method] = function(self,...)
@@ -133,7 +134,9 @@ function object:forward_methods(component_name, methods)
 	end
 end
 
---create properties in self which read/write properties from/to a sub-component.
+--create properties in self that read/write properties from/to a sub-component.
+--NOTE: forwarded properties must be initialized manually, depending on the
+--constructor, including initializing from class defaults.
 function object:forward_properties(component_name, prefix, props)
 	if not props then prefix, props = nil, prefix end
 	for prop, writable in pairs(props) do
@@ -148,18 +151,6 @@ function object:forward_properties(component_name, prefix, props)
 			end
 		end
 		self:instance_only(self_prop)
-	end
-	--copy default values over to the component.
-	function self:after_init(t)
-		for prop, writable in pairs(props) do
-			if writable == 1 and rawget(t, prop) == nil then
-				local val = t[self_prop]
-				if val ~= nil then
-					local self_prop = prefix and prefix..prop or prop
-					self[component_name][prop] = t[self_prop]
-				end
-			end
-		end
 	end
 end
 
@@ -2380,13 +2371,13 @@ layer.drag_hit_mode = 'bbox' --'bbox', 'shape', 'pointer'
 layer.mousedown_activate = false --activate/deactivate on left mouse down/up
 
 ui:style('layer !:enabled', {
-	background_color = '#222',
+	bg_color = '#222',
 	text_color = '#666',
 	text_selection_color = '#6663',
 })
 
 ui:style('layer :drop_target', {
-	background_color = '#2048',
+	bg_color = '#2048',
 })
 
 ui:style('layer :drag_over', {
@@ -2397,7 +2388,7 @@ ui:style('layer :drag_over', {
 
 layer.cursor = false  --false or cursor name from nw
 
-layer.drag_threshold = 0 --moving distance before start dragging
+layer.drag_threshold    = 0 --moving distance before start dragging
 layer.click_chain       = 1 --2 for doubleclick events, etc.
 layer.rightclick_chain  = 1 --2 for rightdoubleclick events, etc.
 layer.middleclick_chain = 1 --2 for middledoubleclick events, etc.
@@ -2405,11 +2396,15 @@ layer.middleclick_chain = 1 --2 for middledoubleclick events, etc.
 layer:init_ignore{parent=1, layer_index=1, enabled=1, layers=1, class=1}
 layer.tags = ':enabled'
 
-function layer:before_init_fields()
-	self.l = self.ui.layerlib:layer(nil)
-end
+local native_fields = {
+	x=1, y=1, w=1, h=1, cw=1, ch=1, cx=1, cy=1, min_cw=1, min_ch=1,
+	visible=1,
+	padding_left=1, padding_right=1, padding_top=1, padding_bottom=1,
+}
 
 function layer:after_init(t, array_part)
+
+	self.l = self.ui.layerlib:layer(nil)
 
 	--setting parent after _enabled updates the `enabled` tag only once!
 	--setting layer_index before parent inserts the layer at its index directly.
@@ -2419,6 +2414,12 @@ function layer:after_init(t, array_part)
 	end
 	self.layer_index = t.layer_index
 	self.parent = t.parent
+
+	for field in pairs(native_fields) do
+		if t[field] ~= nil then
+			self.l[field] = t
+		end
+	end
 
 	--create and/or attach child layers
 	if array_part then
@@ -2464,6 +2465,13 @@ layer:forward_properties('l', {
 	w=1,
 	h=1,
 
+	cw=1,
+	ch=1,
+	cx=1,
+	cy=1,
+	min_cw=1,
+	min_ch=1,
+
 	rotation=1,
 	rotation_cx=1,
 	rotation_cy=1,
@@ -2473,13 +2481,6 @@ layer:forward_properties('l', {
 
 	snap_x=1,
 	snap_y=1,
-
-	cw=1,
-	ch=1,
-	cx=1,
-	cy=1,
-	min_cw=1,
-	min_ch=1,
 
 })
 
@@ -2542,13 +2543,26 @@ layer:stored_properties{
 	border_dash         =1,
 }
 
-function layer:after_set_border_width        (v) self.l.border_width = v end
+local function opt(v) return v ~= -1 and v end
+
+function layer:set_border_width_left(v) self.l.border_width_left = v or -1 end
+function layer:get_border_width_left()  return opt(self.l.border_width_left) end
+
+function layer:after_set_border_width(v)
+	self.l.border_width = v
+	if not self.border_width_left   then self.l.border_width_left   = v end
+	if not self.border_width_right  then self.l.border_width_right  = v end
+	if not self.border_width_top    then self.l.border_width_top    = v end
+	if not self.border_width_bottom then self.l.border_width_bottom = v end
+end
 function layer:after_set_border_width_left   (v) self.l.border_width_left   = v or self.border_width end
 function layer:after_set_border_width_right  (v) self.l.border_width_right  = v or self.border_width end
 function layer:after_set_border_width_top    (v) self.l.border_width_top    = v or self.border_width end
 function layer:after_set_border_width_bottom (v) self.l.border_width_bottom = v or self.border_width end
 
-function layer:after_set_corner_radius              (v) self.l.corner_radius = v end
+function layer:after_set_corner_radius(v)
+	self.l.corner_radius = v
+end
 function layer:after_set_corner_radius_top_left     (v) self.l.corner_radius_top_left     = v or self.corner_radius end
 function layer:after_set_corner_radius_top_right    (v) self.l.corner_radius_top_right    = v or self.corner_radius end
 function layer:after_set_corner_radius_bottom_left  (v) self.l.corner_radius_bottom_left  = v or self.corner_radius end
@@ -3416,9 +3430,9 @@ function layer:hit_test(x, y, reason)
 
 	--hit background's clip area
 	local in_bg
-	if cc or self.background_hittable or self:background_visible() then
+	if cc or self.bg_hittable or self:bg_visible() then
 		cr:new_path()
-		self:background_path(cr)
+		self:bg_path(cr)
 		in_bg = cr:in_fill(x, y)
 	end
 
@@ -3461,17 +3475,17 @@ function layer:bbox(strict) --child interface
 	if strict or not cc then
 		x, y, w, h = self:content_bbox(strict)
 		if cc then
-			x, y, w, h = box2d.clip(x, y, w, h, self:background_rect())
+			x, y, w, h = box2d.clip(x, y, w, h, self:bg_rect())
 			if cc == true then
 				x, y, w, h = box2d.clip(x, y, w, h, self:padding_rect())
 			end
 		end
 	end
 	if (not strict and cc)
-		or self.background_hittable
-		or self:background_visible()
+		or self.bg_hittable
+		or self:bg_visible()
 	then
-		x, y, w, h = box2d.bounding_box(x, y, w, h, self:background_rect())
+		x, y, w, h = box2d.bounding_box(x, y, w, h, self:bg_rect())
 	end
 	if self:border_visible() then
 		x, y, w, h = box2d.bounding_box(x, y, w, h, self:border_rect(1))
@@ -4269,7 +4283,7 @@ function layer:setup_placeholder(widget, index)
 	if not p then
 		p = placeholder{
 			parent = self,
-			background_color = '#333',
+			bg_color = '#333',
 		}
 		self.placeholder = p
 	else
@@ -4342,8 +4356,8 @@ ui.window_view = view
 window.view_class = view
 
 --screen-wiping options that work with transparent windows
-view.background_color = '#040404f0'
-view.background_operator = 'source'
+view.bg_color = '#040404f0'
+view.bg_operator = 'source'
 
 --parent layer interface
 

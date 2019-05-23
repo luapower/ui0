@@ -379,6 +379,14 @@ scrollbox:forward_properties('view', 'view_', {
 	padding_bottom=1,
 })
 
+function scrollbox:after_init(t)
+	if t.padding        ~= nil then self.view.padding        = t.padding        end
+	if t.padding_left   ~= nil then self.view.padding_left   = t.padding_left   end
+	if t.padding_right  ~= nil then self.view.padding_right  = t.padding_right  end
+	if t.padding_top    ~= nil then self.view.padding_top    = t.padding_top    end
+	if t.padding_bottom ~= nil then self.view.padding_bottom = t.padding_bottom end
+end
+
 --stretch content to the view size to avoid scrolling on that dimension.
 scrollbox.auto_h = false
 scrollbox.auto_w = false
