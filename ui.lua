@@ -134,24 +134,17 @@ function object:forward_methods(component_name, methods)
 	end
 end
 
---create properties in self that read/write properties from/to a sub-component.
---NOTE: forwarded properties must be initialized manually, depending on the
---constructor, including initializing from class defaults.
-function object:forward_properties(component_name, prefix, props)
-	if not props then prefix, props = nil, prefix end
-	for prop, writable in pairs(props) do
-		local self_prop = prefix and prefix..prop
-			or type(writable) == 'string' and writable or prop
-		self['get_'..self_prop] = function(self)
-			return self[component_name][prop]
-		end
-		if writable == 1 then
-			self['set_'..self_prop] = function(self, value)
-				self[component_name][prop] = value
-			end
-		end
-		self:instance_only(self_prop)
+function object:forward_property(prop, sub, readonly)
+	local sub, sub_prop = sub:match'^(.-)%.(.*)$'
+	self['get_'..prop] = function(self)
+		return self[sub][sub_prop]
 	end
+	if not readonly then
+		self['set_'..prop] = function(self, value)
+			self[sub][sub_prop] = value
+		end
+	end
+	self:instance_property(prop)
 end
 
 --create a r/w property which reads/writes to a "private field".
@@ -164,12 +157,6 @@ function object:stored_property(prop, priv)
 	end
 	self['set_'..prop] = function(self, val)
 		self[priv] = val or false
-	end
-end
-
-function object:stored_properties(props)
-	for prop, priv in pairs(props) do
-		self:stored_property(prop, priv ~= 1 and priv)
 	end
 end
 
@@ -203,10 +190,13 @@ function object:track_changes(prop)
 	end)
 end
 
+object._instance_props = {}
+
 --inhibit a property's getter and setter when using the property on the class.
 --instead, set a private var on the class which serves as default value.
---NOTE: use this only _after_ defining the getter and setter.
-function object:instance_only(prop)
+--NOTE: use this decorator only _after_ defining a getter and setter.
+function object:instance_property(prop)
+	if self._instance_props[prop] then return end --already made
 	local priv = '_'..prop
 	self:override('get_'..prop, function(self, inherited)
 		if self:isinstance() then
@@ -222,6 +212,13 @@ function object:instance_only(prop)
 			self[priv] = val --set the default value
 		end
 	end)
+	--keep a map of instance properties so that they can be initialized
+	--with class defaults automatically on init.
+	self._instance_props = self._instance_props or {}
+	if self._instance_props == self.super._instance_props then
+		self._instance_props = update({}, self.super._instance_props)
+	end
+	self._instance_props[prop] = true
 end
 
 --validate a property when being set against a list of allowed values.
@@ -243,6 +240,24 @@ function object:enum_property(prop, values)
 	self:override('get_'..prop, function(self, inherited)
 		return keys[inherited(self)]
 	end)
+end
+
+function object:property_attrs(t, name)
+	local name = name or t.name or t[1]
+	assert(self:hasproperty(name), '%s is not a property', name)
+	if t.track then
+		self:track_changes(name)
+	elseif t.nochange then
+		self:nochange_barrier(name)
+	end
+	if t.fw then
+		self:forward_property(name, t.fw, t.ro)
+	elseif not t.class then
+		self:instance_property(name)
+	end
+	if t.values then
+		self:enum_property(name, t.values)
+	end
 end
 
 --error reporting ------------------------------------------------------------
@@ -838,6 +853,10 @@ function element:override_create(inherited, ...)
 		ui = nil
 	end
 	local dt = {} --hash part
+	--init instance-only props with class defaults.
+	for k in pairs(self._instance_props) do
+		dt[k] = self[k]
+	end
 	local at --array part
 	for i = arg1, select('#', ...) do
 		local t = select(i, ...)
@@ -859,6 +878,7 @@ function element:override_create(inherited, ...)
 	dt.ui = ui
 	dt.parent = parent
 	assert(ui, 'ui arg missing')
+	--inherit non-prop class defaults dynamically.
 	setmetatable(dt, {__index = self})
 	return inherited(self, dt, at)
 end
@@ -1781,10 +1801,7 @@ function window:set_min_ch(ch) self.native_window:minsize(nil, ch) end
 function window:set_max_cw(cw) self.native_window:maxsize(cw, nil) end
 function window:set_max_ch(ch) self.native_window:maxsize(nil, ch) end
 
-window:instance_only'min_cw'
-window:instance_only'min_ch'
-window:instance_only'max_cw'
-window:instance_only'max_ch'
+window:instance_properties{min_cw=1, min_ch=1, max_cw=1, max_ch=1}
 
 --window as a layer's parent -------------------------------------------------
 
@@ -1866,7 +1883,7 @@ for prop, writable in pairs(props) do
 			nwin[prop](nwin, value)
 		end
 	end
-	window:instance_only(prop)
+	window:instance_property(prop)
 end
 
 --methods
@@ -2400,6 +2417,8 @@ local native_fields = {
 	x=1, y=1, w=1, h=1, cw=1, ch=1, cx=1, cy=1, min_cw=1, min_ch=1,
 	visible=1,
 	padding_left=1, padding_right=1, padding_top=1, padding_bottom=1,
+	border_width_left=1, border_width_right=1, border_width_top=1, border_width_bottom=1,
+	border_color_left=1, border_color_right=1, border_color_top=1,
 }
 
 function layer:after_init(t, array_part)
@@ -2415,6 +2434,7 @@ function layer:after_init(t, array_part)
 	self.layer_index = t.layer_index
 	self.parent = t.parent
 
+	--set native fields manually so that defaults can be applied.
 	for field in pairs(native_fields) do
 		if t[field] ~= nil then
 			self.l[field] = t
@@ -3630,7 +3650,7 @@ function layer:set_text(s)
 	self:fire'text_changed'
 end
 
-layer:instance_only'text'
+layer:instance_property'text'
 
 layer:init_priority{text=1/0}
 
@@ -3686,7 +3706,7 @@ function layer:set_value(val)
 	return true
 end
 
-layer:instance_only'value'
+layer:instance_property'value'
 
 --text geometry & drawing ----------------------------------------------------
 
@@ -3930,7 +3950,7 @@ end
 
 layer.insert_mode = false
 layer:stored_property'insert_mode'
-layer:instance_only'insert_mode'
+layer:instance_property'insert_mode'
 
 function layer:after_set_insert_mode(value)
 	self.text_selection.cursor2.insert_mode = value
