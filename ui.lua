@@ -85,9 +85,7 @@ function object:before_init()
 		self.super.isfinalclass = true
 	end
 	--Speed up virtual property lookup without detaching/fattening the instance.
-	--with this change, adding or overriding getters and setters through the
-	--instance is not allowed anymore, that would patch the class instead!
-	--TODO: remove this limitation somehow!
+	--This optimization prevents overriding of getters/setters on instances.
 	self.__setters = self.__setters
 	self.__getters = self.__getters
 end
@@ -134,7 +132,9 @@ function object:forward_methods(component_name, methods)
 	end
 end
 
+--create a property which reads/writes to/from a sub-component's property.
 function object:forward_property(prop, sub, readonly)
+	assert(not self.__getters[prop])
 	local sub, sub_prop = sub:match'^(.-)%.(.*)$'
 	self['get_'..prop] = function(self)
 		return self[sub][sub_prop]
@@ -144,19 +144,43 @@ function object:forward_property(prop, sub, readonly)
 			self[sub][sub_prop] = value
 		end
 	end
-	self:instance_property(prop)
 end
 
---create a r/w property which reads/writes to a "private field".
-function object:stored_property(prop, priv)
-	priv = priv or '_'..prop
-	self[priv] = self[prop] --transfer existing value to private var
-	self[prop] = nil
-	self['get_'..prop] = function(self)
-		return self[priv]
+function object:forward_properties(sub, prefix, t)
+	if not t then sub, prefix, t = sub, '', prefix end
+	for prop, writable in pairs(t) do
+		self:forward_property(prop, sub..'.'..prefix..prop, writable == 0)
 	end
-	self['set_'..prop] = function(self, val)
-		self[priv] = val or false
+end
+
+--create a r/w property which reads/writes to/from a private field.
+function object:stored_property(prop, after_set)
+	assert(not self.__getters[prop])
+	local priv = '_'..prop
+	self['get_'..prop] = function(self)
+		local v = self[priv]
+		if v ~= nil then
+			return v
+		else
+			return self.super[prop]
+		end
+	end
+	if after_set then
+		self['set_'..prop] = function(self, val)
+			local val = val or false
+			self[priv] = val
+			after_set(self, val)
+		end
+	else
+		self['set_'..prop] = function(self, val)
+			self[priv] = val or false
+		end
+	end
+end
+
+function object:stored_properties(t, after_set)
+	for k in pairs(t) do
+		self:stored_property(k, after_set and after_set(k))
 	end
 end
 
@@ -190,37 +214,6 @@ function object:track_changes(prop)
 	end)
 end
 
-object._instance_props = {}
-
---inhibit a property's getter and setter when using the property on the class.
---instead, set a private var on the class which serves as default value.
---NOTE: use this decorator only _after_ defining a getter and setter.
-function object:instance_property(prop)
-	if self._instance_props[prop] then return end --already made
-	local priv = '_'..prop
-	self:override('get_'..prop, function(self, inherited)
-		if self:isinstance() then
-			return inherited(self)
-		else
-			return self[priv] --get the default value
-		end
-	end)
-	self:override('set_'..prop, function(self, inherited, val)
-		if self:isinstance() then
-			return inherited(self, val)
-		else
-			self[priv] = val --set the default value
-		end
-	end)
-	--keep a map of instance properties so that they can be initialized
-	--with class defaults automatically on init.
-	self._instance_props = self._instance_props or {}
-	if self._instance_props == self.super._instance_props then
-		self._instance_props = update({}, self.super._instance_props)
-	end
-	self._instance_props[prop] = true
-end
-
 --validate a property when being set against a list of allowed values.
 function object:enum_property(prop, values)
 	if type(values) == 'string' then --'enm_val1 ...'
@@ -240,24 +233,6 @@ function object:enum_property(prop, values)
 	self:override('get_'..prop, function(self, inherited)
 		return keys[inherited(self)]
 	end)
-end
-
-function object:property_attrs(t, name)
-	local name = name or t.name or t[1]
-	assert(self:hasproperty(name), '%s is not a property', name)
-	if t.track then
-		self:track_changes(name)
-	elseif t.nochange then
-		self:nochange_barrier(name)
-	end
-	if t.fw then
-		self:forward_property(name, t.fw, t.ro)
-	elseif not t.class then
-		self:instance_property(name)
-	end
-	if t.values then
-		self:enum_property(name, t.values)
-	end
 end
 
 --error reporting ------------------------------------------------------------
@@ -365,6 +340,133 @@ end
 function ui:check_single_app_instance()
 	return self().app:check_single_instance()
 end
+
+--local files ----------------------------------------------------------------
+
+function ui:open_file(file)
+	local bundle = require'bundle'
+	return self:check(bundle.fs_open(file), 'file not found: "%s"', file)
+end
+
+function ui:load_file(file)
+	local bundle = require'bundle'
+	return self:check(bundle.load(file), 'file not found: "%s"', file)
+end
+
+--fonts ----------------------------------------------------------------------
+
+function ui:add_mem_font(data, size, ...)
+	local font_id = self.layerlib:font()
+	local font = {id = font_id, data = data, size = size}
+	self.fonts[font_id] = font
+	self.font_db:add_font(font, ...)
+end
+
+function ui:add_font_file(file, ...)
+	local font_id = self.layerlib:font()
+	local font = {id = font_id, file = file}
+	self.fonts[font_id] = font
+	self.font_db:add_font(font, ...)
+end
+
+ui.use_default_fonts = true
+ui.default_fonts_path = 'media/fonts'
+
+function ui:add_default_fonts(dir)
+	local dir = self.default_fonts_path
+	--$ mgit clone fonts-open-sans
+	self:add_font_file(dir..'/OpenSans-Regular.ttf', 'Open Sans')
+	--$ mgit clone fonts-ionicons
+	self:add_font_file(dir..'/ionicons.ttf', 'Ionicons')
+end
+
+ui.use_google_fonts = false
+ui.google_fonts_path = 'media/fonts/gfonts'
+
+--add a font searcher for the google fonts repository.
+--for this to work you need to get the fonts:
+--$ git clone https://github.com/google/fonts media/fonts/gfonts
+function ui:add_gfonts_searcher()
+	local gfonts = require'gfonts'
+	gfonts.root_dir = self.google_fonts_path
+	local function find_font(font_db, name, weight, slant)
+		local file, real_weight = gfonts.font_file(name, weight, slant, true)
+		local font = file and self:add_font_file(file, name, real_weight, slant)
+		return font, real_weight
+	end
+	push(self.font_db.searchers, find_font)
+end
+
+function ui:after_init()
+
+	self.fonts = {} --{font_id->font}
+
+	self.load_font = ffi.cast('FontLoadFunc', function(font_id, data_ptr, size_ptr)
+		local font = self.fonts[font_id]
+		if font.file then
+			font.data = self:load_file(font.file)
+			font.size = font.data and #font.data
+		end
+		data_ptr[0] = ffi.cast('void*', font.data)
+		size_ptr[0] = font.size
+	end)
+
+	self.unload_font = ffi.cast('FontLoadFunc', function(font_id, data_ptr, size_ptr)
+		local font = self.fonts[font_id]
+		if font.file then
+			font.data = false
+			font.size = false
+		end
+	end)
+
+	self.layerlib = C.layerlib(self.load_font, self.unload_font)
+
+	self.font_db = font_db()
+
+	if self.use_default_fonts then
+		self:add_default_fonts()
+	end
+	if self.use_google_fonts then
+		self:add_gfonts_searcher()
+	end
+end
+
+function ui:before_free()
+	self.layerlib:free(); self.layerlib = false
+	self.font_db:free(); self.font_db = false
+	self.load_font:free(); self.load_font = false
+	self.unload_font:free(); self.unload_font = false
+end
+
+--image files ----------------------------------------------------------------
+
+function ui:image_pattern(file)
+	local ext = file:match'%.([^%.]+)$'
+	if ext == 'jpg' or ext == 'jpeg' then
+		local libjpeg = require'libjpeg'
+		local f = self:open_file(file)
+		if not f then return end
+		local bufread = f:buffered_read()
+		local function read(buf, sz)
+			return self:check(bufread(buf, sz))
+		end
+		local img = self:check(libjpeg.open({read = read}))
+		if not img then
+			f:close()
+			return
+		end
+		local bmp = self:check(img:load{accept = {bgra8 = true}})
+		img:free()
+		f:close()
+		if not bmp then
+			return
+		end
+		local sr = cairo.image_surface(bmp) --bmp is Lua-pinned to sr
+		local patt = cairo.surface_pattern(sr) --sr is cairo-pinned to patt
+		return {patt = patt, sr = sr}
+	end
+end
+ui:memoize'image_pattern'
 
 --selectors ------------------------------------------------------------------
 
@@ -680,6 +782,7 @@ function ui:rgba(s)
 end
 
 function ui:rgba32(c)
+	if type(c) == 'number' then return c end
 	return color.format('rgba32', 'rgb', self:rgba(c))
 end
 ui:memoize'rgba32'
@@ -820,25 +923,48 @@ function element:init_ignore(t) --class method
 	if self._init_ignore == self.super._init_ignore then
 		self._init_ignore = update({}, self.super._init_ignore)
 	end
-	update(self._init_ignore, t)
+	if type(t) == 'string' then
+		self._init_ignore[t] = 1
+	else
+		update(self._init_ignore, t)
+	end
+end
+
+function element:_comes_after(pri, k)
+
 end
 
 function element:init_priority(t) --class method
 	if self._init_priority == self.super._init_priority then
 		self._init_priority = update({}, self.super._init_priority)
 	end
-	update(self._init_priority, t)
+	local left_pri = 0
+	for _,k in ipairs(t) do
+		local pri = self._init_priority[k]
+		if pri then
+			left_pri = pri
+		else
+			for k,pri in pairs(self._init_priority) do --make room
+				if pri > left_pri then
+					self._init_priority[k] = pri + 1
+				end
+			end
+			left_pri = left_pri + 1
+			self._init_priority[k] = left_pri
+		end
+	end
 end
 
 element:init_priority{}
 element:init_ignore{}
 
 --override the element constructor so that it can take multiple init-table
---args but present init() with a single init table that also inherits the
---class for transparent access to defaults, and a single array table that
+--args but present init() with a single init table that also contains
+--class defaults for virtual properties, and a single array table that
 --adds together the array parts of all the init tables. also, make the
 --constructor work with different call styles, see below.
 function element:override_create(inherited, ...)
+
 	local ui = ...
 	local parent
 	local arg1
@@ -852,12 +978,27 @@ function element:override_create(inherited, ...)
 		arg1 = 1
 		ui = nil
 	end
+
 	local dt = {} --hash part
-	--init instance-only props with class defaults.
-	for k in pairs(self._instance_props) do
+	local at --array part
+
+	--statically inherit class defaults for writable properties, to be applied
+	--automatically by init_fields().
+	--NOTE: adding more default values to the class after the first
+	--instantiation has no effect on further instantiations because we make
+	--a shortlist of only the properties that have defaults.
+	if not rawget(self, '__props_with_defaults') then
+		self.__props_with_defaults = {} --make a shortlist
+		for k in pairs(self.__setters) do --prop has a setter
+			if self[k] ~= nil then --prop has a class default
+				push(self.__props_with_defaults, k)
+			end
+		end
+	end
+	for _,k in ipairs(self.__props_with_defaults) do
 		dt[k] = self[k]
 	end
-	local at --array part
+
 	for i = arg1, select('#', ...) do
 		local t = select(i, ...)
 		if t then
@@ -865,12 +1006,13 @@ function element:override_create(inherited, ...)
 				if type(k) == 'number' and floor(k) == k then --array part
 					at = at or {}
 					push(at, v)
-				else
+				else --hash part
 					dt[k] = v
 				end
 			end
 		end
 	end
+
 	parent = dt.parent or parent
 	if not ui and parent then
 		ui = parent.ui
@@ -878,8 +1020,11 @@ function element:override_create(inherited, ...)
 	dt.ui = ui
 	dt.parent = parent
 	assert(ui, 'ui arg missing')
-	--inherit non-prop class defaults dynamically.
+
+	--dynamically inherit class defaults for plain fields, to be applied
+	--manually in overrides of init().
 	setmetatable(dt, {__index = self})
+
 	return inherited(self, dt, at)
 end
 
@@ -1625,7 +1770,6 @@ end
 
 function window:create_view()
 	return self.view_class(self.ui, {
-		w = self.cw, h = self.ch,
 		parent = self,
 	}, self.view)
 end
@@ -1801,8 +1945,6 @@ function window:set_min_ch(ch) self.native_window:minsize(nil, ch) end
 function window:set_max_cw(cw) self.native_window:maxsize(cw, nil) end
 function window:set_max_ch(ch) self.native_window:maxsize(nil, ch) end
 
-window:instance_properties{min_cw=1, min_ch=1, max_cw=1, max_ch=1}
-
 --window as a layer's parent -------------------------------------------------
 
 function window:get_parent()
@@ -1863,27 +2005,22 @@ end
 --native window API forwarding -----------------------------------------------
 
 --r/w and r/o properties which map uniformly to the native API
-local props = {
+for prop, rw in pairs{
 	--r/w properties
 	autoquit=1, visible=1, fullscreen=1, enabled=1, edgesnapping=1,
 	topmost=1, title=1,
 	--r/o properties
 	closeable=0, activable=0, minimizable=0, maximizable=0, resizeable=0,
 	fullscreenable=0, frame=0, transparent=0, corner_radius=0, sticky=0,
-}
-for prop, writable in pairs(props) do
-	local priv = '_'..prop
+} do
 	window['get_'..prop] = function(self)
-		local nwin = self.native_window
-		return nwin[prop](nwin)
+		return self.native_window[prop](self.native_window)
 	end
-	if writable == 1 then
-		window['set_'..prop] = function(self, value)
-			local nwin = self.native_window
-			nwin[prop](nwin, value)
+	if rw ~= 0 then
+		window['set_'..prop] = function(self, v)
+			self.native_window[prop](self.native_window, v)
 		end
 	end
-	window:instance_property(prop)
 end
 
 --methods
@@ -1925,19 +2062,6 @@ end
 
 function window:mouse_pos() --window interface
 	return self.mouse_x, self.mouse_y
-end
-
---element query interface ----------------------------------------------------
-
-function window:find(sel)
-	local sel = self.ui:selector(sel):filter(function(elem)
-		return elem.window == self
-	end)
-	return self.ui:find(sel)
-end
-
-function window:each(sel, f)
-	return self:find(sel):each(f)
 end
 
 --window mouse events routing ------------------------------------------------
@@ -2252,124 +2376,6 @@ function window:validate()
 	self.native_window:validate(self.clock)
 end
 
---image files ----------------------------------------------------------------
-
-function ui:open_file(file)
-	local bundle = require'bundle'
-	return self:check(bundle.fs_open(file), 'file not found: "%s"', file)
-end
-
-function ui:image_pattern(file)
-	local ext = file:match'%.([^%.]+)$'
-	if ext == 'jpg' or ext == 'jpeg' then
-		local libjpeg = require'libjpeg'
-		local f = self:open_file(file)
-		if not f then return end
-		local bufread = f:buffered_read()
-		local function read(buf, sz)
-			return self:check(bufread(buf, sz))
-		end
-		local img = self:check(libjpeg.open({read = read}))
-		if not img then
-			f:close()
-			return
-		end
-		local bmp = self:check(img:load{accept = {bgra8 = true}})
-		img:free()
-		f:close()
-		if not bmp then
-			return
-		end
-		local sr = cairo.image_surface(bmp) --bmp is Lua-pinned to sr
-		local patt = cairo.surface_pattern(sr) --sr is cairo-pinned to patt
-		return {patt = patt, sr = sr}
-	end
-end
-ui:memoize'image_pattern'
-
---fonts ----------------------------------------------------------------------
-
-function ui:add_mem_font(data, size, ...)
-	local font_id = self.layerlib:font()
-	self.fonts[font_id] = {data = data, size = size}
-	self.font_db:add_font(font_id, ...)
-end
-
-function ui:add_font_file(file, ...)
-	local font_id = self.layerlib:font()
-	self.fonts[font_id] = {file = file}
-	self.font_db:add_font(font, ...)
-end
-
-ui.use_default_fonts = true
-ui.default_fonts_path = 'media/fonts'
-
-function ui:add_default_fonts(dir)
-	local dir = self.default_fonts_path
-	--$ mgit clone fonts-open-sans
-	self:add_font_file(dir..'/OpenSans-Regular.ttf', 'Open Sans')
-	--$ mgit clone fonts-ionicons
-	self:add_font_file(dir..'/ionicons.ttf', 'Ionicons')
-end
-
-ui.use_google_fonts = false
-ui.google_fonts_path = 'media/fonts/gfonts'
-
---add a font searcher for the google fonts repository.
---for this to work you need to get the fonts:
---$ git clone https://github.com/google/fonts media/fonts/gfonts
-function ui:add_gfonts_searcher()
-	local gfonts = require'gfonts'
-	gfonts.root_dir = self.google_fonts_path
-	local function find_font(font_db, name, weight, slant)
-		local file, real_weight = gfonts.font_file(name, weight, slant, true)
-		local font = file and self:add_font_file(file, name, real_weight, slant)
-		return font, real_weight
-	end
-	push(self.font_db.searchers, find_font)
-end
-
-function ui:after_init()
-
-	self.fonts = {} --{font_id->font}
-
-	self.load_font = ffi.cast('FontLoadFunc', function(font_id, data_ptr, size_ptr)
-		local font = self.fonts[font_id]
-		if font.file then
-			font.data = glue.readfile(font.file)
-			font.size = font.data and #font.data
-		end
-		data_ptr[0] = font.data
-		size_ptr[0] = font.size
-	end)
-
-	self.unload_font = ffi.cast('FontLoadFunc', function(font_id, data_ptr, size_ptr)
-		local font = self.fonts[font_id]
-		if font.file then
-			font.data = false
-			font.size = false
-		end
-	end)
-
-	self.layerlib = C.layerlib(self.load_font, self.unload_font)
-
-	self.font_db = font_db()
-
-	if self.use_default_fonts then
-		self:add_default_fonts()
-	end
-	if self.use_google_fonts then
-		self:add_gfonts_searcher()
-	end
-end
-
-function ui:before_free()
-	self.layerlib:free(); self.layerlib = false
-	self.font_db:free(); self.font_db = false
-	self.load_font:free(); self.load_font = false
-	self.unload_font:free(); self.unload_font = false
-end
-
 --layers ---------------------------------------------------------------------
 
 local layer = element:subclass'layer'
@@ -2388,13 +2394,13 @@ layer.drag_hit_mode = 'bbox' --'bbox', 'shape', 'pointer'
 layer.mousedown_activate = false --activate/deactivate on left mouse down/up
 
 ui:style('layer !:enabled', {
-	bg_color = '#222',
+	background_color = '#222',
 	text_color = '#666',
 	text_selection_color = '#6663',
 })
 
 ui:style('layer :drop_target', {
-	bg_color = '#2048',
+	background_color = '#2048',
 })
 
 ui:style('layer :drag_over', {
@@ -2413,33 +2419,26 @@ layer.middleclick_chain = 1 --2 for middledoubleclick events, etc.
 layer:init_ignore{parent=1, layer_index=1, enabled=1, layers=1, class=1}
 layer.tags = ':enabled'
 
-local native_fields = {
-	x=1, y=1, w=1, h=1, cw=1, ch=1, cx=1, cy=1, min_cw=1, min_ch=1,
-	visible=1,
-	padding_left=1, padding_right=1, padding_top=1, padding_bottom=1,
-	border_width_left=1, border_width_right=1, border_width_top=1, border_width_bottom=1,
-	border_color_left=1, border_color_right=1, border_color_top=1,
+layer:init_priority{
+	'x', 'y', 'w', 'h',
+	'padding', 'padding_left', 'padding_right', 'padding_top', 'padding_bottom',
+	'cw', 'ch',
+	'cx', 'cy',
 }
+
+function layer:before_init_fields()
+	self.l = self.ui.layerlib:layer(nil)
+end
 
 function layer:after_init(t, array_part)
 
-	self.l = self.ui.layerlib:layer(nil)
-
 	--setting parent after _enabled updates the `enabled` tag only once!
 	--setting layer_index before parent inserts the layer at its index directly.
-	local enabled = t.enabled and true or false
-	if enabled ~= self._enabled then
+	if t.enabled ~= nil then
 		self._enabled = enabled
 	end
 	self.layer_index = t.layer_index
 	self.parent = t.parent
-
-	--set native fields manually so that defaults can be applied.
-	for field in pairs(native_fields) do
-		if t[field] ~= nil then
-			self.l[field] = t
-		end
-	end
 
 	--create and/or attach child layers
 	if array_part then
@@ -2472,342 +2471,6 @@ function layer:before_free()
 	self:_free_children()
 	self.parent = false
 	self.l:free()
-end
-
---C layer interface ----------------------------------------------------------
-
-layer:forward_properties('l', {
-
-	visible=1,
-
-	x=1,
-	y=1,
-	w=1,
-	h=1,
-
-	cw=1,
-	ch=1,
-	cx=1,
-	cy=1,
-	min_cw=1,
-	min_ch=1,
-
-	rotation=1,
-	rotation_cx=1,
-	rotation_cy=1,
-	scale=1,
-	scale_cx=1,
-	scale_cy=1,
-
-	snap_x=1,
-	snap_y=1,
-
-})
-
-local function retpoint(p)
-	return p._0, p._1
-end
-
-layer:forward_methods('l', {
-	from_box_to_parent = retpoint,
-	from_parent_to_box = retpoint,
-	to_parent          = retpoint,
-	from_parent        = retpoint,
-	to_window          = retpoint,
-	from_window        = retpoint,
-	to_content         = retpoint,
-	from_content       = retpoint,
-})
-
---border geometry and drawing
-
-layer:forward_properties('l', {
-	border_dash_offset  =1,
-	border_offset       =1,
-	corner_radius_kappa =1,
-})
-
-layer.border_width = 0 --no border
-layer.border_width_left   = false
-layer.border_width_right  = false
-layer.border_width_top    = false
-layer.border_width_bottom = false
-layer.corner_radius = 0 --square
-layer.corner_radius_top_left     = false
-layer.corner_radius_top_right    = false
-layer.corner_radius_bottom_left  = false
-layer.corner_radius_bottom_right = false
-layer.border_color = '#888'
-layer.border_color_left   = false
-layer.border_color_right  = false
-layer.border_color_top    = false
-layer.border_color_bottom = false
-layer.border_dash = false --false, {on_width1, off_width1, ...}
-
-layer:stored_properties{
-	border_width        =1,
-	border_width_left   =1,
-	border_width_right  =1,
-	border_width_top    =1,
-	border_width_bottom =1,
-	corner_radius              =1,
-	corner_radius_top_left     =1,
-	corner_radius_top_right    =1,
-	corner_radius_bottom_left  =1,
-	corner_radius_bottom_right =1,
-	border_color        =1,
-	border_color_left   =1,
-	border_color_right  =1,
-	border_color_top    =1,
-	border_color_bottom =1,
-	border_dash         =1,
-}
-
-local function opt(v) return v ~= -1 and v end
-
-function layer:set_border_width_left(v) self.l.border_width_left = v or -1 end
-function layer:get_border_width_left()  return opt(self.l.border_width_left) end
-
-function layer:after_set_border_width(v)
-	self.l.border_width = v
-	if not self.border_width_left   then self.l.border_width_left   = v end
-	if not self.border_width_right  then self.l.border_width_right  = v end
-	if not self.border_width_top    then self.l.border_width_top    = v end
-	if not self.border_width_bottom then self.l.border_width_bottom = v end
-end
-function layer:after_set_border_width_left   (v) self.l.border_width_left   = v or self.border_width end
-function layer:after_set_border_width_right  (v) self.l.border_width_right  = v or self.border_width end
-function layer:after_set_border_width_top    (v) self.l.border_width_top    = v or self.border_width end
-function layer:after_set_border_width_bottom (v) self.l.border_width_bottom = v or self.border_width end
-
-function layer:after_set_corner_radius(v)
-	self.l.corner_radius = v
-end
-function layer:after_set_corner_radius_top_left     (v) self.l.corner_radius_top_left     = v or self.corner_radius end
-function layer:after_set_corner_radius_top_right    (v) self.l.corner_radius_top_right    = v or self.corner_radius end
-function layer:after_set_corner_radius_bottom_left  (v) self.l.corner_radius_bottom_left  = v or self.corner_radius end
-function layer:after_set_corner_radius_bottom_right (v) self.l.corner_radius_bottom_right = v or self.corner_radius end
-
-function layer:after_set_border_color        (v) self.l.border_color        = self.ui:rgba32(v) end
-function layer:after_set_border_color_left   (v) self.l.border_color_left   = self.ui:rgba32(v or self.border_color) end
-function layer:after_set_border_color_right  (v) self.l.border_color_right  = self.ui:rgba32(v or self.border_color) end
-function layer:after_set_border_color_top    (v) self.l.border_color_top    = self.ui:rgba32(v or self.border_color) end
-function layer:after_set_border_color_bottom (v) self.l.border_color_bottom = self.ui:rgba32(v or self.border_color) end
-
-function layer:after_set_border_dash(v)
-	if v then
-		self.l.border_dash_count = #v
-		for i,d in ipairs(v) do
-			self.l.border_dash(i-1, d)
-		end
-	else
-		self.l.border_dash_count = 0
-	end
-end
-
---background geometry and drawing
-
-layer:forward_properties('l', {
-	bg_hittable=1,
-	bg_x=1,
-	bg_y=1,
-	bg_rotation=1,
-	bg_rotation_cx=1,
-	bg_rotation_cy=1,
-	bg_scale=1,
-	bg_scale_cx=1,
-	bg_scale_cy=1,
-	bg_extend=1,
-})
-
-layer.bg_type = 'color'
-	--^ false, 'color', 'gradient', 'radial_gradient', 'image'
-
-layer:stored_property'bg_type'
-
-function layer:after_set_bg_type(v)
-	self.l.bg_type = v
-end
-
-layer:enum_property('bg_type', {
-	[false]         = C.BG_NONE,
-	color           = C.BG_COLOR,
-	gradient        = C.BG_LINEAR_GRADIENT,
-	radial_gradient = C.BG_RADIAL_GRADIENT,
-	image           = C.BG_IMAGE,
-})
-
-layer.bg_extend = 'repeat' --false, 'repeat', 'reflect'
-
-layer:stored_property'bg_extend'
-
-function layer:after_set_bg_extend(v)
-	self.l.bg_extend = v
-end
-
-layer:enum_property('bg_extend', {
-	[false]     = C.BG_EXTEND_NONE,
-	['repeat']  = C.BG_EXTEND_REPEAT,
-	['reflect'] = C.BG_EXTEND_REFLECT,
-})
-
---solid color backgrounds
-
-layer.bg_color = false --no background
-
-layer:stored_properties{
-	bg_color=1,
-}
-
-function layer:after_set_bg_color(v)
-	if not v then
-		self.l.bg_type = C.BG_NONE
-	else
-		self.l.bg_type = C.BG_COLOR
-		self.l.bg_color = ui:rgba32(v)
-	end
-end
-
---gradient backgrounds
-
-layer.bg_color_stops = false --{offset1, color1, ...}
-
-layer:stored_property'bg_color_stops'
-
-function layer:after_set_bg_color_stops(t)
-	if v then
-		self.bg_color_stop_count = #t
-		for i=1,#t,2 do
-			local offset, color = t[i], t[i+1]
-			self:set_bg_color_stop_offset (i, offset)
-			self:set_bg_color_stop_color  (i, color)
-		end
-	else
-		self.bg_color_stop_count = 0
-	end
-end
-
-layer:forward_properties('l', {
-	bg_clip_border_offset=1,
-	--linear gradient backgrounds
-	bg_x1  =1,
-	bg_y1  =1,
-	bg_x2  =1,
-	bg_y2  =1,
-	--radial gradient backgrounds
-	bg_cx1 =1,
-	bg_cy1 =1,
-	bg_r1  =1,
-	bg_cx2 =1,
-	bg_cy2 =1,
-	bg_r2  =1,
-})
-
---image backgrounds
-layer.bg_image = false
-layer.bg_image_format = '%s'
-
-layer.bg_operator = 'over'
-
-layer:stored_property'bg_operator'
-
-local ops = {}
-for _,s in ipairs{
-	'CLEAR',
-	'SOURCE',
-	'OVER',
-	'IN',
-	'OUT',
-	'ATOP',
-	'DEST',
-	'DEST_OVER',
-	'DEST_IN',
-	'DEST_OUT',
-	'DEST_ATOP',
-	'XOR',
-	'ADD',
-	'SATURATE',
-	'MULTIPLY',
-	'SCREEN',
-	'OVERLAY',
-	'DARKEN',
-	'LIGHTEN',
-	'COLOR_DODGE',
-	'COLOR_BURN',
-	'HARD_LIGHT',
-	'SOFT_LIGHT',
-	'DIFFERENCE',
-	'EXCLUSION',
-	'HSL_HUE',
-	'HSL_SATURATION',
-	'HSL_COLOR',
-	'HSL_LUMINOSITY',
-} do
-	ops[s:lower()] = C['OPERATOR_'..s]
-end
-layer:enum_property('bg_operator', ops)
-
---box-shadow geometry and drawing
-
-layer.shadow_x = 0
-layer.shadow_y = 0
-layer.shadow_color = '#000'
-layer.shadow_blur = 0
-layer._shadow_blur_passes = 2
-
---layer relative geometry & matrix -------------------------------------------
-
-function layer:to_screen(x, y)
-	local x, y = self:to_window(x, y)
-	return self.window:to_screen(x, y)
-end
-
-function layer:from_screen(x, y)
-	local x, y = self.window:from_screen(x, y)
-	return self:from_window(x, y)
-end
-
---convert point from own content space to other's content space.
-function layer:to_other(widget, x, y)
-	if widget.window == self.window then
-		return widget:from_window(self:to_window(x, y))
-	else
-		return widget:from_screen(self:to_screen(x, y))
-	end
-end
-
---convert point from other's content space to own content space
-function layer:from_other(widget, x, y)
-	return widget:to_other(self, x, y)
-end
-
---bounding box of a rectangle in another layer's content box.
-function layer:rect_bbox_in(other, x, y, w, h)
-	local x1, y1 = self:to_other(other, x,     y)
-	local x2, y2 = self:to_other(other, x + w, y)
-	local x3, y3 = self:to_other(other, x,     y + h)
-	local x4, y4 = self:to_other(other, x + w, y + h)
-	local bx1 = min(x1, x2, x3, x4)
-	local bx2 = max(x1, x2, x3, x4)
-	local by1 = min(y1, y2, y3, y4)
-	local by2 = max(y1, y2, y3, y4)
-	return bx1, by1, bx2 - bx1, by2 - by1
-end
-
---bounding box of a list of points in another layer's content box.
-function layer:points_bbox_in(other, t) --t: {x1, y1, x2, y2, ...}
-	local n = #t
-	assert(n >= 2 and n % 2 == 0)
-	local x1, y1, x2, y2 = 1/0, 1/0, -1/0, -1/0
-	for i = 1, n, 2 do
-		local x, y = t[i], t[i+1]
-		local x, y = self:to_other(other, x, y)
-		x1 = min(x1, x)
-		y1 = min(y1, y)
-		x2 = max(x2, x)
-		y2 = max(y2, y)
-	end
-	return x1, y1, x2-x1, y2-y1
 end
 
 --layer parent property & child list -----------------------------------------
@@ -2911,6 +2574,426 @@ function layer:_free_children()
 	while #self > 0 do
 		self[#self]:free()
 	end
+end
+
+--C layer interface ----------------------------------------------------------
+
+local operators = {}
+for _,s in ipairs{
+	'CLEAR',
+	'SOURCE',
+	'OVER',
+	'IN',
+	'OUT',
+	'ATOP',
+	'DEST',
+	'DEST_OVER',
+	'DEST_IN',
+	'DEST_OUT',
+	'DEST_ATOP',
+	'XOR',
+	'ADD',
+	'SATURATE',
+	'MULTIPLY',
+	'SCREEN',
+	'OVERLAY',
+	'DARKEN',
+	'LIGHTEN',
+	'COLOR_DODGE',
+	'COLOR_BURN',
+	'HARD_LIGHT',
+	'SOFT_LIGHT',
+	'DIFFERENCE',
+	'EXCLUSION',
+	'HSL_HUE',
+	'HSL_SATURATION',
+	'HSL_COLOR',
+	'HSL_LUMINOSITY',
+} do
+	operators[s:lower()] = C['OPERATOR_'..s]
+end
+
+layer:forward_properties('l', {
+
+	visible=1,
+
+	x=1,
+	y=1,
+	w=1,
+	h=1,
+
+	cw=1,
+	ch=1,
+	cx=1,
+	cy=1,
+	min_cw=1,
+	min_ch=1,
+
+	rotation=1,
+	rotation_cx=1,
+	rotation_cy=1,
+	scale=1,
+	scale_cx=1,
+	scale_cy=1,
+
+	snap_x=1,
+	snap_y=1,
+
+})
+
+local function retpoint(p)
+	return p._0, p._1
+end
+
+layer:forward_methods('l', {
+	from_box_to_parent = retpoint,
+	from_parent_to_box = retpoint,
+	to_parent          = retpoint,
+	from_parent        = retpoint,
+	to_window          = retpoint,
+	from_window        = retpoint,
+	to_content         = retpoint,
+	from_content       = retpoint,
+})
+
+--border geometry and drawing
+
+layer:forward_properties('l', {
+	border_dash_offset  =1,
+	border_offset       =1,
+	corner_radius_kappa =1,
+})
+
+layer._border_width = 0 --no border
+layer._border_width_left   = false
+layer._border_width_right  = false
+layer._border_width_top    = false
+layer._border_width_bottom = false
+
+layer._corner_radius = 0 --square
+layer._corner_radius_top_left     = false
+layer._corner_radius_top_right    = false
+layer._corner_radius_bottom_left  = false
+layer._corner_radius_bottom_right = false
+
+layer._border_color = 0
+layer._border_color_left   = false
+layer._border_color_right  = false
+layer._border_color_top    = false
+layer._border_color_bottom = false
+layer._border_dash = false --false, {on_width1, off_width1, ...}
+
+layer:stored_properties{
+	border_width        =1,
+	border_width_left   =1,
+	border_width_right  =1,
+	border_width_top    =1,
+	border_width_bottom =1,
+
+	corner_radius              =1,
+	corner_radius_top_left     =1,
+	corner_radius_top_right    =1,
+	corner_radius_bottom_left  =1,
+	corner_radius_bottom_right =1,
+
+	border_color        =1,
+	border_color_left   =1,
+	border_color_right  =1,
+	border_color_top    =1,
+	border_color_bottom =1,
+	border_dash         =1,
+}
+
+function layer:after_set_border_width(v)
+	if not self.border_width_left   then self.l.border_width_left   = v end
+	if not self.border_width_right  then self.l.border_width_right  = v end
+	if not self.border_width_top    then self.l.border_width_top    = v end
+	if not self.border_width_bottom then self.l.border_width_bottom = v end
+end
+function layer:after_set_border_width_left   (v) self.l.border_width_left   = v or self.border_width end
+function layer:after_set_border_width_right  (v) self.l.border_width_right  = v or self.border_width end
+function layer:after_set_border_width_top    (v) self.l.border_width_top    = v or self.border_width end
+function layer:after_set_border_width_bottom (v) self.l.border_width_bottom = v or self.border_width end
+
+function layer:after_set_corner_radius(v)
+	if not self.corner_radius_top_left     then self.l.corner_radius_top_left     = v end
+	if not self.corner_radius_top_right    then self.l.corner_radius_top_right    = v end
+	if not self.corner_radius_bottom_left  then self.l.corner_radius_bottom_left  = v end
+	if not self.corner_radius_bottom_right then self.l.corner_radius_bottom_right = v end
+end
+function layer:after_set_corner_radius_top_left     (v) self.l.corner_radius_top_left     = v or self.corner_radius end
+function layer:after_set_corner_radius_top_right    (v) self.l.corner_radius_top_right    = v or self.corner_radius end
+function layer:after_set_corner_radius_bottom_left  (v) self.l.corner_radius_bottom_left  = v or self.corner_radius end
+function layer:after_set_corner_radius_bottom_right (v) self.l.corner_radius_bottom_right = v or self.corner_radius end
+
+function layer:after_set_border_color(v)
+	local v = self.ui:rgba32(v)
+	if not self.border_color_left   then self.l.border_color_left   = v end
+	if not self.border_color_right  then self.l.border_color_right  = v end
+	if not self.border_color_top    then self.l.border_color_top    = v end
+	if not self.border_color_bottom then self.l.border_color_bottom = v end
+end
+function layer:after_set_border_color_left   (v) self.l.border_color_left   = self.ui:rgba32(v or self.border_color) end
+function layer:after_set_border_color_right  (v) self.l.border_color_right  = self.ui:rgba32(v or self.border_color) end
+function layer:after_set_border_color_top    (v) self.l.border_color_top    = self.ui:rgba32(v or self.border_color) end
+function layer:after_set_border_color_bottom (v) self.l.border_color_bottom = self.ui:rgba32(v or self.border_color) end
+
+function layer:after_set_border_dash(v)
+	if v then
+		self.l.border_dash_count = #v
+		for i,d in ipairs(v) do
+			self.l.border_dash(i-1, d)
+		end
+	else
+		self.l.border_dash_count = 0
+	end
+end
+
+--background geometry and drawing
+
+layer:forward_properties('l', {
+	background_type=1,
+	background_hittable=1,
+
+	background_operator=1,
+	background_clip_border_offset=1,
+
+	background_x=1,
+	background_y=1,
+	background_rotation=1,
+	background_rotation_cx=1,
+	background_rotation_cy=1,
+	background_scale=1,
+	background_scale_cx=1,
+	background_scale_cy=1,
+
+	background_x1  =1,
+	background_y1  =1,
+	background_x2  =1,
+	background_y2  =1,
+	background_r1  =1,
+	background_r2  =1,
+
+	background_extend=1,
+})
+
+layer:enum_property('background_type', {
+	[false]         = C.BACKGROUND_NONE,
+	color           = C.BACKGROUND_COLOR,
+	gradient        = C.BACKGROUND_LINEAR_GRADIENT,
+	radial_gradient = C.BACKGROUND_RADIAL_GRADIENT,
+	image           = C.BACKGROUND_IMAGE,
+})
+
+layer:enum_property('background_extend', {
+	[false]     = C.BACKGROUND_EXTEND_NONE,
+	['repeat']  = C.BACKGROUND_EXTEND_REPEAT,
+	['reflect'] = C.BACKGROUND_EXTEND_REFLECT,
+})
+
+--solid color backgrounds
+
+layer._background_color = 0 --no background
+
+layer:stored_property('background_color', function(self, v)
+	self.l.background_color = ui:rgba32(v)
+end)
+
+--gradient backgrounds
+
+layer._background_color_stops = false --{offset1, color1, ...}
+
+layer:stored_property('background_color_stops', function(self, t)
+	if v then
+		self.l.background_color_stop_count = #t
+		for i=1,#t,2 do
+			local offset, color = t[i], t[i+1]
+			self.l:set_background_color_stop_offset (i, offset)
+			self.l:set_background_color_stop_color  (i, color)
+		end
+	else
+		self.background_color_stop_count = 0
+	end
+end)
+
+layer:enum_property('background_operator', operators)
+
+--image backgrounds
+layer.background_image = false
+layer.background_image_format = '%s'
+
+--shadow
+
+for k in pairs{
+	x       =1,
+	y       =1,
+	blur    =1,
+	passes  =1,
+	inset   =1,
+	content =1,
+} do
+	local getter = 'get_shadow_'..k
+	local setter = 'set_shadow_'..k
+	layer['get_shadow_'..k] = function(self)
+		return self.l[getter](self.l, 0)
+	end
+	layer['set_shadow_'..k] = function(self, v)
+		self.l[setter](self.l, 0, v)
+	end
+end
+
+layer._shadow_color = '#000'
+
+layer:stored_property('shadow_color', function(self, v)
+	self.l:set_shadow_color(0, self.ui:rgba32(v))
+end)
+
+--text
+
+layer:forward_properties('l', {
+	text_maxlen=1,
+	text_align_x=1,
+	text_align_y=1,
+})
+
+layer._text = false
+layer._font = 'Open Sans,14'
+layer._font_name   = false
+layer._font_weight = false
+layer._font_slant  = false
+layer._font_size   = false
+layer._bold        = false
+
+local function after_set_font_prop(self, k)
+	local font_name = self.font_name or self.font
+	local font, font_size = self.ui.font_db:find_font(
+		font_name, self.font_weight, self.font_slant, self.bold)
+	local font_size = self.font_size or font_size
+	if font and font_size then
+		self.l:set_text_span_font_id(0, font.id)
+		self.l:set_text_span_font_size(0, font_size)
+	end
+end
+
+layer:stored_properties({
+	text=1,
+	font=1,
+	font_name=1,
+	font_weight=1,
+	font_slant=1,
+	font_size=1,
+	bold=1,
+}, function() return after_set_font_prop end)
+
+function layer:after_set_text(s)
+	s = s or ''
+	self.l:set_text_utf8(s, #s)
+	self:fire'text_changed'
+end
+
+function layer:get_text_utf32()
+	return ffi.string(self.l.text_utf32, self.l.text_utf32_len)
+end
+
+for k in pairs{
+	nowrap=1,
+	text_dir=1,
+	text_opacity=1,
+	line_spacing=1,
+	hardline_spacing=1,
+	paragraph_spacing=1,
+	text_operator=1,
+} do
+	local getter = 'get_text_span_'..k:gsub('^text_', '')
+	local setter = 'set_text_span_'..k:gsub('^text_', '')
+	layer['get_'..k] = function(self)
+		return self.l[getter](self.l, 0)
+	end
+	layer['set_'..k] = function(self, v)
+		self.l[setter](self.l, 0, v)
+	end
+end
+
+layer._text_color = '#fff'
+
+layer:stored_property('text_color', function(self, v)
+	self.l:set_text_span_color(0, self.ui:rgba32(v))
+end)
+
+layer:enum_property('text_dir', {
+	auto = C.DIR_AUTO,
+	rtl  = C.DIR_RTL,
+	ltr  = C.DIR_LTR,
+})
+
+layer:enum_property('text_operator', operators)
+
+layer:enum_property('text_align_x', {
+	auto   = C.ALIGN_AUTO,
+	left   = C.ALIGN_LEFT,
+	right  = C.ALIGN_RIGHT,
+	center = C.ALIGN_CENTER,
+})
+
+layer:enum_property('text_align_y', {
+	top     = C.ALIGN_TOP,
+	bottom  = C.ALIGN_BOTTOM,
+	center  = C.ALIGN_CENTER,
+})
+
+--layer relative geometry & matrix -------------------------------------------
+
+function layer:to_screen(x, y)
+	local x, y = self:to_window(x, y)
+	return self.window:to_screen(x, y)
+end
+
+function layer:from_screen(x, y)
+	local x, y = self.window:from_screen(x, y)
+	return self:from_window(x, y)
+end
+
+--convert point from own content space to other's content space.
+function layer:to_other(widget, x, y)
+	if widget.window == self.window then
+		return widget:from_window(self:to_window(x, y))
+	else
+		return widget:from_screen(self:to_screen(x, y))
+	end
+end
+
+--convert point from other's content space to own content space
+function layer:from_other(widget, x, y)
+	return widget:to_other(self, x, y)
+end
+
+--bounding box of a rectangle in another layer's content box.
+function layer:rect_bbox_in(other, x, y, w, h)
+	local x1, y1 = self:to_other(other, x,     y)
+	local x2, y2 = self:to_other(other, x + w, y)
+	local x3, y3 = self:to_other(other, x,     y + h)
+	local x4, y4 = self:to_other(other, x + w, y + h)
+	local bx1 = min(x1, x2, x3, x4)
+	local bx2 = max(x1, x2, x3, x4)
+	local by1 = min(y1, y2, y3, y4)
+	local by2 = max(y1, y2, y3, y4)
+	return bx1, by1, bx2 - bx1, by2 - by1
+end
+
+--bounding box of a list of points in another layer's content box.
+function layer:points_bbox_in(other, t) --t: {x1, y1, x2, y2, ...}
+	local n = #t
+	assert(n >= 2 and n % 2 == 0)
+	local x1, y1, x2, y2 = 1/0, 1/0, -1/0, -1/0
+	for i = 1, n, 2 do
+		local x, y = t[i], t[i+1]
+		local x, y = self:to_other(other, x, y)
+		x1 = min(x1, x)
+		y1 = min(y1, y)
+		x2 = max(x2, x)
+		y2 = max(y2, y)
+	end
+	return x1, y1, x2-x1, y2-y1
 end
 
 --mouse event handling -------------------------------------------------------
@@ -3450,9 +3533,9 @@ function layer:hit_test(x, y, reason)
 
 	--hit background's clip area
 	local in_bg
-	if cc or self.bg_hittable or self:bg_visible() then
+	if cc or self.background_hittable or self:background_visible() then
 		cr:new_path()
-		self:bg_path(cr)
+		self:background_path(cr)
 		in_bg = cr:in_fill(x, y)
 	end
 
@@ -3495,17 +3578,17 @@ function layer:bbox(strict) --child interface
 	if strict or not cc then
 		x, y, w, h = self:content_bbox(strict)
 		if cc then
-			x, y, w, h = box2d.clip(x, y, w, h, self:bg_rect())
+			x, y, w, h = box2d.clip(x, y, w, h, self:background_rect())
 			if cc == true then
 				x, y, w, h = box2d.clip(x, y, w, h, self:padding_rect())
 			end
 		end
 	end
 	if (not strict and cc)
-		or self.bg_hittable
-		or self:bg_visible()
+		or self.background_hittable
+		or self:background_visible()
 	then
-		x, y, w, h = box2d.bounding_box(x, y, w, h, self:bg_rect())
+		x, y, w, h = box2d.bounding_box(x, y, w, h, self:background_rect())
 	end
 	if self:border_visible() then
 		x, y, w, h = box2d.bounding_box(x, y, w, h, self:border_rect(1))
@@ -3598,62 +3681,6 @@ function layer:make_visible(x, y, w, h)
 	self.parent:fire('make_visible', bx, by, bw, bh)
 end
 
---text property --------------------------------------------------------------
-
-layer._text = false
-layer._text_valid = true
-layer.maxlen = 4096
-
-function layer:get_text()
-	if not self._text_valid then
-		if not self.text_segments then
-			assert(self:sync_text_shape()) --truncate _text
-		end
-		self._text = self.text_segments.text_runs:string()
-		self._text_valid = true
-	end
-	return self._text
-end
-
-function layer:set_text(s)
-	s = s or false
-	if self._text_valid or self.text_segments then
-		if s == self.text then
-			return false
-		end
-	elseif s == self._text then
-		return false
-	end
-	self:clear_undo_stack()
-	if not s then
-		self._text = false
-		self._text_valid = true
-		self._text_tree = false
-		self.text_segments = false
-		self.text_selection = false
-	elseif self.text_selection then
-		self._text = ''
-		self._text_valid = false
-		self.text_selection:select_all()
-		self.text_selection:replace(s, nil, nil, self.maxlen)
-	elseif self.text_segments then
-		self._text = ''
-		self._text_valid = false
-		self.text_segments:replace(0, 1/0, s, nil, nil, self.maxlen)
-	else
-		self._text = s
-		self._text_valid = false --because we're not truncating it here
-	end
-	self._text_w = false --invalidate wrap
-	self._text_h = false --invalidate align
-	self:invalidate()
-	self:fire'text_changed'
-end
-
-layer:instance_property'text'
-
-layer:init_priority{text=1/0}
-
 --text typing
 
 function layer:type_text(s)
@@ -3706,127 +3733,7 @@ function layer:set_value(val)
 	return true
 end
 
-layer:instance_property'value'
-
 --text geometry & drawing ----------------------------------------------------
-
-layer.font = 'Open Sans,14'
-layer.font_name   = false
-layer.font_weight = false
-layer.font_slant  = false
-layer.font_size   = false
-layer.nowrap      = false
-layer.text_dir    = false
-layer.text_color = '#fff'
-layer.text_opacity = 1
-layer.line_spacing = 1.2
-layer.hardline_spacing = 1.5
-layer.paragraph_spacing = 2.5
-layer.text_dir = 'auto' --auto, rtl, ltr
-layer.nowrap = false
-layer.text_operator = 'over'
-layer.text_align_x = 'center' --left, right, center, auto
-layer.text_align_y = 'center' --top, bottom, center
-
-function layer:text_visible()
-	return self._text and true or false
-end
-
---parsing of '<align_x> <align_y>' property strings
-
-layer:stored_property'text_align_x'
-layer:stored_property'text_align_y'
-layer:enum_property('text_align_x', {
-	left = 'left', center = 'center', right = 'right', auto = 'auto',
-})
-layer:enum_property('text_align_y', {
-	top = 'top', center = 'center', bottom = 'bottom',
-})
-
-layer._text_tree = false
-layer.text_segments = false
-
-function layer:sync_text_shape()
-	if not self:text_visible() then
-		return
-	end
-	local t = self._text_tree
-	if not t
-		or self.maxlen      ~= t.maxlen
-		or self.font        ~= t.font
-		or self.font_name   ~= t.font_name
-		or self.font_weight ~= t.font_weight
-		or self.font_slant  ~= t.font_slant
-		or self.font_size   ~= t.font_size
-		or self.nowrap      ~= t.nowrap
-		or self.text_dir    ~= t.text_dir
-	then
-		if not t then
-			t = {}
-			self._text_tree = t
-		end
-		t[1] = self.text_segments
-			and self.text --truncated
-			or self._text --raw
-		t.maxlen      = self.maxlen
-		t.font        = self.font
-		t.font_name   = self.font_name
-		t.font_weight = self.font_weight
-		t.font_slant  = self.font_slant
-		t.font_size   = self.font_size
-		t.nowrap      = self.nowrap
-		t.text_dir    = self.text_dir
-		self.text_segments = self.ui.tr:shape(t)
-		self._text_w = false --invalidate wrap
-		self._text_h = false --invalidate align
-		self.text_selection = false --invalidate selection
-	end
-	return self.text_segments
-end
-
-function layer:sync_text_wrap()
-	local segs = self.text_segments
-	if not segs then return nil end
-	local cw = self:client_size()
-	local ls = self.line_spacing
-	local hs = self.hardline_spacing
-	local ps = self.paragraph_spacing
-	if    cw ~= self._text_w
-		or ls ~= self._text_tree.line_spacing
-		or hs ~= self._text_tree.hardline_spacing
-		or ps ~= self._text_tree.paragraph_spacing
-	then
-		self._text_w = cw
-		self._text_tree.line_spacing = ls
-		self._text_tree.hardline_spacing = hs
-		self._text_tree.paragraph_spacing = ps
-		segs:wrap(cw)
-		self._text_h = false --invalidate align
-	end
-	return segs
-end
-
-function layer:sync_text_align()
-	local segs = self.text_segments
-	if not segs then return nil end
-	local cw, ch = self:client_size()
-	local ha = self._text_align_x
-	local va = self._text_align_y
-	if    ch ~= self._text_h
-		or ha ~= self._text_ha
-		or va ~= self._text_va
-	then
-		self._text_w  = cw
-		self._text_h  = ch
-		self._text_ha = ha
-		self._text_va = va
-		segs:align(0, 0, cw, ch, ha, va)
-	end
-	if self.text_selectable and not self.text_selection then
-		self.text_selection = self:create_text_selection(segs)
-	end
-	return segs
-end
 
 function layer:get_baseline()
 	if not self:text_visible() then return end
@@ -3948,9 +3855,8 @@ end
 
 --insert_mode property
 
-layer.insert_mode = false
+layer._insert_mode = false
 layer:stored_property'insert_mode'
-layer:instance_property'insert_mode'
 
 function layer:after_set_insert_mode(value)
 	self.text_selection.cursor2.insert_mode = value
@@ -4303,7 +4209,7 @@ function layer:setup_placeholder(widget, index)
 	if not p then
 		p = placeholder{
 			parent = self,
-			bg_color = '#333',
+			background_color = '#333',
 		}
 		self.placeholder = p
 	else
@@ -4376,8 +4282,8 @@ ui.window_view = view
 window.view_class = view
 
 --screen-wiping options that work with transparent windows
-view.bg_color = '#040404f0'
-view.bg_operator = 'source'
+view.background_color = '#040404f0'
+view.background_operator = 'source'
 
 --parent layer interface
 

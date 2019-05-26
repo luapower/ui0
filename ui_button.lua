@@ -74,10 +74,6 @@ ui:style('button :focused', {
 	shadow_color = '#666',
 })
 
-button:init_priority{
-	text=-2, key=-1, --because text can contain a key
-}
-
 --button style profiles
 
 button.profile = false
@@ -134,7 +130,7 @@ function button:override_set_text(inherited, s)
 		local pos, key = s:match'()&(.)'
 		self._text = s:gsub('&', ''):gsub('%z', '&')
 		if key then
-			self.key = key:upper()
+			self._key_from_text = key:upper()
 			self.underline_pos = pos
 			self.underline_text = key
 		end
@@ -212,7 +208,8 @@ end
 function button:after_set_window(win)
 	if not win then return end
 	win:on({'keydown', self}, function(win, key)
-		if self.key and self.ui:key(self.key) then
+		local self_key = self.key or self._key_from_text
+		if self_key and self.ui:key(self_key) then
 			return self:activate_by_key(key)
 		elseif self.default and key == 'enter' then
 			return self:activate_by_key(key)
