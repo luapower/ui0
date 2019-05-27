@@ -1,6 +1,6 @@
 --go@ luajit -jp=2fi1m1 *
 print(package.cpath)
-local ui = require'ui'
+local ui = require'ui'()
 local Q = require'utf8quot'
 local time = require'time'
 local glue = require'glue'
@@ -101,9 +101,9 @@ local function test_layers()
 		tags = 'layer1',
 		parent = win,
 
-		--clip_content = true,
-		--clip_content = false,
-		  clip_content = 'background',
+		--clip = true,
+		--clip = false,
+		  clip = 'background',
 
 		border_width = 10,
 		border_color = '#fff2',

@@ -1,9 +1,12 @@
 
+local time = require'time'
 local ui = require'ui'
 ui.use_google_fonts = true
+ui = ui()
 
 local win = ui:window{
 	w = 800, h = 600,
+	--transparent = true, frame = false,
 }
 
 function win:keydown(key)
@@ -12,30 +15,72 @@ function win:keydown(key)
 	end
 end
 
+win.view.padding = 20
+
+local scale = 2
+local pad = 0
+
 local layer = ui:layer{
 
 	parent = win,
 
-	--x = 100,
-	--y = 100,
-	cw = 200,
-	ch = 200,
-	cx = 110,
-	cy = 110,
+	--stable init order for interdependent properties
+	cx = 100 * scale,
+	cy = 100 * scale,
+	x = 0, y = 0,
+	w = 0, h = 0,
+	cw = 200 - pad * 2,
+	ch = 200 - pad * 2,
 
+	--has no effect on null layouts
+	min_cw = 400,
+	min_ch = 300,
+
+	--padding_left = 20,
+	padding = pad,
+
+	rotation = 0,
+	rotation_cx = -80,
+	rotation_cy = -80,
+
+	scale = scale,
+	scale_cx = 100,
+	scale_cy = 100,
+
+	snap_x = true,
+	snap_y = false,
+
+	--border_width_right = 1,
 	border_width = 10,
-	border_width_right = 1,
+	--border_color_left = '#f00',
 	border_color = '#fff',
-	border_color_left = '#f00',
-	corner_radius = 5,
 	corner_radius_bottom_right = 30,
+	corner_radius = 5,
 
-	background_type = 'color',
+	border_dash = {4, 3},
+	border_dash_offset = 1,
+
+	--background_type = 'color',
 	background_color = '#639',
 
-	text = 'Hello',
+	background_type = 'gradient',
+	background_x1 = 0,
+	background_y1 = 0,
+	background_x2 = 0,
+	background_y2 = 1,
+	background_r1 = 50,
+	background_r2 = 100,
+	background_color_stops = {0, '#ff0'}, --, 1, '#0ff'},
+
+	background_scale = 100,
+
+	--text = 'Hello',
 	font = 'Open Sans Bold',
-	font_size = 60,
+	font_size = 100,
+
+	clip_content = 'padding',
+	opacity = 0.5,
+	--operator = 'xor',
 
 	shadow_color = '#000',
 	shadow_x = 2,
@@ -46,152 +91,57 @@ local layer = ui:layer{
 
 }
 
+function win:before_draw()
+	local r = time.clock() * 60
+	--layer.rotation = r
+	--layer.x = 100 + r % 10
+	--layer.y = 100 + r % 10
+	--layer.border_dash_offset = r
+	self:invalidate()
+end
+
+ui.maxfps = 60
+
+local function fps_function()
+	local count_per_sec = 2
+	local frame_count, last_frame_count, last_time = 0, 0
+	return function()
+		last_time = last_time or time.clock()
+		frame_count = frame_count + 1
+		local time = time.clock()
+		if time - last_time > 1 / count_per_sec then
+			last_frame_count, frame_count = frame_count, 0
+			last_time = time
+		end
+		return last_frame_count * count_per_sec
+	end
+end
+
+local fps = fps_function()
+
+win.native_window:on('repaint', function(self)
+	self:title(string.format('%d fps', fps()))
+end)
+
+--keep showing fps in the titlebar every second.
+ui:runevery(1, function()
+	if win.dead then
+		ui:quit()
+	else
+		win:invalidate()
+	end
+end)
+
+
 ui:run()
 
+ui:free()
+
+require'layerlib_h'.memreport()
 
 --[[
-		get_cx=1,
-		get_cy=1,
-
-		set_cx=1,
-		set_cy=1,
-
-		get_min_cw=1,
-		get_min_ch=1,
-		set_min_cw=1,
-		set_min_ch=1,
-
-		get_padding_left=1,
-		get_padding_top=1,
-		get_padding_right=1,
-		get_padding_bottom=1,
-
-		set_padding_left=1,
-		set_padding_top=1,
-		set_padding_right=1,
-		set_padding_bottom=1,
-		set_padding=1,
-
-		--transforms
-
-		get_rotation=1,
-		get_rotation_cx=1,
-		get_rotation_cy=1,
-		get_scale=1,
-		get_scale_cx=1,
-		get_scale_cy=1,
-
-		set_rotation=1,
-		set_rotation_cx=1,
-		set_rotation_cy=1,
-		set_scale=1,
-		set_scale_cx=1,
-		set_scale_cy=1,
-
-		--point conversions
-
-		from_box_to_parent=1,
-		from_parent_to_box=1,
-		to_parent=1,  from_parent=1,
-		to_window=1,  from_window=1,
-		to_content=1, from_content=1,
-
-		--drawing
-
-		get_visible=1,
-		set_visible=1,
-
-		get_operator=1,
-		set_operator=1,
-
-		get_clip=1,
-		set_clip=1,
-
-		get_snap_x=1,
-		get_snap_y=1,
-
-		set_snap_x=1,
-		set_snap_y=1,
-
-		get_opacity=1,
-		set_opacity=1,
-
-		--borders
-
-		get_border_width_left   =1,
-		get_border_width_right  =1,
-		get_border_width_top    =1,
-		get_border_width_bottom =1,
-
-		set_border_width_left   =1,
-		set_border_width_right  =1,
-		set_border_width_top    =1,
-		set_border_width_bottom =1,
-		set_border_width        =1,
-
-		get_corner_radius_top_left     =1,
-		get_corner_radius_top_right    =1,
-		get_corner_radius_bottom_left  =1,
-		get_corner_radius_bottom_right =1,
-		get_corner_radius_kappa        =1,
-
-		set_corner_radius_top_left     =1,
-		set_corner_radius_top_right    =1,
-		set_corner_radius_bottom_left  =1,
-		set_corner_radius_bottom_right =1,
-		set_corner_radius_kappa        =1,
-		set_corner_radius              =1,
-
-		get_border_color_left   =1,
-		get_border_color_right  =1,
-		get_border_color_top    =1,
-		get_border_color_bottom =1,
-
-		set_border_color_left   =1,
-		set_border_color_right  =1,
-		set_border_color_top    =1,
-		set_border_color_bottom =1,
-		set_border_color        =1,
-
-		get_border_dash_count=1,
-		set_border_dash_count=1,
-
-		get_border_dash=1,
-		set_border_dash=1,
-
-		get_border_dash_offset=1,
-		set_border_dash_offset=1,
 
 		set_border_line_to=1,
-
-		--backgrounds
-
-		get_background_type=1,
-		set_background_type=1,
-
-		get_background_color=1,
-		set_background_color=1,
-
-		get_background_x1=1,
-		get_background_y1=1,
-		get_background_x2=1,
-		get_background_y2=1,
-		get_background_r1 =1,
-		get_background_r2 =1,
-
-		set_background_x1=1,
-		set_background_y1=1,
-		set_background_x2=1,
-		set_background_y2=1,
-		set_background_r1 =1,
-		set_background_r2 =1,
-
-		get_background_color_stop_count=1,
-		set_background_color_stop_count=1,
-		get_background_color_stop_color=1,
-		set_background_color_stop_color=1,
-		get_background_color_stop_offset=1,
-		set_background_color_stop_offset=1,
 
 		get_background_image=1,
 		set_background_image=1,
@@ -371,3 +321,5 @@ ui:run()
 		set_grid_col_span=1,
 		set_grid_row_span=1,
 ]]
+
+

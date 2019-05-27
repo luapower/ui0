@@ -2,7 +2,7 @@
 --Scrollbar and Scrollbox Widgets.
 --Written by Cosmin Apreutesei. Public Domain.
 
-local ui = require'ui'
+local ui = require'ui'()
 local box2d = require'box2d'
 local glue = require'glue'
 
@@ -102,7 +102,6 @@ function scrollbar:after_set_vertical(vertical)
 	self:settag('vertical', vertical)
 	self:settag('horizontal', not vertical)
 end
-scrollbar:instance_only'vertical'
 
 --grip geometry
 
@@ -172,10 +171,6 @@ end
 
 function scrollbar:after_set_content_length() self.offset = self.offset end
 function scrollbar:after_set_view_length() self.offset = self.offset end
-
-scrollbar:instance_only'content_length'
-scrollbar:instance_only'view_length'
-scrollbar:instance_only'offset'
 
 function scrollbar:reset(content_length, view_length, offset)
 	self._content_length = content_length
@@ -250,7 +245,6 @@ scrollbar:stored_property'autohide'
 function scrollbar:after_set_autohide(autohide)
 	self:settag('autohide', autohide)
 end
-scrollbar:instance_only'autohide'
 
 function scrollbar:hit_test_near(mx, my) --mx,my in window space
 	if not mx then
@@ -344,7 +338,7 @@ function scrollbox:after_init(t)
 	--content can still access the scrollbox on its dying breath!
 	self.view = self:view_class({
 		tags = 'scrollbox_view',
-		clip_content = 'background', --we want to pad the content, but not clip it
+		clip_content = true, --we want to pad the content, but not clip it
 		sync_layout = noop, --prevent auto-sync'ing content's layout
 	}, self.view)
 
@@ -541,7 +535,6 @@ editbox.clip_content = false
 
 function textarea:get_value() return self.editbox.value end
 function textarea:set_value(val) self.editbox.value = val end
-textarea:instance_only'value'
 
 textarea:init_ignore{value=1}
 

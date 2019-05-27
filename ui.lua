@@ -149,7 +149,7 @@ end
 function object:forward_properties(sub, prefix, t)
 	if not t then sub, prefix, t = sub, '', prefix end
 	for prop, writable in pairs(t) do
-		self:forward_property(prop, sub..'.'..prefix..prop, writable == 0)
+		self:forward_property(prefix..prop, sub..'.'..prop, writable == 0)
 	end
 end
 
@@ -268,10 +268,10 @@ end
 local ui = object:subclass'ui'
 ui.object = object
 
-function ui:create() --singleton class (no instance is created)
-	self:init()
-	function self:create() return self end
-	return self
+function ui:override_create(inherited) --singleton
+	local instance = inherited(self)
+	function self:create() return instance end
+	return instance
 end
 
 function ui:after_init()
@@ -291,7 +291,9 @@ end
 
 --native app proxy methods ---------------------------------------------------
 
-function ui:native_window(t)       return self().app:window(t) end
+function ui:native_window(t)
+	return self().app:window(t)
+end
 
 function ui:get_active_window()
 	local win = self().app:active_window()
@@ -667,7 +669,7 @@ function ui.initial(self, attr)
 end
 
 --attr. value to use in styles for "inherit value from parent for this attr"
-function ui.inherit(self, attr)
+function ui.inherited(self, attr)
 	return self:parent_value(attr)
 end
 
@@ -1048,7 +1050,7 @@ function element:init_fields(t)
 end
 
 function element:after_init(t)
-	self.ui = t.ui()
+	self.ui = t.ui
 	self:init_tags(t)
 	self:init_fields(t)
 end
@@ -1484,7 +1486,7 @@ function window:override_init(inherited, t)
 		parent = parent.view
 	end
 
-	self.ui = t.ui()
+	self.ui = t.ui
 
 	if not win then
 		local nt = {}
@@ -2471,6 +2473,7 @@ function layer:before_free()
 	self:_free_children()
 	self.parent = false
 	self.l:free()
+	self.l = false
 end
 
 --layer parent property & child list -----------------------------------------
@@ -2616,6 +2619,9 @@ end
 layer:forward_properties('l', {
 
 	visible=1,
+	opacity=1,
+	clip_content=1,
+	operator=1,
 
 	x=1,
 	y=1,
@@ -2641,6 +2647,14 @@ layer:forward_properties('l', {
 
 })
 
+layer:enum_property('clip_content', {
+	[false] = C.CLIP_NONE,
+	[true]  = C.CLIP_BACKGROUND,
+	padding = C.CLIP_PADDING,
+})
+
+layer:enum_property('operator', operators)
+
 local function retpoint(p)
 	return p._0, p._1
 end
@@ -2655,6 +2669,33 @@ layer:forward_methods('l', {
 	to_content         = retpoint,
 	from_content       = retpoint,
 })
+
+--padding
+
+layer._padding = 0
+layer._padding_left   = false
+layer._padding_right  = false
+layer._padding_top    = false
+layer._padding_bottom = false
+
+layer:stored_properties{
+	padding        =1,
+	padding_left   =1,
+	padding_right  =1,
+	padding_top    =1,
+	padding_bottom =1,
+}
+
+function layer:after_set_padding(v)
+	if not self.padding_left   then self.l.padding_left   = v end
+	if not self.padding_right  then self.l.padding_right  = v end
+	if not self.padding_top    then self.l.padding_top    = v end
+	if not self.padding_bottom then self.l.padding_bottom = v end
+end
+function layer:after_set_padding_left   (v) self.l.padding_left   = v or self.padding end
+function layer:after_set_padding_right  (v) self.l.padding_right  = v or self.padding end
+function layer:after_set_padding_top    (v) self.l.padding_top    = v or self.padding end
+function layer:after_set_padding_bottom (v) self.l.padding_bottom = v or self.padding end
 
 --border geometry and drawing
 
@@ -2742,7 +2783,7 @@ function layer:after_set_border_dash(v)
 	if v then
 		self.l.border_dash_count = #v
 		for i,d in ipairs(v) do
-			self.l.border_dash(i-1, d)
+			self.l:set_border_dash(i-1, d)
 		end
 	else
 		self.l.border_dash_count = 0
@@ -2804,12 +2845,15 @@ end)
 layer._background_color_stops = false --{offset1, color1, ...}
 
 layer:stored_property('background_color_stops', function(self, t)
-	if v then
+	if t then
 		self.l.background_color_stop_count = #t
+		local j = 0
 		for i=1,#t,2 do
 			local offset, color = t[i], t[i+1]
-			self.l:set_background_color_stop_offset (i, offset)
-			self.l:set_background_color_stop_color  (i, color)
+			print(j, offset, color)
+			self.l:set_background_color_stop_offset (j, offset)
+			self.l:set_background_color_stop_color  (j, self.ui:rgba32(color))
+			j=j+1
 		end
 	else
 		self.background_color_stop_count = 0
@@ -3409,12 +3453,6 @@ end
 
 --content-box geometry, drawing and hit testing ------------------------------
 
-layer.padding = 0
-layer.padding_left = false
-layer.padding_right = false
-layer.padding_top = false
-layer.padding_bottom = false
-
 function layer:get_pw()
 	local p = self.padding
 	return (self.padding_left or p) + (self.padding_right or p)
@@ -3465,9 +3503,6 @@ function layer:client_rect() --in content space
 end
 
 --layer drawing & hit testing ------------------------------------------------
-
-layer.opacity = 1
-layer.clip_content = false --true, 'background', false
 
 function layer:hit_test_content(x, y, reason) --called in own content space
 	local widget, area = self:hit_test_text(x, y, reason)
@@ -4282,6 +4317,7 @@ ui.window_view = view
 window.view_class = view
 
 --screen-wiping options that work with transparent windows
+view.background_type = 'color'
 view.background_color = '#040404f0'
 view.background_operator = 'source'
 
