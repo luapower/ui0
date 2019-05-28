@@ -1,5 +1,5 @@
 
---Extensible UI toolkit in Lua.
+--UI toolkit with styles and animations based on layerlib's box model.
 --Written by Cosmin Apreutesei. Public Domain.
 
 if not ... then DEMO=true; require'ui_demo1'; return end
@@ -2846,14 +2846,13 @@ layer._background_color_stops = false --{offset1, color1, ...}
 
 layer:stored_property('background_color_stops', function(self, t)
 	if t then
-		self.l.background_color_stop_count = #t
+		self.l.background_color_stop_count = #t / 2
 		local j = 0
-		for i=1,#t,2 do
+		for i = 1, #t, 2 do
 			local offset, color = t[i], t[i+1]
-			print(j, offset, color)
-			self.l:set_background_color_stop_offset (j, offset)
-			self.l:set_background_color_stop_color  (j, self.ui:rgba32(color))
-			j=j+1
+			self.l:set_background_color_stop_offset(j, offset)
+			self.l:set_background_color_stop_color (j, self.ui:rgba32(color))
+			j = j + 1
 		end
 	else
 		self.background_color_stop_count = 0

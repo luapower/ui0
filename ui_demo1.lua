@@ -50,6 +50,10 @@ local layer = ui:layer{
 	snap_x = true,
 	snap_y = false,
 
+	clip_content = 'padding',
+	opacity = .8,
+	--operator = 'xor',
+
 	--border_width_right = 1,
 	border_width = 10,
 	--border_color_left = '#f00',
@@ -70,17 +74,31 @@ local layer = ui:layer{
 	background_y2 = 1,
 	background_r1 = 50,
 	background_r2 = 100,
-	background_color_stops = {0, '#ff0'}, --, 1, '#0ff'},
+	background_color_stops = {0, '#f00', .5, '#00f'},
+
+	background_hittable = false,
+	background_operator = 'xor',
+	background_clip_border_offset = 0,
+
+	background_x           = 50,
+	background_y           = 50,
+
+	background_rotation    = 10,
+	background_rotation_cx = 10,
+	background_rotation_cy = 10,
 
 	background_scale = 100,
+	background_scale_cx = 40,
+	background_scale_cy = 40,
+	background_extend   = 'reflect',
 
-	--text = 'Hello',
+	text = 'Hello',
 	font = 'Open Sans Bold',
 	font_size = 100,
 
-	clip_content = 'padding',
-	opacity = 0.5,
-	--operator = 'xor',
+	text_script = '',
+	text_lang   = '',
+	text_dir    = '',
 
 	shadow_color = '#000',
 	shadow_x = 2,
@@ -146,77 +164,13 @@ require'layerlib_h'.memreport()
 		get_background_image=1,
 		set_background_image=1,
 
-		get_background_hittable    =1,
-		get_background_operator    =1,
-		get_background_clip_border_offset=1,
-		get_background_x           =1,
-		get_background_y           =1,
-		get_background_rotation    =1,
-		get_background_rotation_cx =1,
-		get_background_rotation_cy =1,
-		get_background_scale       =1,
-		get_background_scale_cx    =1,
-		get_background_scale_cy    =1,
-		get_background_extend      =1,
-
-		set_background_hittable    =1,
-		set_background_operator    =1,
-		set_background_clip_border_offset=1,
-		set_background_x           =1,
-		set_background_y           =1,
-		set_background_rotation    =1,
-		set_background_rotation_cx =1,
-		set_background_rotation_cy =1,
-		set_background_scale       =1,
-		set_background_scale_cx    =1,
-		set_background_scale_cy    =1,
-		set_background_extend      =1,
-
-		--shadows
-
-		get_shadow_x       =1,
-		get_shadow_y       =1,
-		get_shadow_color   =1,
-		get_shadow_blur    =1,
-		get_shadow_passes  =1,
-		get_shadow_inset   =1,
-		get_shadow_content =1,
-
-		set_shadow_x       =1,
-		set_shadow_y       =1,
-		set_shadow_color   =1,
-		set_shadow_blur    =1,
-		set_shadow_passes  =1,
-		set_shadow_inset   =1,
-		set_shadow_content =1,
-
 		--text
-
-		get_text_utf32=1,
-		get_text_utf32_len=1,
-		set_text_utf32=1,
-
-		set_text_utf8=1,
-		get_text_utf8=1,
-		get_text_utf8_len=1,
-
-		get_text_maxlen=1,
-		set_text_maxlen=1,
-
-		get_text_span_count=1,
-		set_text_span_count=1,
 
 		get_text_span_feature_count=1,
 		clear_text_span_features=1,
 		get_text_span_feature=1,
 		add_text_span_feature=1,
 
-		get_text_span_offset            =1,
-		get_text_span_font_id           =1,
-		get_text_span_font_size         =1,
-		get_text_span_script            =1,
-		get_text_span_lang              =1,
-		get_text_span_dir               =1,
 		get_text_span_line_spacing      =1,
 		get_text_span_hardline_spacing  =1,
 		get_text_span_paragraph_spacing =1,
