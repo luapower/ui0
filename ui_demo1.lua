@@ -20,105 +20,167 @@ win.view.padding = 20
 local scale = 2
 local pad = 0
 
-local layer = ui:layer{
+local function test_layerlib()
 
-	parent = win,
+	local layer = ui:layer{
 
-	--stable init order for interdependent properties
-	cx = 100 * scale,
-	cy = 100 * scale,
-	x = 0, y = 0,
-	w = 0, h = 0,
-	cw = 200 - pad * 2,
-	ch = 200 - pad * 2,
+		parent = win,
 
-	--has no effect on null layouts
-	min_cw = 400,
-	min_ch = 300,
+		--stable init order for interdependent properties
+		cx = 100 * scale,
+		cy = 100 * scale,
+		x = 0, y = 0,
+		w = 0, h = 0,
+		cw = 200 - pad * 2,
+		ch = 200 - pad * 2,
 
-	--padding_left = 20,
-	padding = pad,
+		--has no effect on null layouts
+		min_cw = 400,
+		min_ch = 300,
 
-	rotation = 0,
-	rotation_cx = -80,
-	rotation_cy = -80,
+		--padding_left = 20,
+		padding = pad,
 
-	scale = scale,
-	scale_cx = 100,
-	scale_cy = 100,
+		rotation = 0,
+		rotation_cx = -80,
+		rotation_cy = -80,
 
-	snap_x = true,
-	snap_y = false,
+		--scale = scale,
+		scale_cx = 100,
+		scale_cy = 100,
 
-	clip_content = 'padding',
-	opacity = .8,
-	--operator = 'xor',
+		snap_x = true,
+		snap_y = false,
 
-	--border_width_right = 1,
-	border_width = 10,
-	--border_color_left = '#f00',
-	border_color = '#fff',
-	corner_radius_bottom_right = 30,
-	corner_radius = 5,
+		clip_content = 'padding',
+		opacity = .8,
+		--operator = 'xor',
 
-	border_dash = {4, 3},
-	border_dash_offset = 1,
+		--border_width_right = 1,
+		border_width = 10,
+		--border_color_left = '#f00',
+		border_color = '#fff',
+		corner_radius_bottom_right = 30,
+		corner_radius = 5,
 
-	--background_type = 'color',
-	background_color = '#639',
+		border_dash = {4, 3},
+		border_dash_offset = 1,
 
-	background_type = 'gradient',
-	background_x1 = 0,
-	background_y1 = 0,
-	background_x2 = 0,
-	background_y2 = 1,
-	background_r1 = 50,
-	background_r2 = 100,
-	background_color_stops = {0, '#f00', .5, '#00f'},
+		--background_type = 'color',
+		background_color = '#639',
 
-	background_hittable = false,
-	background_operator = 'xor',
-	background_clip_border_offset = 0,
+		background_type = 'gradient',
+		background_x1 = 0,
+		background_y1 = 0,
+		background_x2 = 0,
+		background_y2 = 1,
+		background_r1 = 50,
+		background_r2 = 100,
+		background_color_stops = {0, '#f00', .5, '#00f'},
 
-	background_x           = 50,
-	background_y           = 50,
+		background_hittable = false,
+		background_operator = 'xor',
+		background_clip_border_offset = 0,
 
-	background_rotation    = 10,
-	background_rotation_cx = 10,
-	background_rotation_cy = 10,
+		background_x           = 50,
+		background_y           = 50,
 
-	background_scale = 100,
-	background_scale_cx = 40,
-	background_scale_cy = 40,
-	background_extend   = 'reflect',
+		background_rotation    = 10,
+		background_rotation_cx = 10,
+		background_rotation_cy = 10,
 
-	text = 'Hello',
-	font = 'Open Sans Bold',
-	font_size = 100,
+		background_scale = 100,
+		background_scale_cx = 40,
+		background_scale_cy = 40,
+		background_extend   = 'reflect',
 
-	text_script = '',
-	text_lang   = '',
-	text_dir    = '',
+		text = 'Hello',
+		font = 'Open Sans Bold',
+		font_size = 100,
 
-	shadow_color = '#000',
-	shadow_x = 2,
-	shadow_y = 2,
-	shadow_blur = 1,
-	shadow_content = true,
-	shadow_inset = true,
+		script = 'Zyyy',
+		lang   = 'en-us',
+		dir    = 'ltr',
 
-}
+		nowrap = true,
+		line_spacing = 1.2,
+		hardline_spacing = 2,
+		paragraph_spacing = 3,
 
-function win:before_draw()
-	local r = time.clock() * 60
-	--layer.rotation = r
-	--layer.x = 100 + r % 10
-	--layer.y = 100 + r % 10
-	--layer.border_dash_offset = r
-	self:invalidate()
+		text_opacity = .8,
+		text_color = '#ff0',
+		--text_operator = 'xor',
+
+		text_align_x = 'right',
+		text_align_y = 'bottom',
+
+		shadow_color = '#000',
+		shadow_x = 2,
+		shadow_y = 2,
+		shadow_blur = 1,
+		shadow_content = true,
+		shadow_inset = true,
+
+		layout = 'text',
+
+	}
+
 end
 
-ui.maxfps = 60
+
+
+local function test_flexbox()
+
+	local flex = ui:layer{
+		parent = win,
+		layout = 'flex',
+		flex_wrap = true,
+		flex_flow = 'y',
+		item_align_y = 'center',
+		align_items_y = 'start',
+		border_width = 20,
+		padding = 20,
+		border_color = '#333',
+		x = 40, y = 40,
+		min_cw = win.cw - 120,
+		min_ch = win.ch - 120,
+		xx = 0,
+		style = {
+			transition_duration = 1,
+			transition_times = 1/0,
+			xx = 100,
+			transition_xx = true,
+		},
+	}
+
+	flex:inherit()
+
+	for i = 1, 50 do
+		local r = math.random(10)
+		local b = ui:layer{
+			parent = flex,
+			layout = 'text',
+			border_width = 1,
+			min_cw = r * 12,
+			min_ch = r * 6,
+			break_after = i == 50,
+			break_before = i == 50,
+			flex_fr = r,
+			--font_size = 10 + i * 3,
+		}
+
+		b:inherit()
+	end
+
+	function win:client_resized()
+		flex.min_cw = win.cw - 120
+		flex.min_ch = win.ch - 120
+		self:invalidate()
+	end
+
+end
+
+------------------------------------------------------------------------------
 
 local function fps_function()
 	local count_per_sec = 2
@@ -133,6 +195,10 @@ local function fps_function()
 		end
 		return last_frame_count * count_per_sec
 	end
+end
+
+function win:before_draw()
+	self:invalidate()
 end
 
 local fps = fps_function()
@@ -150,6 +216,9 @@ ui:runevery(1, function()
 	end
 end)
 
+
+test_layerlib()
+--test_flexbox()
 
 ui:run()
 
@@ -170,34 +239,6 @@ require'layerlib_h'.memreport()
 		clear_text_span_features=1,
 		get_text_span_feature=1,
 		add_text_span_feature=1,
-
-		get_text_span_line_spacing      =1,
-		get_text_span_hardline_spacing  =1,
-		get_text_span_paragraph_spacing =1,
-		get_text_span_nowrap            =1,
-		get_text_span_color             =1,
-		get_text_span_opacity           =1,
-		get_text_span_operator          =1,
-
-		set_text_span_offset            =1,
-		set_text_span_font_id           =1,
-		set_text_span_font_size         =1,
-		set_text_span_script            =1,
-		set_text_span_lang              =1,
-		set_text_span_dir               =1,
-		set_text_span_line_spacing      =1,
-		set_text_span_hardline_spacing  =1,
-		set_text_span_paragraph_spacing =1,
-		set_text_span_nowrap            =1,
-		set_text_span_color             =1,
-		set_text_span_opacity           =1,
-		set_text_span_operator          =1,
-
-		get_text_align_x=1,
-		get_text_align_y=1,
-
-		set_text_align_x=1,
-		set_text_align_y=1,
 
 		get_text_caret_width=1,
 		get_text_caret_color=1,

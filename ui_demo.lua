@@ -854,6 +854,7 @@ end
 --test_drag_flexbox()
 --test_resize_window()
 test_flexbox_speed()
+
 win:show()
 ui:run()
 ui:free()

@@ -148,8 +148,9 @@ end
 
 function object:forward_properties(sub, prefix, t)
 	if not t then sub, prefix, t = sub, '', prefix end
-	for prop, writable in pairs(t) do
-		self:forward_property(prefix..prop, sub..'.'..prop, writable == 0)
+	for prop, sub_prop in pairs(t) do
+		sub_prop = type(sub_prop) == 'string' and sub_prop or prop
+		self:forward_property(prefix..prop, sub..'.'..sub_prop)
 	end
 end
 
@@ -2894,7 +2895,7 @@ end)
 --text
 
 layer:forward_properties('l', {
-	text_maxlen=1,
+	maxlen='text_maxlen',
 	text_align_x=1,
 	text_align_y=1,
 })
@@ -2906,11 +2907,13 @@ layer._font_weight = false
 layer._font_slant  = false
 layer._font_size   = false
 layer._bold        = false
+layer._italic      = false
 
 local function after_set_font_prop(self, k)
 	local font_name = self.font_name or self.font
 	local font, font_size = self.ui.font_db:find_font(
-		font_name, self.font_weight, self.font_slant, self.bold)
+		font_name, self.font_weight, slant, self.bold)
+	local slant = self.italic and 'italic' or self.font_slant
 	local font_size = self.font_size or font_size
 	if font and font_size then
 		self.l:set_text_span_font_id(0, font.id)
@@ -2926,6 +2929,7 @@ layer:stored_properties({
 	font_slant=1,
 	font_size=1,
 	bold=1,
+	italic=1,
 }, function() return after_set_font_prop end)
 
 function layer:after_set_text(s)
@@ -2940,7 +2944,9 @@ end
 
 for k in pairs{
 	nowrap=1,
-	text_dir=1,
+	dir=1,
+	script=1,
+	lang=1,
 	text_opacity=1,
 	line_spacing=1,
 	hardline_spacing=1,
@@ -2963,11 +2969,21 @@ layer:stored_property('text_color', function(self, v)
 	self.l:set_text_span_color(0, self.ui:rgba32(v))
 end)
 
-layer:enum_property('text_dir', {
+layer:enum_property('dir', {
 	auto = C.DIR_AUTO,
 	rtl  = C.DIR_RTL,
 	ltr  = C.DIR_LTR,
 })
+
+function layer:get_script()
+	local s = self.l:get_text_span_script(0)
+	return s[0] ~= 0 and ffi.string(s) or nil
+end
+
+function layer:get_lang()
+	local lang = self.l:get_text_span_lang(0)
+	return lang ~= nil and ffi.string(lang) or nil
+end
 
 layer:enum_property('text_operator', operators)
 
@@ -2982,6 +2998,20 @@ layer:enum_property('text_align_y', {
 	top     = C.ALIGN_TOP,
 	bottom  = C.ALIGN_BOTTOM,
 	center  = C.ALIGN_CENTER,
+})
+
+--layouts
+
+layer:forward_properties('l', {
+	layout='layout_type',
+
+})
+
+layer:enum_property('layout', {
+	[false] = C.LAYOUT_NULL,
+	text    = C.LAYOUT_TEXT,
+	flex    = C.LAYOUT_FLEX,
+	grid    = C.LAYOUT_GRID,
 })
 
 --layer relative geometry & matrix -------------------------------------------
