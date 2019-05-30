@@ -1466,7 +1466,7 @@ local native_fields = {
 	cx=1, cy=1, cw=1, ch=1,
 	min_cw=1, min_ch=1, max_cw=1, max_ch=1,
 	visible=1, minimized=1, maximized=1, enabled=1,
-	frame=1, title=1, transparent=1, corner_radius=1,
+	frame=1, title=1, transparent=1, corner_radius=1, background_color=1,
 	sticky=1, topmost=1, minimizable=1, maximizable=1, closeable=1,
 	resizeable=1, fullscreenable=1, activable=1, autoquit=1, hideonclose=1,
 	edgesnapping=1,
@@ -1490,9 +1490,11 @@ function window:override_init(inherited, t)
 	self.ui = t.ui
 
 	if not win then
-		local nt = {}
+		local nt = {background_color = '#040404f0'}
 		for k in pairs(native_fields) do
-			nt[k] = t[k]
+			if t[k] ~= nil then
+				nt[k] = t[k]
+			end
 		end
 		show_it = nt.visible ~= false --defer
 		nt.parent = parent and assert(parent.window.native_window)
@@ -1501,6 +1503,9 @@ function window:override_init(inherited, t)
 			local rx = nt.x or 0
 			local ry = nt.y or 0
 			nt.x, nt.y = parent:to_screen(rx, ry)
+		end
+		if nt.background_color then
+			nt.background_color = bit.bswap(self.ui:rgba32(nt.background_color))
 		end
 		win = self:create_native_window(nt)
 		self.native_window = win
@@ -2015,6 +2020,7 @@ for prop, rw in pairs{
 	--r/o properties
 	closeable=0, activable=0, minimizable=0, maximizable=0, resizeable=0,
 	fullscreenable=0, frame=0, transparent=0, corner_radius=0, sticky=0,
+	background_color=0,
 } do
 	window['get_'..prop] = function(self)
 		return self.native_window[prop](self.native_window)
@@ -2345,7 +2351,8 @@ function window:sync_size(cw, ch)
 	self.view:sync_with_window(cw, ch)
 	self.cr:restore()
 	self.syncing = false
-	self:check(not self:invalid(), 'invalid after sync()')
+	--TODO:
+	--self:check(not self:invalid(), 'invalid after sync()')
 end
 
 function window:draw(cr)
@@ -2835,7 +2842,7 @@ layer:enum_property('background_extend', {
 
 --solid color backgrounds
 
-layer._background_color = 0 --no background
+layer._background_color = '#0000' --no background
 
 layer:stored_property('background_color', function(self, v)
 	self.l.background_color = ui:rgba32(v)

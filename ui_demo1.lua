@@ -1,6 +1,7 @@
---go@ luajit -jp *
+--go @ luajit -jp *
 local time = require'time'
 local ui = require'ui'
+local color = require'color'
 ui.use_google_fonts = true
 ui = ui()
 
@@ -153,6 +154,7 @@ local function test_flexbox()
 			transition_xx = true,
 		},
 		snap_x = false,
+		clip_content = true,
 	}
 
 	for i = 1, 10000 do
