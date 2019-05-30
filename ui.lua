@@ -217,7 +217,7 @@ end
 
 --validate a property when being set against a list of allowed values.
 function object:enum_property(prop, values)
-	if type(values) == 'string' then --'enm_val1 ...'
+	if type(values) == 'string' then --'val1 ...'
 		local s = values
 		values = {}
 		for val in s:gmatch'[^%s]+' do
@@ -2718,7 +2718,7 @@ layer._corner_radius_top_right    = false
 layer._corner_radius_bottom_left  = false
 layer._corner_radius_bottom_right = false
 
-layer._border_color = 0
+layer._border_color = '#fff'
 layer._border_color_left   = false
 layer._border_color_right  = false
 layer._border_color_top    = false
@@ -3004,7 +3004,27 @@ layer:enum_property('text_align_y', {
 
 layer:forward_properties('l', {
 	layout='layout_type',
-
+	align_items_x=1,
+	align_items_y=1,
+	item_align_x=1,
+	item_align_y=1,
+	flex_flow=1,
+	flex_wrap=1,
+	fr=1,
+	break_before=1,
+	break_after=1,
+	grid_col_fr_count=1,
+	grid_row_fr_count=1,
+	grid_col_fr=1,
+	grid_row_fr=1,
+	grid_col_gap=1,
+	grid_row_gap=1,
+	grid_flow=1,
+	grid_wrap=1,
+	grid_col=1,
+	grid_row=1,
+	grid_col_span=1,
+	grid_row_span=1,
 })
 
 layer:enum_property('layout', {
@@ -3013,6 +3033,63 @@ layer:enum_property('layout', {
 	flex    = C.LAYOUT_FLEX,
 	grid    = C.LAYOUT_GRID,
 })
+
+layer:enum_property('flex_flow', {
+	x = C.FLEX_FLOW_X,
+	y = C.FLEX_FLOW_Y,
+})
+
+layer:enum_property('align_items_x', {
+	left          = C.ALIGN_LEFT         ,
+	right         = C.ALIGN_RIGHT        ,
+	center        = C.ALIGN_CENTER       ,
+	stretch       = C.ALIGN_STRETCH      ,
+	start         = C.ALIGN_START        ,
+	['end']       = C.ALIGN_END          ,
+	space_evenly  = C.ALIGN_SPACE_EVENLY ,
+	space_around  = C.ALIGN_SPACE_AROUND ,
+	space_between = C.ALIGN_SPACE_BETWEEN,
+	baseline      = C.ALIGN_BASELINE     ,
+})
+
+layer:enum_property('align_items_y', {
+	top           = C.ALIGN_TOP          ,
+	bottom        = C.ALIGN_BOTTOM       ,
+	center        = C.ALIGN_CENTER       ,
+	stretch       = C.ALIGN_STRETCH      ,
+	start         = C.ALIGN_START        ,
+	['end']       = C.ALIGN_END          ,
+	space_evenly  = C.ALIGN_SPACE_EVENLY ,
+	space_around  = C.ALIGN_SPACE_AROUND ,
+	space_between = C.ALIGN_SPACE_BETWEEN,
+	baseline      = C.ALIGN_BASELINE     ,
+})
+
+local align_x = {
+	left          = C.ALIGN_LEFT         ,
+	right         = C.ALIGN_RIGHT        ,
+	center        = C.ALIGN_CENTER       ,
+	stretch       = C.ALIGN_STRETCH      ,
+	start         = C.ALIGN_START        ,
+	['end']       = C.ALIGN_END          ,
+}
+layer:enum_property('item_align_x', align_x)
+layer:enum_property(     'align_x', update({
+	[false] = C.ALIGN_DEFAULT,
+}, align_x))
+
+local align_y = {
+	top           = C.ALIGN_TOP          ,
+	bottom        = C.ALIGN_BOTTOM       ,
+	center        = C.ALIGN_CENTER       ,
+	stretch       = C.ALIGN_STRETCH      ,
+	start         = C.ALIGN_START        ,
+	['end']       = C.ALIGN_END          ,
+}
+layer:enum_property('item_align_y', align_y)
+layer:enum_property(     'align_y', update({
+	[false] = C.ALIGN_DEFAULT,
+}, align_y))
 
 --layer relative geometry & matrix -------------------------------------------
 
@@ -3548,6 +3625,7 @@ end
 
 --called in parent's content space; child interface.
 function layer:hit_test(x, y, reason)
+	do return end
 
 	if not self.visible or self.opacity <= 0 then return end
 

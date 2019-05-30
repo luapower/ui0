@@ -1,4 +1,4 @@
-
+--go@ luajit -jp *
 local time = require'time'
 local ui = require'ui'
 ui.use_google_fonts = true
@@ -26,7 +26,7 @@ local function test_layerlib()
 
 		parent = win,
 
-		--stable init order for interdependent properties
+		--interdependent properties: test that init order is stable
 		cx = 100 * scale,
 		cy = 100 * scale,
 		x = 0, y = 0,
@@ -121,29 +121,30 @@ local function test_layerlib()
 		shadow_content = true,
 		shadow_inset = true,
 
-		layout = 'text',
+		--layout = 'text',
 
 	}
 
 end
 
 
-
 local function test_flexbox()
+
+	win.view.layout = 'flex'
 
 	local flex = ui:layer{
 		parent = win,
 		layout = 'flex',
 		flex_wrap = true,
-		flex_flow = 'y',
+		--flex_flow = 'y',
 		item_align_y = 'center',
 		align_items_y = 'start',
 		border_width = 20,
 		padding = 20,
 		border_color = '#333',
 		x = 40, y = 40,
-		min_cw = win.cw - 120,
-		min_ch = win.ch - 120,
+		min_cw = win.cw - 120 - 40,
+		min_ch = win.ch - 120 - 40,
 		xx = 0,
 		style = {
 			transition_duration = 1,
@@ -151,11 +152,10 @@ local function test_flexbox()
 			xx = 100,
 			transition_xx = true,
 		},
+		snap_x = false,
 	}
 
-	flex:inherit()
-
-	for i = 1, 50 do
+	for i = 1, 10000 do
 		local r = math.random(10)
 		local b = ui:layer{
 			parent = flex,
@@ -163,19 +163,12 @@ local function test_flexbox()
 			border_width = 1,
 			min_cw = r * 12,
 			min_ch = r * 6,
-			break_after = i == 50,
-			break_before = i == 50,
+			--break_after = i == 50,
+			--break_before = i == 50,
 			flex_fr = r,
 			--font_size = 10 + i * 3,
+			snap_x = false,
 		}
-
-		b:inherit()
-	end
-
-	function win:client_resized()
-		flex.min_cw = win.cw - 120
-		flex.min_ch = win.ch - 120
-		self:invalidate()
 	end
 
 end
@@ -217,8 +210,8 @@ ui:runevery(1, function()
 end)
 
 
-test_layerlib()
---test_flexbox()
+--test_layerlib()
+test_flexbox()
 
 ui:run()
 
@@ -240,81 +233,12 @@ require'layerlib_h'.memreport()
 		get_text_span_feature=1,
 		add_text_span_feature=1,
 
-		get_text_caret_width=1,
-		get_text_caret_color=1,
-		get_text_caret_insert_mode=1,
-		get_text_selectable=1,
+		text_caret_width=1,
+		text_caret_color=1,
+		text_caret_insert_mode=1,
+		text_selectable=1,
 
-		set_text_caret_width=1,
-		set_text_caret_color=1,
-		set_text_caret_insert_mode=1,
-		set_text_selectable=1,
 
-		--layouts
-
-		set_layout_type=1,
-		get_layout_type=1,
-
-		get_align_items_x =1,
-		get_align_items_y =1,
-		get_item_align_x  =1,
-		get_item_align_y  =1,
-
-		set_align_items_x =1,
-		set_align_items_y =1,
-		set_item_align_x  =1,
-		set_item_align_y  =1,
-
-		get_flex_flow=1,
-		set_flex_flow=1,
-
-		get_flex_wrap=1,
-		set_flex_wrap=1,
-
-		get_fr=1,
-		set_fr=1,
-
-		get_break_before=1,
-		get_break_after=1,
-
-		set_break_before=1,
-		set_break_after=1,
-
-		get_grid_col_fr_count=1,
-		get_grid_row_fr_count=1,
-
-		set_grid_col_fr_count=1,
-		set_grid_row_fr_count=1,
-
-		get_grid_col_fr=1,
-		get_grid_row_fr=1,
-
-		set_grid_col_fr=1,
-		set_grid_row_fr=1,
-
-		get_grid_col_gap=1,
-		get_grid_row_gap=1,
-
-		set_grid_col_gap=1,
-		set_grid_row_gap=1,
-
-		get_grid_flow=1,
-		set_grid_flow=1,
-
-		get_grid_wrap=1,
-		set_grid_wrap=1,
-
-		get_grid_col=1,
-		get_grid_row=1,
-
-		set_grid_col=1,
-		set_grid_row=1,
-
-		get_grid_col_span=1,
-		get_grid_row_span=1,
-
-		set_grid_col_span=1,
-		set_grid_row_span=1,
 ]]
 
 
