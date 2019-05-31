@@ -3020,10 +3020,6 @@ layer:forward_properties('l', {
 	fr=1,
 	break_before=1,
 	break_after=1,
-	grid_col_fr_count=1,
-	grid_row_fr_count=1,
-	grid_col_fr=1,
-	grid_row_fr=1,
 	grid_col_gap=1,
 	grid_row_gap=1,
 	grid_flow=1,
@@ -3097,6 +3093,36 @@ layer:enum_property('item_align_y', align_y)
 layer:enum_property(     'align_y', update({
 	[false] = C.ALIGN_DEFAULT,
 }, align_y))
+
+function layer:get_grid_col_frs()
+	local t = {}
+	for i = 1, self.l.get_grid_col_fr_count do
+		t[i] = self.l:get_grid_col_fr(i-1)
+	end
+	return t
+end
+
+function layer:get_grid_row_frs()
+	local t = {}
+	for i = 1, self.l.grid_row_fr_count do
+		t[i] = self.l:get_grid_row_fr(i-1)
+	end
+	return t
+end
+
+function layer:set_grid_col_frs(t)
+	self.l.grid_col_fr_count = #t
+	for i = 1, #t do
+		self.l:set_grid_col_fr(i-1, t[i])
+	end
+end
+
+function layer:set_grid_row_frs(t)
+	self.l.grid_row_fr_count = #t
+	for i = 1, #t do
+		self.l:set_grid_row_fr(i-1, t[i])
+	end
+end
 
 --layer relative geometry & matrix -------------------------------------------
 
@@ -4443,7 +4469,7 @@ view.from_window = view.from_parent
 function view:sync_with_window(w, h)
 	zone'sync'
 	self:sync()
-	self.l:sync(w, h)
+	self.l:sync_top(w, h)
 	zone()
 	self:run_after_layout_funcs()
 end

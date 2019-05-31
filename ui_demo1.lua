@@ -83,8 +83,8 @@ local function test_layerlib()
 		background_operator = 'xor',
 		background_clip_border_offset = 0,
 
-		background_x           = 50,
-		background_y           = 50,
+		background_x = 50,
+		background_y = 50,
 
 		background_rotation    = 10,
 		background_rotation_cx = 10,
@@ -128,8 +128,7 @@ local function test_layerlib()
 
 end
 
-
-local function test_flexbox()
+local function test_flex()
 
 	win.view.layout = 'flex'
 
@@ -143,18 +142,12 @@ local function test_flexbox()
 		border_width = 20,
 		padding = 20,
 		border_color = '#333',
+		snap_x = false,
+		clip_content = true,
+
 		x = 40, y = 40,
 		min_cw = win.cw - 120 - 40,
 		min_ch = win.ch - 120 - 40,
-		xx = 0,
-		style = {
-			transition_duration = 1,
-			transition_times = 1/0,
-			xx = 100,
-			transition_xx = true,
-		},
-		snap_x = false,
-		clip_content = true,
 	}
 
 	for i = 1, 10000 do
@@ -167,9 +160,46 @@ local function test_flexbox()
 			min_ch = r * 6,
 			--break_after = i == 50,
 			--break_before = i == 50,
-			flex_fr = r,
+			--fr = r,
 			--font_size = 10 + i * 3,
-			snap_x = false,
+		}
+	end
+
+end
+
+local function test_grid()
+
+	--win.view.layout = 'flex'
+
+	local grid = ui:layer{
+		parent = win,
+
+		layout = 'grid',
+		item_align_y = 'center',
+		align_items_y = 'start',
+
+		border_width = 20,
+		padding = 20,
+		border_color = '#333',
+		clip_content = true,
+
+		x = 40, y = 40,
+		min_cw = win.cw - 120 - 40,
+		min_ch = win.ch - 120 - 40,
+
+		grid_wrap = 5,
+	}
+
+	for i = 1, 20 do
+		local r = math.random(10)
+		local b = ui:layer{
+			parent = grid,
+
+			layout = 'text',
+			min_cw = r * 12,
+			min_ch = r * 6,
+
+			border_width = 1,
 		}
 	end
 
@@ -213,7 +243,8 @@ end)
 
 
 --test_layerlib()
-test_flexbox()
+--test_flex()
+test_grid()
 
 ui:run()
 
