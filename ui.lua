@@ -3024,6 +3024,7 @@ layer:forward_properties('l', {
 	grid_row_gap=1,
 	grid_flow=1,
 	grid_wrap=1,
+	grid_min_lines=1,
 	grid_col=1,
 	grid_row=1,
 	grid_col_span=1,
@@ -3093,6 +3094,17 @@ layer:enum_property('item_align_y', align_y)
 layer:enum_property(     'align_y', update({
 	[false] = C.ALIGN_DEFAULT,
 }, align_y))
+
+layer:enum_property('grid_flow', {
+	xlt = C.GRID_FLOW_X + C.GRID_FLOW_L + C.GRID_FLOW_T,
+	xlb = C.GRID_FLOW_X + C.GRID_FLOW_L + C.GRID_FLOW_B,
+	xrt = C.GRID_FLOW_X + C.GRID_FLOW_R + C.GRID_FLOW_T,
+	xrb = C.GRID_FLOW_X + C.GRID_FLOW_R + C.GRID_FLOW_B,
+	ylt = C.GRID_FLOW_Y + C.GRID_FLOW_L + C.GRID_FLOW_T,
+	ylb = C.GRID_FLOW_Y + C.GRID_FLOW_L + C.GRID_FLOW_B,
+	yrt = C.GRID_FLOW_Y + C.GRID_FLOW_R + C.GRID_FLOW_T,
+	yrb = C.GRID_FLOW_Y + C.GRID_FLOW_R + C.GRID_FLOW_B,
+})
 
 function layer:get_grid_col_frs()
 	local t = {}
@@ -3579,17 +3591,6 @@ function layer:next_focusable_widget(forward)
 	end
 end
 
---layers hit testing ---------------------------------------------------------
-
-function layer:hit_test_children(x, y, reason) --called in content space
-	for i = #self, 1, -1 do
-		local widget, area = self[i]:hit_test(x, y, reason)
-		if widget then
-			return widget, area
-		end
-	end
-end
-
 --content-box geometry, drawing and hit testing ------------------------------
 
 function layer:get_pw()
@@ -3642,107 +3643,6 @@ function layer:client_rect() --in content space
 end
 
 --layer drawing & hit testing ------------------------------------------------
-
-function layer:hit_test_content(x, y, reason) --called in own content space
-	local widget, area = self:hit_test_text(x, y, reason)
-	if not widget then
-		return self:hit_test_children(x, y, reason)
-	end
-	return widget, area
-end
-
-function layer:content_bbox(strict)
-	local x, y, w, h = self:children_bbox(strict)
-	return box2d.bounding_box(x, y, w, h, self:text_bbox())
-end
-
---called in parent's content space; child interface.
-function layer:hit_test(x, y, reason)
-	do return end
-
-	if not self.visible or self.opacity <= 0 then return end
-
-	local self_allowed =
-		   (reason == 'activate' and self.activable)
-		or (reason == 'drop' and self.tags[':drop_target'])
-		or (reason == 'vscroll' and self.vscrollable)
-		or (reason == 'hscroll' and self.hscrollable)
-
-	local cr = self.window.cr
-	local x, y = self:from_parent_to_box(x, y)
-	cr:save()
-	cr:identity_matrix()
-
-	local cc = self.clip_content
-
-	--hit the content first if it's not clipped
-	if not cc then
-		local cx, cy = self:to_content(x, y)
-		local widget, area = self:hit_test_content(cx, cy, reason)
-		if widget then
-			cr:restore()
-			return widget, area
-		end
-	end
-
-	--border is drawn last so hit it first
-	if self:border_visible() then
-		cr:new_path()
-		self:border_path(cr, 1)
-		if cr:in_fill(x, y) then --inside border outer edge
-			cr:new_path()
-			self:border_path(cr, -1)
-			if not cr:in_fill(x, y) then --outside border inner edge
-				cr:restore()
-				if self_allowed then
-					return self, 'border'
-				else
-					return
-				end
-			end
-		elseif cc then --outside border outer edge when clipped
-			cr:restore()
-			return
-		end
-	end
-
-	--hit background's clip area
-	local in_bg
-	if cc or self.background_hittable or self:background_visible() then
-		cr:new_path()
-		self:background_path(cr)
-		in_bg = cr:in_fill(x, y)
-	end
-
-	--hit content's clip area
-	local in_cc
-	if cc and in_bg then --'background' clipping is implicit here
-		if cc == true then
-			cr:new_path()
-			cr:rectangle(self:padding_rect())
-			if cr:in_fill(x, y) then
-				in_cc = true
-			end
-		else
-			in_cc = true
-		end
-	end
-
-	--hit the content if inside the clip area.
-	if in_cc then
-		local cx, cy = self:to_content(x, y)
-		local widget, area = self:hit_test_content(cx, cy, reason)
-		if widget then
-			cr:restore()
-			return widget, area
-		end
-	end
-
-	--hit the background if any
-	if self_allowed and in_bg then
-		return self, 'background'
-	end
-end
 
 function layer:bbox(strict) --child interface
 	if not self.visible then
@@ -4042,23 +3942,6 @@ end
 
 layer.cursor_text = 'text'
 layer.cursor_selection = 'arrow'
-
-function layer:hit_test_text(x, y, reason)
-	if reason == 'activate' and self.activable then
-		self:validate()
-		if self.text_selection then
-			if self.text_selection:hit_test(x, y) then
-				return self, 'text_selection'
-			elseif self.text_editable then
-				return self, 'text'
-			elseif self.text_segments:hit_test(x, y) then
-				return self, 'text'
-			end
-		elseif self.text_segments and self.text_segments:hit_test(x, y) then
-			return self, 'static_text'
-		end
-	end
-end
 
 function layer:doubleclick_text(x, y)
 	if not self.text_selection then return end
@@ -4441,15 +4324,6 @@ function layer:drop(layer)
 	--self:add_layer(layer, p.layer_index)
 end
 
---[[
-function layer:override_hit_test_content(inherited, x, y, reason)
-	if reason == 'drop' and self.layout == 'flexbox' then
-		print(self:flexbox_drop_index(self.drag_widget:rect())
-	end
-	return inherited(self, x, y, reason)
-end
-]]
-
 --top layer (window.view) ----------------------------------------------------
 
 local view = layer:subclass'window_view'
@@ -4476,6 +4350,17 @@ end
 
 function view:draw(cr)
 	self.l:draw(cr)
+end
+
+C.HIT_NONE
+C.HIT_BORDER
+C.HIT_BACKGROUND
+C.HIT_TEXT
+C.HIT_TEXT_SELECTION
+
+function view:hit_test(x, y, reason)
+	local ht = self.l:hit_test(self.window.cr, x, y, reason)
+	return ht._0, ht._1
 end
 
 function view:run_after_layout_funcs()

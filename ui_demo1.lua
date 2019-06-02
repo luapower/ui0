@@ -150,7 +150,7 @@ local function test_flex()
 		min_ch = win.ch - 120 - 40,
 	}
 
-	for i = 1, 10000 do
+	for i = 1, 100 do
 		local r = math.random(10)
 		local b = ui:layer{
 			parent = flex,
@@ -169,37 +169,51 @@ end
 
 local function test_grid()
 
-	--win.view.layout = 'flex'
+	win.view.layout = 'flex'
 
 	local grid = ui:layer{
 		parent = win,
 
 		layout = 'grid',
 		item_align_y = 'center',
-		align_items_y = 'start',
+		item_align_x = 'center',
+		--align_items_y = 'start',
+		--align_items_x = 'stretch',
+
+		--grid_flow = 'yrb',
+		grid_wrap = 6,
+		grid_min_lines = 3,
+		grid_col_gap = 1,
+		grid_row_gap = 4,
+		grid_col_frs = {3, 1, 2},
+		grid_row_frs = {2, 1, 2},
 
 		border_width = 20,
 		padding = 20,
 		border_color = '#333',
-		clip_content = true,
+		--clip_content = true,
 
-		x = 40, y = 40,
-		min_cw = win.cw - 120 - 40,
-		min_ch = win.ch - 120 - 40,
-
-		grid_wrap = 5,
 	}
 
-	for i = 1, 20 do
-		local r = math.random(10)
+	for i = 1, 15 do
+		local r = math.random(30)
 		local b = ui:layer{
 			parent = grid,
 
+			--align_x = 'right',
+
 			layout = 'text',
-			min_cw = r * 12,
-			min_ch = r * 6,
+			text_align_y = 'bottom',
+
+			--grid_row = i,
+			grid_col = -i,
+
+			min_cw = r * 3,
+			min_ch = r * 2,
 
 			border_width = 1,
+
+			snap_x = false,
 		}
 	end
 
@@ -273,5 +287,3 @@ require'layerlib_h'.memreport()
 
 
 ]]
-
-
