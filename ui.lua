@@ -43,6 +43,8 @@ local sortedpairs = glue.sortedpairs
 local memoize = glue.memoize
 local binsearch = glue.binsearch
 local pass = glue.pass
+local addr = glue.addr
+local setbit = glue.setbit
 
 local function popval(t, v)
 	local i = indexof(v, t)
@@ -2270,6 +2272,7 @@ function ui:_window_mouseup(window, button, mx, my, click_count)
 			for elem in pairs(self._elements) do
 				if elem.islayer and elem.tags[':drop_target'] then
 					elem:settag(':drop_target', false)
+					self:_set_hit_test_bit('drop', false)
 				end
 			end
 		end
@@ -2403,6 +2406,29 @@ layer.accept_drag_groups = {} --{drag_group->true|area}
 layer.drag_hit_mode = 'bbox' --'bbox', 'shape', 'pointer'
 layer.mousedown_activate = false --activate/deactivate on left mouse down/up
 
+local hit_test_bits = {
+	activate = 1,
+	drop     = 2,
+	vscroll  = 4,
+	hscroll  = 8,
+}
+
+function layer:_set_hit_test_bit(bit, v)
+	self.l.hit_test_mask = setbit(self.l.hit_test_mask, hit_test_bits[bit], v)
+end
+
+layer:stored_property('activable', function(self, v)
+	self:_set_hit_test_bit('activate', v)
+end)
+
+layer:stored_property('vscrollable', function(self, v)
+	self:_set_hit_test_bit('vscroll', v)
+end)
+
+layer:stored_property('hscrollable', function(self, v)
+	self:_set_hit_test_bit('hscroll', v)
+end)
+
 ui:style('layer !:enabled', {
 	background_color = '#222',
 	text_color = '#666',
@@ -2436,8 +2462,13 @@ layer:init_priority{
 	'cx', 'cy',
 }
 
+function ui:after_init()
+	self.layers = {}
+end
+
 function layer:before_init_fields()
 	self.l = self.ui.layerlib:layer(nil)
+	self.ui.layers[addr(self.l)] = self
 end
 
 function layer:after_init(t, array_part)
@@ -2481,6 +2512,7 @@ function layer:before_free()
 	self:_free_children()
 	self.parent = false
 	self.l:free()
+	self.ui.layers[addr(self.l)] = nil
 	self.l = false
 end
 
@@ -3342,6 +3374,7 @@ function layer:_set_drop_target(drag_widget)
 	if self.visible and self.enabled then
 		if self.ui:accept_drop(drag_widget, self) then
 			self:settag(':drop_target', true)
+			self:_set_hit_test_bit('drop', true)
 		end
 		for _,layer in ipairs(self) do
 			layer:_set_drop_target(drag_widget)
@@ -4352,15 +4385,19 @@ function view:draw(cr)
 	self.l:draw(cr)
 end
 
-C.HIT_NONE
-C.HIT_BORDER
-C.HIT_BACKGROUND
-C.HIT_TEXT
-C.HIT_TEXT_SELECTION
+local hit_test_areas = index{
+	border         = C.HIT_BORDER,
+	background     = C.HIT_BACKGROUND,
+	text           = C.HIT_TEXT,
+	text_selection = C.HIT_TEXT_SELECTION,
+}
 
+local layer_buf = ffi.new'Layer*[1]'
 function view:hit_test(x, y, reason)
-	local ht = self.l:hit_test(self.window.cr, x, y, reason)
-	return ht._0, ht._1
+	local area = self.l:hit_test(self.window.cr, x, y, hit_test_bits[reason], layer_buf)
+	local layer = self.ui.layers[addr(layer_buf[0])]
+	local area = layer and hit_test_areas[area]
+	return layer, area
 end
 
 function view:run_after_layout_funcs()
