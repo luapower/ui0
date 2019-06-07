@@ -122,7 +122,7 @@ local function test_layerlib()
 		shadow_content = true,
 		shadow_inset = true,
 
-		--layout = 'text',
+		--layout = 'textbox',
 
 	}
 
@@ -130,11 +130,11 @@ end
 
 local function test_flex()
 
-	win.view.layout = 'flex'
+	win.view.layout = 'flexbox'
 
 	local flex = ui:layer{
 		parent = win,
-		layout = 'flex',
+		layout = 'flexbox',
 		flex_wrap = true,
 		--flex_flow = 'y',
 		item_align_y = 'center',
@@ -154,7 +154,7 @@ local function test_flex()
 		local r = math.random(10)
 		local b = ui:layer{
 			parent = flex,
-			layout = 'text',
+			layout = 'textbox',
 			border_width = 1,
 			min_cw = r * 12,
 			min_ch = r * 6,
@@ -169,7 +169,7 @@ end
 
 local function test_grid()
 
-	win.view.layout = 'flex'
+	win.view.layout = 'flexbox'
 
 	local grid = ui:layer{
 		parent = win,
@@ -202,7 +202,7 @@ local function test_grid()
 
 			--align_x = 'right',
 
-			layout = 'text',
+			layout = 'textbox',
 			text_align_y = 'bottom',
 
 			--grid_row = i,

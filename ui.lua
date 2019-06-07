@@ -14,6 +14,7 @@ local color = require'color'
 local font_db = require'font_db'
 --C bindings.
 local ffi = require'ffi'
+local bit = require'bit'
 local nw = require'nw'
 local time = require'time'
 local cairo = require'cairo'
@@ -29,6 +30,9 @@ local floor = math.floor
 local ceil = math.ceil
 local push = table.insert
 local pop = table.remove
+
+local shr = bit.shr
+local band = bit.band
 
 local index = glue.index
 local indexof = glue.indexof
@@ -90,6 +94,19 @@ function object:before_init()
 	--This optimization prevents overriding of getters/setters on instances.
 	self.__setters = self.__setters
 	self.__getters = self.__getters
+end
+
+--error reporting ------------------------------------------------------------
+
+function object:warn(...)
+	io.stderr:write(string.format(...))
+	io.stderr:write(debug.traceback())
+	io.stderr:write'\n'
+end
+
+function object:check(ret, ...)
+	if ret then return ret end
+	self:warn(...)
 end
 
 --method and property decorators ---------------------------------------------
@@ -236,18 +253,6 @@ function object:enum_property(prop, values)
 	self:override('get_'..prop, function(self, inherited)
 		return keys[inherited(self)]
 	end)
-end
-
---error reporting ------------------------------------------------------------
-
-function object:warn(...)
-	io.stderr:write(string.format(...))
-	io.stderr:write'\n'
-end
-
-function object:check(ret, ...)
-	if ret then return ret end
-	self:warn(...)
 end
 
 --submodule autoloading ------------------------------------------------------
@@ -775,15 +780,31 @@ end
 ui.invalid_color = '#0000'
 
 function ui:rgba(s)
-	local r, g, b, a = color.parse(s, 'rgb')
-	self:check(r, 'invalid color "%s"', s)
-	if not r then
-		local s = self.invalid_color
-		r, g, b, a = color.parse(s, 'rgb')
-		self:check(r, 'invalid invalid color "%s"', s)
-		if not r then r, g, b, a = 1, 1, 0, 1 end
+	if type(s) == 'string' then --from user
+		local r, g, b, a = color.parse(s, 'rgb')
+		if r then
+			return r, g, b, a or 1
+		end
+	elseif type(s) == 'table' then --from interpolation
+		return s[1], s[2], s[3], s[4] or 1
+	elseif type(c) == 'number' then --why not?
+		return
+				  shr(c, 24)        / 255,
+			band(shr(c, 16), 0xff) / 255,
+			band(shr(c,  8), 0xff) / 255,
+			band(    c     , 0xff) / 255
+	elseif not s then --transitioning from background_color=false to a color
+		return 0, 0, 0, 0
 	end
-	return r, g, b, a or 1
+
+	self:check(false, 'invalid color "%s"', tostring(s))
+	local s = self.invalid_color
+	local r, g, b, a = color.parse(s, 'rgb')
+	self:check(r, 'invalid invalid color "%s"', s)
+	if not r then
+		r, g, b, a = 1, 1, 0, 1
+	end
+	return r, g, b, a
 end
 
 function ui:rgba32(c)
@@ -2035,7 +2056,7 @@ for prop, rw in pairs{
 end
 
 --methods
-function window:close(force)  self.native_window:close(force) end
+function window:close(...)    self.native_window:close(...) end
 function window:show()        self.native_window:show() end
 function window:hide()        self.native_window:hide() end
 function window:activate()    self.native_window:activate() end
@@ -2560,9 +2581,8 @@ function layer:move_layer(layer, index)
 	if old_index == new_index then return end
 	table.remove(self, old_index)
 	table.insert(self, new_index, layer)
-	self.l.index = next_index-1
+	self.l.index = new_index-1
 	self:fire('layer_moved', new_index, old_index)
-	layer:_set_layout_tags(new_index)
 end
 
 function layer:set_layer_index(index)
@@ -2859,7 +2879,6 @@ layer:forward_properties('l', {
 })
 
 layer:enum_property('background_type', {
-	[false]         = C.BACKGROUND_NONE,
 	color           = C.BACKGROUND_COLOR,
 	gradient        = C.BACKGROUND_LINEAR_GRADIENT,
 	radial_gradient = C.BACKGROUND_RADIAL_GRADIENT,
@@ -2874,10 +2893,14 @@ layer:enum_property('background_extend', {
 
 --solid color backgrounds
 
-layer._background_color = '#0000' --no background
+layer._background_color = false --no background
 
 layer:stored_property('background_color', function(self, v)
-	self.l.background_color = ui:rgba32(v)
+	if v then
+		self.l.background_color = ui:rgba32(v)
+	else
+		self.l.background_color_set = false
+	end
 end)
 
 --gradient backgrounds
@@ -2973,7 +2996,7 @@ layer:stored_properties({
 
 function layer:after_set_text(s)
 	s = s or ''
-	self.l:set_text_utf8(s, #s)
+	--self.l:set_text_utf8(s, #s)
 	self:fire'text_changed'
 end
 
@@ -3065,8 +3088,8 @@ layer:forward_properties('l', {
 
 layer:enum_property('layout', {
 	[false] = C.LAYOUT_NULL,
-	text    = C.LAYOUT_TEXT,
-	flex    = C.LAYOUT_FLEX,
+	textbox = C.LAYOUT_TEXTBOX,
+	flexbox = C.LAYOUT_FLEXBOX,
 	grid    = C.LAYOUT_GRID,
 })
 
@@ -3128,13 +3151,13 @@ layer:enum_property(     'align_y', update({
 }, align_y))
 
 layer:enum_property('grid_flow', {
-	xlt = C.GRID_FLOW_X + C.GRID_FLOW_L + C.GRID_FLOW_T,
-	xlb = C.GRID_FLOW_X + C.GRID_FLOW_L + C.GRID_FLOW_B,
-	xrt = C.GRID_FLOW_X + C.GRID_FLOW_R + C.GRID_FLOW_T,
-	xrb = C.GRID_FLOW_X + C.GRID_FLOW_R + C.GRID_FLOW_B,
-	ylt = C.GRID_FLOW_Y + C.GRID_FLOW_L + C.GRID_FLOW_T,
-	ylb = C.GRID_FLOW_Y + C.GRID_FLOW_L + C.GRID_FLOW_B,
-	yrt = C.GRID_FLOW_Y + C.GRID_FLOW_R + C.GRID_FLOW_T,
+	x   = C.GRID_FLOW_X + C.GRID_FLOW_L + C.GRID_FLOW_T,
+	b   = C.GRID_FLOW_X + C.GRID_FLOW_L + C.GRID_FLOW_B,
+	r   = C.GRID_FLOW_X + C.GRID_FLOW_R + C.GRID_FLOW_T,
+	rb  = C.GRID_FLOW_X + C.GRID_FLOW_R + C.GRID_FLOW_B,
+	y   = C.GRID_FLOW_Y + C.GRID_FLOW_L + C.GRID_FLOW_T,
+	yb  = C.GRID_FLOW_Y + C.GRID_FLOW_L + C.GRID_FLOW_B,
+	yr  = C.GRID_FLOW_Y + C.GRID_FLOW_R + C.GRID_FLOW_T,
 	yrb = C.GRID_FLOW_Y + C.GRID_FLOW_R + C.GRID_FLOW_B,
 })
 

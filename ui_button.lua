@@ -137,10 +137,9 @@ function button:override_set_text(inherited, s)
 	end
 end
 
-button:stored_property'key'
-function button:after_set_key(key)
+button:stored_property('key', function(self, key)
 	self.underline_pos = false
-end
+end)
 
 function button:mousedown()
 	if self.active_by_key then return end
@@ -195,15 +194,13 @@ end
 
 --default & cancel properties/tags
 
-button:stored_property'default'
-function button:after_set_default(default)
+button:stored_property('default', function(self, default)
 	self:settag(':default', default)
-end
+end)
 
-button:stored_property'cancel'
-function button:after_set_cancel(cancel)
+button:stored_property('cancel', function(self, cancel)
 	self:settag(':cancel', cancel)
-end
+end)
 
 function button:after_set_window(win)
 	if not win then return end
@@ -256,21 +253,19 @@ checkbox.align_y = 'center'
 --checked property
 
 checkbox.checked = false
-checkbox:stored_property'checked'
-function checkbox:after_set_checked(checked)
+checkbox:stored_property('checked', function(self, checked)
 	self.button.text = self.checked
 		and self.button.text_checked
 		or self.button.text_unchecked
 	self:settag(':checked', checked)
 	self:fire(checked and 'was_checked' or 'was_unchecked')
-end
+end)
 function checkbox:override_set_checked(inherited, checked)
 	if self:canset_checked(checked) then
 		return inherited(self, checked)
 	end
 end
 checkbox:track_changes'checked'
-checkbox:instance_only'checked'
 
 function checkbox:canset_checked(checked)
 	return
@@ -311,15 +306,13 @@ end
 
 checkbox.align = 'left'
 
-checkbox:stored_property'align'
-function checkbox:after_set_align(align)
+checkbox:stored_property('align', function(self, align)
 	if align == 'right' then
 		self.button:to_front()
 	else
 		self.button:to_back()
 	end
-end
-checkbox:instance_only'align'
+end)
 
 --check button
 
@@ -507,6 +500,7 @@ function rblist:get_checked_button()
 	return self.radios[self.value]
 end
 
+rblist.get_value = false
 rblist:stored_property'value'
 function rblist:set_value(val)
 	local rb = self.radios[val]
@@ -714,6 +708,8 @@ end
 --demo -----------------------------------------------------------------------
 
 if not ... then require('ui_demo')(function(ui, win)
+
+	ui:inherit()
 
 	win.view.grid_wrap = 10
 	win.view.grid_flow = 'y'
