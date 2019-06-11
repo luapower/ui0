@@ -508,7 +508,6 @@ function rblist:get_checked_button()
 	return self.radios[self.value]
 end
 
-rblist:stored_property'value'
 function rblist:set_value(val)
 	local rb = self.radios[val]
 	if rb then
