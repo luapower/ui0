@@ -72,7 +72,6 @@ end
 function editbox:set_cue(s)
 	self.cue_layer.text = s
 end
-editbox:instance_only'cue'
 
 editbox.cue_layer_class = ui.layer
 

@@ -273,7 +273,6 @@ function checkbox:override_set_checked(inherited, checked)
 	end
 end
 checkbox:track_changes'checked'
-checkbox:instance_only'checked'
 
 function checkbox:canset_checked(checked)
 	return
@@ -322,7 +321,6 @@ function checkbox:after_set_align(align)
 		self.button:to_back()
 	end
 end
-checkbox:instance_only'align'
 
 --check button
 
