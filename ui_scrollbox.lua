@@ -138,7 +138,6 @@ end
 
 function scrollbar:create_grip()
 	local grip = self:grip_class(self.grip)
-
 	function grip.drag(grip, dx, dy)
 		grip.x = clamp(0, grip.x + dx, self.cw - grip.w)
 		self:transition('offset', self:grip_offset(), 0)
@@ -287,7 +286,6 @@ end
 function scrollbar:before_sync_layout_children()
 	local g = self.grip
 	g.x, g.y, g.w, g.h = self:grip_rect()
-
 	local visible = self:check_visible()
 	if visible ~= 'hit_test' then
 		self:settag(':near', visible, true)
@@ -585,6 +583,8 @@ Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie 
 		scrollbar = {overlap = true},
 	}
 
+	--[[
+
 	--not autohide, autohide_empty vertical
 	ui:scrollbox{
 		parent = win,
@@ -681,5 +681,7 @@ Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie 
 		min_cw = 180, min_ch = 180,
 		value = s,
 	}
+
+	--]]
 
 end) end
