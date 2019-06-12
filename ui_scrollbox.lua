@@ -583,8 +583,6 @@ Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie 
 		scrollbar = {overlap = true},
 	}
 
-	--[[
-
 	--not autohide, autohide_empty vertical
 	ui:scrollbox{
 		parent = win,
@@ -681,7 +679,5 @@ Mei malis eruditi ne. Movet volumus instructior ea nec. Vel cu minimum molestie 
 		min_cw = 180, min_ch = 180,
 		value = s,
 	}
-
-	--]]
 
 end) end

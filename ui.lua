@@ -2423,7 +2423,7 @@ local layer = element:subclass'layer'
 ui.layer = layer
 
 layer.visible = true
-layer._enabled = true
+layer.enabled = true
 layer.activable = true --can be clicked and set as hot
 layer.vscrollable = false --enable mouse wheel when hot
 layer.hscrollable = false --enable mouse horiz. wheel when hot
