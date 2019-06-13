@@ -171,12 +171,7 @@ function object:stored_property(prop, after_set)
 	assert(not self.__getters[prop])
 	local priv = '_'..prop
 	self['get_'..prop] = function(self)
-		local v = self[priv]
-		if v ~= nil then
-			return v
-		else
-			return self.super[prop]
-		end
+		return self[priv]
 	end
 	if after_set then
 		self['set_'..prop] = function(self, val)
@@ -891,21 +886,26 @@ function element:override_create(inherited, ...)
 	local dt = {} --hash part
 	local at --array part
 
-	--statically inherit class defaults for writable properties, to be applied
-	--automatically by init_fields().
+	--statically inherit class defaults for writable properties, to be set by
+	--init_fields() if if they were user-supplied.
 	--NOTE: adding more default values to the class after the first
 	--instantiation has no effect on further instantiations because we make
 	--a shortlist of only the properties that have defaults.
-	if not rawget(self, '__props_with_defaults') then
-		self.__props_with_defaults = {} --make a shortlist
-		for k in pairs(self.__setters) do --prop has a setter
-			if self[k] ~= nil then --prop has a class default
-				print(self.classname, k)
-				push(self.__props_with_defaults, k)
+	local wt = rawget(self, '__writable_props_with_defaults')
+	if not wt then
+		wt = {}
+		self.__writable_props_with_defaults = wt --make a shortlist
+		local setters = self.__setters
+		while setters do
+			for k in pairs(setters) do --prop has a setter
+				if self[k] ~= nil then --prop has a class default
+					push(wt, k)
+				end
 			end
+			setters = setters.__index
 		end
 	end
-	for _,k in ipairs(self.__props_with_defaults) do
+	for _,k in ipairs(wt) do
 		dt[k] = self[k]
 	end
 
@@ -4907,13 +4907,11 @@ layer.min_ch = 0
 
 layer.layouts = {} --{layout_name -> layout_mixin}
 
-layer:stored_property'layout'
-function layer:after_set_layout(layout)
-	print(layout)
+layer:stored_property('layout', function(self, layout)
 	local mixin = self.layouts[layout or 'null']
 	if not self.ui:check(mixin, 'invalid layout "%s"', layout) then return end
 	self:inherit(mixin, true)
-end
+end)
 layer:nochange_barrier'layout'
 
 --used by layers that need to solve their layout on one axis completely

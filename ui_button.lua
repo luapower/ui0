@@ -738,8 +738,6 @@ if not ... then require('ui_demo')(function(ui, win)
 		text_align_x = 'right',
 	})
 
-	--[[
-
 	local b3 = btn(ui, {
 		id = 'Cancel',
 		parent = win,
@@ -817,7 +815,5 @@ if not ... then require('ui_demo')(function(ui, win)
 			b.id = 'CHOICE'..i
 		end
 	end
-
-	]]
 
 end) end
