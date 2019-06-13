@@ -868,26 +868,47 @@ element:init_priority{}
 element:init_ignore{}
 
 --override the element constructor so that it can take multiple init-table
---args but present init() with a single init table that also inherits the
---class for transparent access to defaults, and a single array table that
+--args but present init() with a single init table that also contains
+--class defaults for virtual properties, and a single array table that
 --adds together the array parts of all the init tables. also, make the
 --constructor work with different call styles, see below.
 function element:override_create(inherited, ...)
+
 	local ui = ...
 	local parent
 	local arg1
-	if ui.isui then --called as `ui:element{}`
+	if ui.isui then --called as `ui:<element>{}`
 		arg1 = 2
-	elseif ui.iselement then --called as `parent:element{}`
+	elseif ui.iselement then --called as `parent:<element>{}`
 		arg1 = 2
 		parent = ui
 		ui = parent.ui
-	else --called as `element{}`, infer `ui` from the `parent` field.
+	else --called as `<element>{}`, infer `ui` from the `parent` field.
 		arg1 = 1
 		ui = nil
 	end
+
 	local dt = {} --hash part
 	local at --array part
+
+	--statically inherit class defaults for writable properties, to be applied
+	--automatically by init_fields().
+	--NOTE: adding more default values to the class after the first
+	--instantiation has no effect on further instantiations because we make
+	--a shortlist of only the properties that have defaults.
+	if not rawget(self, '__props_with_defaults') then
+		self.__props_with_defaults = {} --make a shortlist
+		for k in pairs(self.__setters) do --prop has a setter
+			if self[k] ~= nil then --prop has a class default
+				print(self.classname, k)
+				push(self.__props_with_defaults, k)
+			end
+		end
+	end
+	for _,k in ipairs(self.__props_with_defaults) do
+		dt[k] = self[k]
+	end
+
 	for i = arg1, select('#', ...) do
 		local t = select(i, ...)
 		if t then
@@ -895,12 +916,13 @@ function element:override_create(inherited, ...)
 				if type(k) == 'number' and floor(k) == k then --array part
 					at = at or {}
 					push(at, v)
-				else
+				else --hash part
 					dt[k] = v
 				end
 			end
 		end
 	end
+
 	parent = dt.parent or parent
 	if not ui and parent then
 		ui = parent.ui
@@ -908,7 +930,11 @@ function element:override_create(inherited, ...)
 	dt.ui = ui
 	dt.parent = parent
 	assert(ui, 'ui arg missing')
+
+	--dynamically inherit class defaults for plain fields, to be applied
+	--manually in overrides of init().
 	setmetatable(dt, {__index = self})
+
 	return inherited(self, dt, at)
 end
 
@@ -4363,6 +4389,7 @@ function layer:sync_text_align()
 	end
 	if self.text_selectable and not self.text_selection then
 		self.text_selection = self:create_text_selection(segs)
+		self.text_selection.cursor2.insert_mode = self.insert_mode
 	end
 	return segs
 end
@@ -4527,7 +4554,9 @@ layer.insert_mode = false
 layer:stored_property'insert_mode'
 
 function layer:after_set_insert_mode(value)
-	self.text_selection.cursor2.insert_mode = value
+	if self.text_selection then
+		self.text_selection.cursor2.insert_mode = value
+	end
 	self:settag(':insert_mode', value)
 end
 
@@ -4880,6 +4909,7 @@ layer.layouts = {} --{layout_name -> layout_mixin}
 
 layer:stored_property'layout'
 function layer:after_set_layout(layout)
+	print(layout)
 	local mixin = self.layouts[layout or 'null']
 	if not self.ui:check(mixin, 'invalid layout "%s"', layout) then return end
 	self:inherit(mixin, true)
