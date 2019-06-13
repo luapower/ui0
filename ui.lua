@@ -2713,7 +2713,6 @@ function layer:move_layer(layer, index)
 	table.remove(self, old_index)
 	table.insert(self, new_index, layer)
 	self:fire('layer_moved', new_index, old_index)
-	layer:_set_layout_tags(new_index)
 end
 
 function layer:set_layer_index(index)
@@ -3655,7 +3654,7 @@ layer.shadow_x = 0
 layer.shadow_y = 0
 layer.shadow_color = '#000'
 layer.shadow_blur = 0
-layer._shadow_blur_passes = 2
+layer.shadow_blur_passes = 2
 
 function layer:shadow_visible()
 	return self.shadow_blur > 0 or self.shadow_x ~= 0 or self.shadow_y ~= 0
@@ -3707,7 +3706,7 @@ function layer:draw_shadow(cr)
 	if not self:shadow_visible() then return end
 	local t = self._shadow or {}
 	self._shadow = t
-	local passes = self._shadow_blur_passes
+	local passes = self.shadow_blur_passes
 	local radius = self.shadow_blur
 	local spread = radius * passes
 
@@ -4350,8 +4349,8 @@ function layer:sync_text_align()
 	local segs = self.text_segments
 	if not segs then return nil end
 	local cw, ch = self:client_size()
-	local ha = self._text_align_x
-	local va = self._text_align_y
+	local ha = self.text_align_x
+	local va = self.text_align_y
 	if    ch ~= self._text_h
 		or ha ~= self._text_ha
 		or va ~= self._text_va
