@@ -5351,7 +5351,7 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 		if align_baseline then
 			return items_min_h_baseline(self, i, j)
 		end
-		return items_max(self, i, j, _MIN_H)
+		return (items_max(self, i, j, _MIN_H))
 	end
 
 	local function linewrap_next(self, i)
@@ -5388,9 +5388,9 @@ local function gen_funcs(X, Y, W, H, LEFT, RIGHT, TOP, BOTTOM)
 
 	local function min_cw(self, other_axis_synced)
 		if self.flex_wrap then
-			return items_max(self, 1, #self, _MIN_W)
+			return (items_max(self, 1, #self, _MIN_W))
 		else
-			return items_sum(self, 1, #self, _MIN_W)
+			return (items_sum(self, 1, #self, _MIN_W))
 		end
 	end
 
