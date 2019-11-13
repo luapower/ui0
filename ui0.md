@@ -1,5 +1,5 @@
 
-## `local ui = require'ui'`
+## `local ui = require'ui0'`
 
 Extensible UI toolkit written in Lua with widgets, layouts, styles and animations.
 
@@ -32,7 +32,7 @@ runtime dependencies that are only loaded if/when certain features are used:
 ## Example
 
 ~~~{.lua}
-local ui = require'ui'()
+local ui = require'ui0'()
 
 local win = ui:window{
 	cw = 500, ch = 300,   --client area size

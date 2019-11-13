@@ -2,7 +2,7 @@
 --Linear Zoom Calendar widget.
 --Written by Cosmin Apreutesei. Public Domain.
 
-local ui = require'ui'
+local ui = require'ui0'
 local glue = require'glue'
 local lerp = glue.lerp
 local clamp = glue.clamp
@@ -21,7 +21,7 @@ end
 
 --demo -----------------------------------------------------------------------
 
-if not ... then require('ui_demo')(function(ui, win)
+if not ... then require('ui0_demo')(function(ui, win)
 
 	local cal = ui:zoomcalendar{
 		x = 20, y = 20,

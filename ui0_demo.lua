@@ -1,6 +1,6 @@
 --go @ luajit -jp=2fi1m1 *
 
-local ui = require'ui'()
+local ui = require'ui0'()
 local Q = require'utf8quot'
 local time = require'time'
 local glue = require'glue'
@@ -50,7 +50,7 @@ ui:runevery(1, function()
 	end
 end)
 
-if ... == 'ui_demo' and not DEMO then --loaded via require()
+if ... == 'ui0_demo' and not DEMO then --loaded via require()
 	return function(test)
 		test(ui, win)
 		win:show()

@@ -2,7 +2,7 @@
 --UI Layout Editor app.
 --Written by Cosmin Apreutesei.
 
-local ui = require'ui'
+local ui = require'ui0'
 
 ui:window{
 	w = 800,

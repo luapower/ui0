@@ -2,9 +2,9 @@
 --Grid widget.
 --Written by Cosmin Apreutesei. Public Domain.
 
-local ui = require'ui'
-require'ui_scrollbox'
-require'ui_editbox'
+local ui = require'ui0'
+require'ui0_scrollbox'
+require'ui0_editbox'
 local glue = require'glue'
 local box2d = require'box2d'
 
@@ -2124,7 +2124,7 @@ end
 
 --demo -----------------------------------------------------------------------
 
-if not ... then require('ui_demo')(function(ui, win)
+if not ... then require('ui0_demo')(function(ui, win)
 
 	local grid = ui.grid:subclass'subgrid'
 

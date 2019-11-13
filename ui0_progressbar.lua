@@ -2,7 +2,7 @@
 --Progress Bar widget.
 --Written by Cosmin Apreutesei. Public Domain.
 
-local ui = require'ui'
+local ui = require'ui0'
 
 local progressbar = ui.layer:subclass'progressbar'
 ui.progressbar = progressbar
@@ -47,7 +47,7 @@ function progressbar:after_init()
 	self.bar = self:create_bar()
 end
 
-if not ... then require('ui_demo')(function(ui, win)
+if not ... then require('ui0_demo')(function(ui, win)
 
 	local b1 = ui:progressbar{
 		parent = win,

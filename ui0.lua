@@ -2,7 +2,7 @@
 --Extensible UI toolkit in Lua.
 --Written by Cosmin Apreutesei. Public Domain.
 
-if not ... then DEMO=true; require'ui_demo'; return end
+if not ... then DEMO=true; require'ui0_demo'; return end
 
 --pure-Lua libs.
 local oo = require'oo'
@@ -6290,26 +6290,26 @@ end
 --widgets autoload -----------------------------------------------------------
 
 ui:autoload{
-	scrollbar    = 'ui_scrollbox',
-	scrollbox    = 'ui_scrollbox',
-	teaxtarea    = 'ui_scrollbox',
-	editbox      = 'ui_editbox',
-	button       = 'ui_button',
-	checkbox     = 'ui_button',
-	radio        = 'ui_button',
-	radiolist    = 'ui_button',
-	choicebutton = 'ui_button',
-	slider       = 'ui_slider',
-	toggle       = 'ui_slider',
-	tab          = 'ui_tablist',
-	tablist      = 'ui_tablist',
-	menuitem     = 'ui_menu',
-	menu         = 'ui_menu',
-	image        = 'ui_image',
-	grid         = 'ui_grid',
-	popup        = 'ui_popup',
-	colorpicker  = 'ui_colorpicker',
-	dropdown     = 'ui_dropdown',
+	scrollbar    = 'ui0_scrollbox',
+	scrollbox    = 'ui0_scrollbox',
+	teaxtarea    = 'ui0_scrollbox',
+	editbox      = 'ui0_editbox',
+	button       = 'ui0_button',
+	checkbox     = 'ui0_button',
+	radio        = 'ui0_button',
+	radiolist    = 'ui0_button',
+	choicebutton = 'ui0_button',
+	slider       = 'ui0_slider',
+	toggle       = 'ui0_slider',
+	tab          = 'ui0_tablist',
+	tablist      = 'ui0_tablist',
+	menuitem     = 'ui0_menu',
+	menu         = 'ui0_menu',
+	image        = 'ui0_image',
+	grid         = 'ui0_grid',
+	popup        = 'ui0_popup',
+	colorpicker  = 'ui0_colorpicker',
+	dropdown     = 'ui0_dropdown',
 }
 
 return ui

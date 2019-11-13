@@ -4,7 +4,7 @@
 
 if not ... then require'pfglab3_app'; return end
 
-local ui = require'ui'
+local ui = require'ui0'
 local box2d = require'box2d'
 
 --direct manipulation widget editor

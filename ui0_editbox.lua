@@ -3,7 +3,7 @@
 --Edit Box widget based on tr.
 --Written by Cosmin Apreutesei. Public Domain.
 
-local ui = require'ui'
+local ui = require'ui0'
 local tr = require'tr0'
 local glue = require'glue'
 local box2d = require'box2d'
@@ -302,7 +302,7 @@ end
 
 --demo -----------------------------------------------------------------------
 
-if not ... then require('ui_demo')(function(ui, win)
+if not ... then require('ui0_demo')(function(ui, win)
 
 	win.x = 500
 	win.w = 300

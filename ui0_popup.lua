@@ -2,7 +2,7 @@
 --Pop-up Window.
 --Written by Cosmin Apreutesei. Public Domain.
 
-local ui = require'ui'
+local ui = require'ui0'
 local glue = require'glue'
 
 local popup = ui.window:subclass'popup'
@@ -47,7 +47,7 @@ function popup:after_set_parent(parent)
 	self:frame_rect(x, y)
 end
 
-if not ... then require('ui_demo')(function(ui, win)
+if not ... then require('ui0_demo')(function(ui, win)
 
 	ui:style('window_view :hot', {
 		background_color = '#fff',

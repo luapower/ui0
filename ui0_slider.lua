@@ -2,7 +2,7 @@
 --Slider widget.
 --Written by Cosmin Apreutesei. Public Domain.
 
-local ui = require'ui'
+local ui = require'ui0'
 local glue = require'glue'
 
 local snap = glue.snap
@@ -645,7 +645,7 @@ end
 
 --demo -----------------------------------------------------------------------
 
-if not ... then require('ui_demo')(function(ui, win)
+if not ... then require('ui0_demo')(function(ui, win)
 
 	print(win.view.layout)
 	win.view.item_align_x = 'left'

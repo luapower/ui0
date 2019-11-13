@@ -5,10 +5,10 @@ io.stderr:setvbuf'no'
 --Drop-down widget.
 --Written by Cosmin Apreutesei. Public Domain.
 
-local ui = require'ui'
-require'ui_editbox'
-require'ui_popup'
-require'ui_scrollbox'
+local ui = require'ui0'
+require'ui0_editbox'
+require'ui0_popup'
+require'ui0_scrollbox'
 local glue = require'glue'
 
 local dropdown = ui.editbox:subclass'dropdown'
@@ -420,7 +420,7 @@ end
 
 --demo -----------------------------------------------------------------------
 
-if not ... then require('ui_demo')(function(ui, win)
+if not ... then require('ui0_demo')(function(ui, win)
 
 	win.x = 500
 	win.w = 300

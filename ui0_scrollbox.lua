@@ -2,7 +2,7 @@
 --Scrollbar and Scrollbox Widgets.
 --Written by Cosmin Apreutesei. Public Domain.
 
-local ui = require'ui'
+local ui = require'ui0'
 local box2d = require'box2d'
 local glue = require'glue'
 
@@ -535,7 +535,7 @@ end
 
 --demo -----------------------------------------------------------------------
 
-if not ... then require('ui_demo')(function(ui, win)
+if not ... then require('ui0_demo')(function(ui, win)
 
 	win.view.item_align_x = 'center'
 	win.view.item_align_y = 'center'
